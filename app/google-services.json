@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "15949587868",
+    "project_id": "gala-b1672",
+    "storage_bucket": "gala-b1672.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:15949587868:android:c0375429ce9f88738fd459",
+        "android_client_info": {
+          "package_name": "com.example.gala"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBT659kymulMOEkb6Yt4S_WtRyqF4nfKqI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
