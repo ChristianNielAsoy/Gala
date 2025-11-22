@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.gala.data.database.entities.Trip
 import com.example.gala.data.repository.GalaRepository
-import com.example.gala.ui.viewmodels.DashboardViewModel
 import com.example.gala.ui.viewmodels.factories.DashboardViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -39,7 +38,8 @@ fun DashboardScreen(
     repository: GalaRepository,
     onOpenTrip: (String) -> Unit
 ) {
-    val vm: DashboardViewModel = viewModel(
+    // FIXED: Import the correct DashboardViewModel
+    val vm: com.example.gala.ui.dashboard.DashboardViewModel = viewModel(
         factory = DashboardViewModelFactory(repository)
     )
 
@@ -110,7 +110,7 @@ private fun DashboardContent(
 
 @Composable
 private fun TripOverviewCard(trips: List<Trip>) {
-    val totalTrips = trips.size
+    val total = trips.size
     val nextTrip = trips.minByOrNull { it.startDate }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -121,7 +121,7 @@ private fun TripOverviewCard(trips: List<Trip>) {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Trips created: $totalTrips",
+                text = "Trips created: $total",
                 style = MaterialTheme.typography.bodyLarge
             )
             Spacer(Modifier.height(4.dp))
@@ -198,7 +198,6 @@ private fun RowScope.CalendarCell(
             .weight(1f)
             .padding(vertical = 4.dp)
             .clickable(enabled = cell.tripIds.isNotEmpty()) {
-                // If multiple trips overlap the date, open the first for now.
                 cell.tripIds.firstOrNull()?.let(onOpenTrip)
             },
         horizontalAlignment = Alignment.CenterHorizontally
@@ -236,7 +235,7 @@ private data class CalendarMonth(
 
 @Composable
 private fun rememberMonth(trips: List<Trip>): CalendarMonth {
-    return androidx.compose.runtime.remember(trips) {
+    return remember(trips) {
         buildCalendarMonth(trips)
     }
 }
@@ -286,6 +285,7 @@ private fun Trip.includesDate(date: String): Boolean {
 private val dayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 private val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
 private val weekdayFormat = SimpleDateFormat("EE", Locale.getDefault())
+
 @Composable
 private fun QuickTripRow(
     trip: Trip,

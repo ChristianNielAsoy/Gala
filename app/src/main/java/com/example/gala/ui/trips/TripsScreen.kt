@@ -23,6 +23,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -112,6 +113,7 @@ private fun TripsContent(
 private fun AddTripSection(
     onAddTrip: (Trip) -> Unit
 ) {
+    // FIXED: Use remember + mutableStateOf properly
     var title by remember { mutableStateOf("") }
     var destination by remember { mutableStateOf("") }
     var startDate by remember { mutableStateOf("") }
@@ -209,7 +211,7 @@ private fun TripRow(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = " to ",
+                text = "${trip.startDate} to ${trip.endDate}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

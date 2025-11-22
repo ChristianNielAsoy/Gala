@@ -59,13 +59,12 @@ fun ExpenseEditorUI(
     var shareDrafts by remember { mutableStateOf(listOf<ShareDraft>()) }
 
     val formValid = description.isNotBlank() &&
-        paidBy.isNotBlank() &&
-        (amount.toDoubleOrNull() ?: 0.0) > 0.0
+            paidBy.isNotBlank() &&
+            (amount.toDoubleOrNull() ?: 0.0) > 0.0
 
     Scaffold(
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                enabled = formValid,
                 onClick = {
                     val amountValue = amount.toDoubleOrNull() ?: 0.0
                     if (formValid) {

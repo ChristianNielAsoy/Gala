@@ -1,8 +1,8 @@
 package com.example.gala
 
 import com.google.firebase.FirebaseApp
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.firestore
+import com.google.firebase.Firebase
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -35,11 +35,11 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var container: AppContainer
 
-     // 🔥 Initialize Firebase
-    FirebaseApp.initializeApp(this)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize Firebase
+        FirebaseApp.initializeApp(this)
 
         // Initialize dependency container
         container = AppContainer(this)

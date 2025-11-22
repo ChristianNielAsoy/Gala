@@ -14,18 +14,17 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -98,6 +97,7 @@ private fun TripDetailsUI(
     settlement: Map<String, Double>,
     itinerary: List<ItineraryEvent>,
     packing: List<PackingItem>,
+    settings: SettingsPreferences,
     onAddExpense: (String, String?) -> Unit,
     onBack: () -> Unit,
     onAddPlanEvent: (
@@ -123,19 +123,25 @@ private fun TripDetailsUI(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(trip.title) },
-                navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Text(text = "Back")
-                    }
-                },
-                actions = {
-                    TextButton(onClick = { onAddExpense(trip.tripId, null) }) {
-                        Text(text = "Add Expense")
-                    }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onBack) {
+                    Text(text = "Back")
                 }
-            )
+                Text(
+                    text = trip.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = { onAddExpense(trip.tripId, null) }) {
+                    Text(text = "Add Expense")
+                }
+            }
         }
     ) { padding ->
         LazyColumn(
@@ -319,19 +325,18 @@ private fun PlanSection(
                     if (titleState.value.isBlank()) return@TextButton
                     val dayIndex = dayIndexState.value.toIntOrNull() ?: 0
                     onAddPlanEvent(
-                        phase = phaseState.value.ifBlank { "during" },
-                        dayIndex = dayIndex,
-                        time = timeState.value.ifBlank { null },
-                        title = titleState.value.trim(),
-                        notes = notesState.value.ifBlank { null }
+                        phaseState.value.ifBlank { "during" },
+                        dayIndex,
+                        timeState.value.ifBlank { null },
+                        titleState.value.trim(),
+                        notesState.value.ifBlank { null }
                     )
                     titleState.value = ""
                     notesState.value = ""
                     timeState.value = ""
                     dayIndexState.value = "0"
                     phaseState.value = "before"
-                },
-                enabled = titleState.value.isNotBlank()
+                }
             ) {
                 Text("Save plan entry")
             }
@@ -410,8 +415,7 @@ private fun PlanSection(
                     )
                     packingName.value = ""
                     packingAssignee.value = ""
-                },
-                enabled = packingName.value.isNotBlank()
+                }
             ) {
                 Text("Add packing item")
             }
