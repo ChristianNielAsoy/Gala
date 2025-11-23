@@ -1,16 +1,16 @@
 <template>
   <q-page class="q-pb-xl">
-    <!-- Header with Back Button and Trip Name -->
+    <!-- Header with Tabs -->
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
-        <q-btn flat round icon="arrow_back" @click="handleBack" aria-label="Go Back to Trips" />
+        <q-btn flat round icon="arrow_back" @click="handleBack" aria-label="Go Back" />
         <q-toolbar-title>
-          {{ trip ? trip.name : 'Loading Trip...' }}
+          {{ trip ? trip.name : 'Loading...' }}
         </q-toolbar-title>
-        <q-btn flat round icon="settings" @click="openSettingsModal" aria-label="Trip Settings" />
+        <q-btn flat round icon="settings" @click="openSettingsModal" aria-label="Settings" />
       </q-toolbar>
 
-      <!-- Nested Tabs for Navigation within the Trip -->
+      <!-- Navigation Tabs -->
       <q-tabs
         v-model="tab"
         align="justify"
@@ -19,14 +19,16 @@
         dense
       >
         <q-tab name="expenses" label="Expenses" icon="receipt_long" />
+        <q-tab name="settlement" label="Settlement" icon="account_balance_wallet" />
         <q-tab name="members" label="Members" icon="people" />
         <q-tab name="activity" label="Activity" icon="timeline" />
       </q-tabs>
     </q-header>
 
-    <!-- Page Content (Matching current Tab) -->
+    <!-- Tab Panels -->
     <q-tab-panels v-model="tab" animated class="bg-grey-1">
-      <!-- Expenses Tab Panel -->
+
+      <!-- Expenses Tab -->
       <q-tab-panel name="expenses" class="q-pa-none">
         <div v-if="loading" class="text-center q-pa-xl">
           <q-spinner color="primary" size="lg" />
@@ -36,11 +38,14 @@
           <p class="text-h6 q-mt-sm">Trip Not Found</p>
         </div>
         <div v-else class="q-pa-md">
-          <!-- Balances Overview -->
+
+          <!-- Balance Overview -->
           <q-card class="q-mb-md shadow-2">
             <q-card-section>
               <div class="text-h6 text-primary">Balances Overview</div>
-              <div class="text-subtitle2 text-grey-7">Total spent: {{ trip.currency_code }} {{ totalSpent.toFixed(2) }}</div>
+              <div class="text-subtitle2 text-grey-7">
+                Total spent: {{ trip.currency_code }} {{ totalSpent.toFixed(2) }}
+              </div>
             </q-card-section>
           </q-card>
 
@@ -49,7 +54,6 @@
             <q-card-section>
               <div class="text-h6">Expense List</div>
               <q-list separator class="q-mt-sm">
-                <!-- Actual Expense Listing -->
                 <q-item
                   v-for="expense in expenses"
                   :key="expense.id"
@@ -58,29 +62,40 @@
                   @click="handleEditExpense(expense.id)"
                 >
                   <q-item-section avatar>
-                    <q-avatar :icon="getCategoryIcon(expense.category)" color="grey-2" text-color="primary" />
+                    <q-avatar
+                      :icon="getCategoryIcon(expense.category)"
+                      color="grey-2"
+                      text-color="primary"
+                    />
                   </q-item-section>
 
                   <q-item-section>
-                    <q-item-label class="text-weight-bold">{{ expense.description }}</q-item-label>
+                    <q-item-label class="text-weight-bold">
+                      {{ expense.description }}
+                    </q-item-label>
                     <q-item-label caption>
-                      Paid by {{ getMemberName(expense.paid_by_id) }} | {{ expense.date }}
+                      Paid by {{ getMemberName(expense.paid_by_id) }} | {{ formatDate(expense.date) }}
                     </q-item-label>
                   </q-item-section>
 
                   <q-item-section side>
-                    <q-item-label class="text-weight-bolder text-right" :class="expense.paid_by_id === currentMemberId ? 'text-positive' : 'text-negative'">
-                        {{ expense.currency_code }} {{ expense.amount.toFixed(2) }}
+                    <q-item-label
+                      class="text-weight-bolder text-right"
+                      :class="expense.paid_by_id === currentMemberId ? 'text-positive' : 'text-grey-8'"
+                    >
+                      {{ expense.currency_code }} {{ expense.amount.toFixed(2) }}
                     </q-item-label>
                     <q-item-label caption class="text-right">
-                        {{ expense.paid_by_id === currentMemberId ? 'You paid' : 'Settlement due' }}
+                      {{ expense.paid_by_id === currentMemberId ? 'You paid' : 'Shared' }}
                     </q-item-label>
                   </q-item-section>
                 </q-item>
 
-                <!-- Empty State for Expenses -->
+                <!-- Empty State -->
                 <div class="text-center q-py-lg text-grey-6" v-if="expenses.length === 0">
-                  No expenses recorded yet. Be the first to add one!
+                  <q-icon name="receipt_long" size="48px" class="q-mb-sm" />
+                  <div>No expenses recorded yet</div>
+                  <div class="text-caption">Tap the + button to add one</div>
                 </div>
               </q-list>
             </q-card-section>
@@ -88,61 +103,143 @@
         </div>
       </q-tab-panel>
 
-      <!-- Members Tab Panel -->
-      <q-tab-panel name="members">
+      <!-- Settlement Tab -->
+      <q-tab-panel name="settlement" class="q-pa-none">
+        <SettlementTab
+          v-if="trip"
+          :trip-id="tripId"
+          :trip="trip"
+          ref="settlementTabRef"
+        />
+      </q-tab-panel>
+
+      <!-- Members Tab -->
+      <q-tab-panel name="members" class="q-pa-md">
         <div class="text-h6 q-mb-md">Trip Members</div>
         <q-list bordered separator rounded>
           <q-item v-for="member in members" :key="member.id">
             <q-item-section avatar>
-              <q-avatar icon="person" :color="member.is_owner ? 'primary' : 'grey-5'" text-color="white" />
+              <q-avatar
+                :color="member.is_owner ? 'primary' : 'grey-5'"
+                text-color="white"
+              >
+                {{ member.name.charAt(0).toUpperCase() }}
+              </q-avatar>
             </q-item-section>
-            <q-item-section>{{ member.name }} {{ member.is_owner ? '(Owner)' : '' }}</q-item-section>
+
+            <q-item-section>
+              <q-item-label class="text-weight-medium">
+                {{ member.name }}
+              </q-item-label>
+              <q-item-label caption v-if="member.is_owner">
+                Trip Owner
+              </q-item-label>
+            </q-item-section>
+
             <q-item-section side>
               <q-icon name="star" color="amber" v-if="member.is_owner" />
-              <q-btn flat round icon="share" color="primary" size="sm" v-else @click="handleShareInvite" />
+            </q-item-section>
+          </q-item>
+
+          <!-- Add Member Button -->
+          <q-item clickable @click="addMemberDialog = true">
+            <q-item-section avatar>
+              <q-avatar color="grey-3" text-color="grey-7" icon="add" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label class="text-grey-7">Add Member</q-item-label>
             </q-item-section>
           </q-item>
         </q-list>
       </q-tab-panel>
 
-      <!-- Activity Tab Panel -->
-      <q-tab-panel name="activity">
+      <!-- Activity Tab -->
+      <q-tab-panel name="activity" class="q-pa-md">
         <div class="text-h6 q-mb-md">Recent Activity</div>
-        <p class="text-grey-7">Timeline of expenses, payments, and member changes will appear here.</p>
-        <q-timeline color="secondary">
-          <q-timeline-entry title="Trip Created" subtitle="Yesterday" icon="add_circle">
-            <div>The {{ trip?.name }} was started by you.</div>
-          </q-timeline-entry>
+        <q-timeline color="primary">
           <q-timeline-entry
-            v-if="expenses.length > 0 && expenses[0]"
-            title="Expense Added"
-            subtitle="2 hours ago"
+            title="Trip Created"
+            :subtitle="formatDate(trip?.created_at || '')"
+            icon="add_circle"
+          >
+            <div>{{ trip?.name }} was created</div>
+          </q-timeline-entry>
+
+          <q-timeline-entry
+            v-for="expense in recentExpenses"
+            :key="expense.id"
+            :title="`${expense.description}`"
+            :subtitle="formatDate(expense.date)"
             icon="receipt_long"
           >
-            <div>{{ expenses[0].description }} ({{ expenses[0].currency_code }} {{ expenses[0].amount.toFixed(2) }}) was added.</div>
+            <div>
+              {{ getMemberName(expense.paid_by_id) }} paid
+              {{ expense.currency_code }} {{ expense.amount.toFixed(2) }}
+            </div>
           </q-timeline-entry>
+
+          <q-timeline-entry
+            v-if="expenses.length === 0"
+            title="No activity yet"
+            subtitle="Start adding expenses"
+            icon="info"
+          />
         </q-timeline>
       </q-tab-panel>
+
     </q-tab-panels>
 
-    <!-- Floating Action Button for Adding EXPENSE (Visible only on Expenses tab) -->
+    <!-- Floating Action Button -->
     <q-page-sticky position="bottom-right" :offset="[18, 18]" v-if="tab === 'expenses'">
-      <q-btn fab icon="add" color="accent" size="lg" aria-label="Add Expense" @click="handleAddExpense" />
+      <q-btn
+        fab
+        icon="add"
+        color="accent"
+        size="lg"
+        @click="handleAddExpense"
+        aria-label="Add Expense"
+      />
     </q-page-sticky>
 
-    <!-- Trip Settings Modal Placeholder -->
+    <!-- Settings Modal -->
     <q-dialog v-model="showSettings">
       <q-card style="width: 100%; max-width: 400px;">
         <q-card-section>
           <div class="text-h6">Trip Settings: {{ trip?.name }}</div>
         </q-card-section>
-
         <q-card-section class="q-pt-none">
-          <p>This is where you can edit trip details, change currency, or archive the trip.</p>
+          <p>Edit trip details, change currency, or archive the trip.</p>
         </q-card-section>
-
         <q-card-actions align="right">
           <q-btn flat label="Close" color="primary" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Add Member Dialog -->
+    <q-dialog v-model="addMemberDialog">
+      <q-card style="min-width: 350px">
+        <q-card-section>
+          <div class="text-h6">Add Member</div>
+        </q-card-section>
+        <q-card-section class="q-pt-none">
+          <q-input
+            v-model="newMemberName"
+            label="Member Name"
+            outlined
+            autofocus
+            @keyup.enter="addMember"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn
+            flat
+            label="Add"
+            color="primary"
+            @click="addMember"
+            :disable="!newMemberName"
+          />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -151,12 +248,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
 import type { Expense, TripMember } from 'src/types/expense';
+import SettlementTab from 'components/SettlementTab.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -169,10 +267,11 @@ const trip = ref<Trip | null>(null);
 const members = ref<TripMember[]>([]);
 const expenses = ref<Expense[]>([]);
 const showSettings = ref(false);
-
+const addMemberDialog = ref(false);
+const newMemberName = ref('');
 const tripId = ref(route.params.tripId as string);
+const settlementTabRef = ref();
 
-// Get current user ID using the CORRECT Supabase API
 let currentUserId: string | undefined;
 supabase.auth.getUser().then(({ data: { user } }) => {
   currentUserId = user?.id;
@@ -183,85 +282,103 @@ const currentMemberId = computed(() =>
 );
 
 // Computed
-const totalSpent = computed(() => {
-  return expenses.value.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
-});
+const totalSpent = computed(() =>
+  expenses.value.reduce((sum: number, expense: Expense) => sum + expense.amount, 0)
+);
 
-// Utility Functions
+const recentExpenses = computed(() =>
+  expenses.value.slice(0, 5).sort((a, b) =>
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  )
+);
+
+// Methods
 function getCategoryIcon(category: string): string {
-  switch (category) {
-    case 'Food': return 'restaurant';
-    case 'Lodging': return 'hotel';
-    case 'Transport': return 'commute';
-    case 'Activity': return 'attractions';
-    case 'Groceries': return 'local_grocery_store';
-    default: return 'receipt_long';
-  }
+  const icons: Record<string, string> = {
+    'Food': 'restaurant',
+    'Lodging': 'hotel',
+    'Transport': 'commute',
+    'Activity': 'attractions',
+    'Groceries': 'local_grocery_store',
+  };
+  return icons[category] || 'receipt_long';
 }
 
 function getMemberName(memberId: string): string {
   return members.value.find((m: TripMember) => m.id === memberId)?.name || 'Unknown';
 }
 
-function handleShareInvite(): void {
-  $q.notify({ type: 'info', message: 'Share invite link feature coming soon!' });
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Data Fetching
 async function fetchTripData(): Promise<void> {
   loading.value = true;
-  const id = tripId.value;
-
-  if (!id) {
-    trip.value = null;
-    loading.value = false;
-    return;
-  }
 
   try {
-    // 1. Fetch Trip Details
+    // Fetch trip
     const { data: tripData, error: tripError } = await supabase
       .from('trips')
       .select('*')
-      .eq('id', id)
+      .eq('id', tripId.value)
       .single();
 
-    if (tripError || !tripData) throw new Error('Trip not found or access denied.');
+    if (tripError || !tripData) throw new Error('Trip not found');
     trip.value = tripData as Trip;
 
-    // 2. Fetch Trip Members
-    const { data: memberData, error: memberError } = await supabase
-        .from('members')
-        .select('*')
-        .eq('trip_id', id)
-        .order('name');
+    // Fetch members
+    const { data: memberData } = await supabase
+      .from('members')
+      .select('*')
+      .eq('trip_id', tripId.value)
+      .order('name');
 
-    if (memberError || !memberData) throw new Error('Could not load trip members.');
-    members.value = memberData as TripMember[];
+    members.value = (memberData as TripMember[]) || [];
 
-    // 3. Fetch Expenses
-    const { data: expenseData, error: expenseError } = await supabase
-        .from('expenses')
-        .select('*')
-        .eq('trip_id', id)
-        .order('date', { ascending: false });
+    // Fetch expenses
+    const { data: expenseData } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('trip_id', tripId.value)
+      .order('date', { ascending: false });
 
-    if (expenseError || !expenseData) throw new Error('Could not load expenses.');
-    expenses.value = expenseData as Expense[];
+    expenses.value = (expenseData as Expense[]) || [];
 
   } catch (error) {
     console.error('Error fetching trip data:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Error fetching trip data.';
-    $q.notify({ type: 'negative', message: errorMessage });
-    trip.value = null;
-    members.value = [];
-    expenses.value = [];
+    $q.notify({ type: 'negative', message: 'Failed to load trip' });
   } finally {
     loading.value = false;
   }
 }
 
-// Action Handlers
+async function addMember(): Promise<void> {
+  if (!newMemberName.value.trim()) return;
+
+  try {
+    const { error } = await supabase
+      .from('members')
+      .insert({
+        trip_id: tripId.value,
+        name: newMemberName.value.trim(),
+        is_owner: false
+      });
+
+    if (error) throw error;
+
+    $q.notify({ type: 'positive', message: 'Member added!' });
+    newMemberName.value = '';
+    addMemberDialog.value = false;
+    await fetchTripData();
+
+  } catch (error) {
+    console.error('Error adding member:', error);
+    $q.notify({ type: 'negative', message: 'Failed to add member' });
+  }
+}
+
 function openSettingsModal(): void {
   showSettings.value = true;
 }
@@ -278,49 +395,9 @@ function handleBack(): void {
   void router.back();
 }
 
-// Lifecycle and Watchers
-watch(() => route.params.tripId, (newId) => {
-  if (newId) {
-    tripId.value = newId as string;
-    void fetchTripData();
-  }
-});
-
+// Lifecycle
 onMounted(() => {
   void fetchTripData();
-
-  // Set up real-time subscription
-  supabase
-    .channel(`trip_${tripId.value}_changes`)
-    .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'expenses',
-        filter: `trip_id=eq.${tripId.value}`
-    }, (payload) => {
-        console.log('Realtime expense change detected:', payload);
-        const newRecord = payload.new as Record<string, unknown>;
-        const oldRecord = payload.old as Record<string, unknown>;
-
-        if (newRecord?.trip_id === tripId.value || oldRecord?.trip_id === tripId.value) {
-            void fetchTripData();
-        }
-    })
-    .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'members',
-        filter: `trip_id=eq.${tripId.value}`
-    }, (payload) => {
-        console.log('Realtime member change detected:', payload);
-        const newRecord = payload.new as Record<string, unknown>;
-        const oldRecord = payload.old as Record<string, unknown>;
-
-        if (newRecord?.trip_id === tripId.value || oldRecord?.trip_id === tripId.value) {
-            void fetchTripData();
-        }
-    })
-    .subscribe();
 });
 </script>
 

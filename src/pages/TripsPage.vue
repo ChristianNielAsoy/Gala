@@ -246,8 +246,8 @@ const filters = computed(() => [
 // New Trip Form
 const newTrip = ref({
   name: '',
-  start_date: new Date().toISOString().split('T')[0],
-  end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+  start_date: new Date().toISOString().split('T')[0] ?? '',
+  end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0] ?? '',
   currency_code: 'PHP'
 });
 
@@ -394,8 +394,8 @@ async function createTrip() {
 
     newTrip.value = {
       name: '',
-      start_date: new Date().toISOString().split('T')[0],
-      end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+      start_date: new Date().toISOString().split('T')[0] ?? '',
+      end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0] ?? '',
       currency_code: 'PHP'
     };
     showNewTripModal.value = false;
@@ -424,7 +424,6 @@ function goToTripDetails(tripId: string) {
 }
 
 function getTripImage(trip: Trip): string {
-  // Default placeholder images based on trip name
   const images = [
     'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=400&fit=crop',
     'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=400&fit=crop',
@@ -433,7 +432,7 @@ function getTripImage(trip: Trip): string {
   ];
 
   const index = Math.abs(trip.name.charCodeAt(0) % images.length);
-  return images[index];
+   return images[index]!;
 }
 
 function getStatus(trip: Trip): string {

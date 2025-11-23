@@ -123,7 +123,7 @@ import type { Trip } from 'src/types/trip';
 const router = useRouter();
 
 // State
-const selectedDate = ref(new Date().toISOString().split('T')[0].replace(/-/g, '/'));
+const selectedDate = ref((new Date().toISOString().split('T')[0] ?? '').replace(/-/g, '/'));
 const trips = ref<Trip[]>([]);
 
 // Computed
@@ -146,7 +146,10 @@ const tripDates = computed(() => {
     const end = new Date(trip.end_date);
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dates.push(d.toISOString().split('T')[0].replace(/-/g, '/'));
+      const dateStr = d.toISOString().split('T')[0];
+      if (dateStr) {
+        dates.push(dateStr.replace(/-/g, '/'));
+      }
     }
   });
   return dates;
@@ -188,7 +191,7 @@ function getTripImage(trip: Trip): string {
   ];
 
   const index = Math.abs(trip.name.charCodeAt(0) % images.length);
-  return images[index];
+  return images[index]!;  // Add ! here
 }
 
 function getStatus(trip: Trip): string {
