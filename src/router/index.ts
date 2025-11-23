@@ -1,6 +1,6 @@
 import { route } from 'quasar/wrappers';
-import { createRouter, createWebHistory, NavigationGuardWithThis } from 'vue-router';
-// Import the exported Supabase client
+import { createRouter, createWebHistory } from 'vue-router';
+import type { NavigationGuardWithThis } from 'vue-router';
 import { supabase } from 'boot/supabase';
 import routes from './routes';
 
@@ -9,20 +9,16 @@ export default route(function (/* { store, ssrContext } */) {
 
   const Router = createRouter({
     scrollBehavior: () => ({ left: 0, top: 0 }),
-    routes, // Defined in src/router/routes.ts
+    routes,
     history: createHistory(process.env.VUE_ROUTER_BASE),
   });
 
-  // ----------------------------------------------------------------------
-  // NAVIGATION GUARD (Middleware for Authentication)
-  // ----------------------------------------------------------------------
-
-  // Define the type for the auth guard function
+  // Navigation Guard (Middleware for Authentication)
   const authGuard: NavigationGuardWithThis<undefined> = async (to, from, next) => {
-    // 1. Check if the destination route requires authentication
+    // Check if the destination route requires authentication
     const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
 
-    // 2. Get the current user session
+    // Get the current user session (UPDATED API)
     const { data: { session } } = await supabase.auth.getSession();
 
     if (requiresAuth && !session) {

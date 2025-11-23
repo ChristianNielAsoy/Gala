@@ -2,7 +2,7 @@
   <q-page>
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
-        <q-btn flat round icon="arrow_back" @click="router.back()" aria-label="Cancel" />
+        <q-btn flat round icon="arrow_back" @click="handleBack" aria-label="Cancel" />
         <q-toolbar-title>
           {{ isEdit ? 'Edit Expense' : 'Add New Expense' }}
         </q-toolbar-title>
@@ -20,7 +20,7 @@
             <q-input
               v-model="expenseForm.description"
               label="Description (e.g., Dinner at Bali, Fuel for rental)"
-              :rules="[val => !!val || 'Description is required']"
+              :rules="[(val: string) => !!val || 'Description is required']"
               outlined
               dense
               class="q-mb-md"
@@ -32,7 +32,7 @@
               type="number"
               prefix="₱"
               :placeholder="trip?.currency_code || 'PHP'"
-              :rules="[val => val > 0 || 'Amount must be greater than zero']"
+              :rules="[(val: number) => val > 0 || 'Amount must be greater than zero']"
               outlined
               dense
               input-class="text-right text-h6 text-primary"
@@ -86,7 +86,7 @@
               dense
               emit-value
               map-options
-              :rules="[val => !!val || 'Payer is required']"
+              :rules="[(val: string) => !!val || 'Payer is required']"
             >
               <template v-slot:prepend>
                 <q-icon name="payments" />
@@ -100,12 +100,12 @@
           <q-card-section>
             <div class="text-h6 q-pb-sm">Who's involved?</div>
 
-            <!-- Involved Members (Only members checked are included in split) -->
+            <!-- Involved Members -->
             <q-option-group
               :options="memberCheckOptions"
               type="checkbox"
               v-model="involvedMembers"
-              :rules="[val => val.length > 0 || 'At least one member must be involved']"
+              :rules="[(val: string[]) => val.length > 0 || 'At least one member must be involved']"
               class="q-mb-md"
             />
 
@@ -134,7 +134,7 @@
                             dense
                             outlined
                             :prefix="trip?.currency_code || 'PHP'"
-                            :rules="[val => val >= 0 || 'Must be positive']"
+                            :rules="[(val: number) => val >= 0 || 'Must be positive']"
                             input-class="text-right"
                             @update:model-value="recalculateTotal"
                         />
@@ -163,7 +163,7 @@
         color="negative"
         flat
         class="full-width q-mt-lg"
-        @click="deleteExpense"
+        @click="handleDeleteExpense"
       />
 
     </div>
@@ -175,17 +175,17 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
-import { Trip } from 'src/types/trip';
-import { Expense, TripMember, SplitType, ExpenseSplit } from 'src/types/expense'; // Use the new expense types
+import type { Trip } from 'src/types/trip';
+import type { Expense, TripMember, SplitType, ExpenseSplit } from 'src/types/expense';
 
 const route = useRoute();
 const router = useRouter();
 const $q = useQuasar();
 
-// --- STATE ---
+// State
 const tripId = ref(route.params.tripId as string);
 const expenseId = ref(route.params.expenseId as string | undefined);
-const isEdit = computed(() => !!expenseId.value);
+const isEdit = computed(() => !!expenseId.value && expenseId.value !== 'new');
 
 const saving = ref(false);
 const loading = ref(true);
@@ -196,27 +196,25 @@ const members = ref<TripMember[]>([]);
 interface ExpenseForm {
   description: string;
   amount: number | null;
-  paid_by_id: string; // member_id
+  paid_by_id: string;
   category: string;
   date: string;
   split_type: SplitType;
 }
 
-// Form state
 const expenseForm = ref<ExpenseForm>({
   description: '',
   amount: null,
   paid_by_id: '',
   category: 'Food',
-  date: new Date().toISOString().split('T')[0], // Today's date
+  date: new Date().toISOString().split('T')[0] ?? '',
   split_type: 'equal',
 });
 
-const involvedMembers = ref<string[]>([]); // Array of member_ids involved in the split
-const customSplits = ref<Record<string, number>>({}); // { member_id: amount }
+const involvedMembers = ref<string[]>([]);
+const customSplits = ref<Record<string, number>>({});
 
-// --- CONSTANTS ---
-
+// Constants
 const categoryOptions = [
   { label: 'Food & Drinks', value: 'Food', icon: 'restaurant' },
   { label: 'Accommodation', value: 'Lodging', icon: 'hotel' },
@@ -229,37 +227,32 @@ const categoryOptions = [
 const splitTypeOptions = [
   { label: 'Equally', value: 'equal' },
   { label: 'Custom Amounts', value: 'custom' },
-  // { label: 'Percentages', value: 'percentages' }, // Future extension
 ];
 
-// --- COMPUTED / UI HELPERS ---
-
-// Map members to Quasar Select options for the 'Paid By' dropdown
+// Computed
 const memberOptions = computed(() => {
-  return members.value.map(m => ({
+  return members.value.map((m: TripMember) => ({
     label: m.name,
     value: m.id,
   }));
 });
 
-// Map members to Quasar Checkbox options for the 'Involved Members' list
 const memberCheckOptions = computed(() => {
-  return members.value.map(m => ({
+  return members.value.map((m: TripMember) => ({
     label: m.name,
     value: m.id,
   }));
 });
 
-// Used for Custom Split validation
 const customTotal = computed(() => {
-    return involvedMembers.value.reduce((sum, memberId) => sum + (customSplits.value[memberId] || 0), 0);
+    return involvedMembers.value.reduce((sum: number, memberId: string) =>
+      sum + (customSplits.value[memberId] || 0), 0);
 });
 
 const splitDifference = computed(() => {
-    return (expenseForm.amount || 0) - customTotal.value;
+    return (expenseForm.value.amount || 0) - customTotal.value;
 });
 
-// Simple validation check before saving
 const isValid = computed(() => {
   return (
     !!expenseForm.value.description &&
@@ -270,22 +263,19 @@ const isValid = computed(() => {
   );
 });
 
-// Helper to convert member ID back to name for display
+// Helper Functions
 function memberIdToName(id: string): string {
-    return members.value.find(m => m.id === id)?.name || 'Unknown Member';
+    return members.value.find((m: TripMember) => m.id === id)?.name || 'Unknown Member';
 }
 
-function recalculateTotal() {
-    // Force computed property to re-evaluate and update the difference display
-    // This function is mainly a placeholder to trigger Vue reactivity
+function recalculateTotal(): void {
+    // Trigger reactivity
 }
 
-// --- DATA FETCHING ---
-
-async function fetchTripData() {
+// Data Fetching
+async function fetchTripData(): Promise<void> {
   loading.value = true;
 
-  // 1. Fetch Trip Details
   const { data: tripData, error: tripError } = await supabase
     .from('trips')
     .select('*')
@@ -300,8 +290,6 @@ async function fetchTripData() {
   }
   trip.value = tripData as Trip;
 
-  // 2. Fetch Trip Members (We need these for splitting)
-  // NOTE: This assumes a 'members' table exists linked to 'trips'
   const { data: memberData, error: memberError } = await supabase
     .from('members')
     .select('*')
@@ -310,38 +298,29 @@ async function fetchTripData() {
 
   if (memberError || !memberData) {
     console.error('Error fetching members:', memberError);
-    // Continue even if members fail, but warn the user
     $q.notify({ type: 'warning', message: 'Could not load trip members.' });
   } else {
     members.value = memberData as TripMember[];
   }
 
-  // Set default payer to the current user's member ID (if available)
-  const currentUserId = supabase.auth.currentUser?.id;
-  const currentUserMember = members.value.find(m => m.user_id === currentUserId);
+  // Set defaults
+  const { data: { user } } = await supabase.auth.getUser();
+  const currentUserId = user?.id;
+  const currentUserMember = members.value.find((m: TripMember) => m.user_id === currentUserId);
 
   if (currentUserMember) {
     expenseForm.value.paid_by_id = currentUserMember.id;
-    // Default: everyone is involved
-    involvedMembers.value = members.value.map(m => m.id);
+    involvedMembers.value = members.value.map((m: TripMember) => m.id);
   }
 
-  // 3. If editing, fetch existing expense data
   if (isEdit.value && expenseId.value) {
-      // Logic to fetch existing expense and split data
-      // For simplicity, we skip fetching splits for now and assume new expense creation
-      // In a real app, this would involve complex logic to load the Expense and ExpenseSplits.
-      $q.notify({ type: 'info', message: 'Edit mode enabled, but existing expense data loading is a complex future step.' });
+      $q.notify({ type: 'info', message: 'Edit mode: Loading existing expense data not yet implemented.' });
   }
 
   loading.value = false;
 }
 
-// --- CORE LOGIC ---
-
-/**
- * Calculates the split amounts based on the selected split type and involved members.
- */
+// Core Logic
 function calculateSplits(): ExpenseSplit[] {
     const totalAmount = expenseForm.value.amount || 0;
     const splits: ExpenseSplit[] = [];
@@ -350,27 +329,24 @@ function calculateSplits(): ExpenseSplit[] {
         const shareCount = involvedMembers.value.length;
         if (shareCount === 0) return [];
 
-        // Split equally, handle remaining cents on the first member
-        let baseShare = Math.floor((totalAmount * 100) / shareCount) / 100;
-        let remainder = totalAmount - (baseShare * shareCount);
+        const baseShare = Math.floor((totalAmount * 100) / shareCount) / 100;
+        const remainder = totalAmount - (baseShare * shareCount);
 
-        involvedMembers.value.forEach((memberId, index) => {
+        involvedMembers.value.forEach((memberId: string, index: number) => {
             let shareAmount = baseShare;
-            // Add the remainder (cents) to the first member's share
             if (index === 0) {
                 shareAmount = parseFloat((shareAmount + remainder).toFixed(2));
             }
 
             splits.push({
-                expense_id: 'TEMP_ID', // Will be replaced on insert
+                expense_id: 'TEMP_ID',
                 member_id: memberId,
                 share_amount: shareAmount,
             });
         });
 
     } else if (expenseForm.value.split_type === 'custom') {
-        // Use the amounts specified in the customSplits ref
-        involvedMembers.value.forEach((memberId) => {
+        involvedMembers.value.forEach((memberId: string) => {
             const amount = customSplits.value[memberId] || 0;
             splits.push({
                 expense_id: 'TEMP_ID',
@@ -380,14 +356,10 @@ function calculateSplits(): ExpenseSplit[] {
         });
     }
 
-    // Filter out members with a zero share if using custom/percentages (optional, but good practice)
-    return splits.filter(s => s.share_amount > 0);
+    return splits.filter((s: ExpenseSplit) => s.share_amount > 0);
 }
 
-/**
- * Handles saving the new or edited expense and its associated splits.
- */
-async function handleSave() {
+async function handleSave(): Promise<void> {
   if (!isValid.value) {
     $q.notify({ type: 'warning', message: 'Please ensure all fields are valid and the custom split totals correctly.' });
     return;
@@ -396,58 +368,51 @@ async function handleSave() {
   saving.value = true;
   const splits = calculateSplits();
 
-  // 1. Prepare Expense Data
   const newExpense: Partial<Expense> = {
     trip_id: tripId.value,
     paid_by_id: expenseForm.value.paid_by_id,
     description: expenseForm.value.description,
     amount: expenseForm.value.amount!,
-    currency_code: trip.value?.currency_code || 'PHP', // Use trip currency
+    currency_code: trip.value?.currency_code || 'PHP',
     category: expenseForm.value.category,
     date: expenseForm.value.date,
   };
 
   try {
-    // 2. Insert the Expense
     const { data: expenseInsertData, error: expenseError } = await supabase
       .from('expenses')
       .insert(newExpense)
       .select('id')
-      .single(); // Get the ID of the new expense
+      .single();
 
     if (expenseError || !expenseInsertData) throw expenseError;
 
     const newExpenseId = expenseInsertData.id;
 
-    // 3. Prepare Splits Data
-    const splitsToInsert = splits.map(s => ({
+    const splitsToInsert = splits.map((s: ExpenseSplit) => ({
         ...s,
         expense_id: newExpenseId,
     }));
 
-    // 4. Insert Splits
     const { error: splitError } = await supabase
         .from('expense_splits')
         .insert(splitsToInsert);
 
     if (splitError) throw splitError;
 
-    // 5. Success
     $q.notify({ type: 'positive', message: 'Expense saved successfully!' });
-    router.back(); // Go back to the Trip Details Page
+    void router.back();
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error saving expense:', error);
-    $q.notify({ type: 'negative', message: 'Failed to save expense: ' + (error.message || 'Unknown error') });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    $q.notify({ type: 'negative', message: 'Failed to save expense: ' + errorMessage });
   } finally {
     saving.value = false;
   }
 }
 
-/**
- * Handles deleting an existing expense.
- */
-async function deleteExpense() {
+function handleDeleteExpense(): void {
     if (!expenseId.value) return;
 
     $q.dialog({
@@ -456,37 +421,44 @@ async function deleteExpense() {
         cancel: true,
         persistent: true,
         color: 'negative'
-    }).onOk(async () => {
-        saving.value = true;
-        try {
-            // RLS should handle cascading deletes for splits
-            const { error } = await supabase
-                .from('expenses')
-                .delete()
-                .eq('id', expenseId.value);
-
-            if (error) throw error;
-
-            $q.notify({ type: 'positive', message: 'Expense deleted.' });
-            router.back();
-        } catch (error: any) {
-            console.error('Error deleting expense:', error);
-            $q.notify({ type: 'negative', message: 'Failed to delete expense: ' + (error.message || 'Unknown error') });
-        } finally {
-            saving.value = false;
-        }
+    }).onOk(() => {
+        void deleteExpense();
     });
 }
 
-// --- LIFECYCLE ---
+async function deleteExpense(): Promise<void> {
+    saving.value = true;
+    try {
+        const { error } = await supabase
+            .from('expenses')
+            .delete()
+            .eq('id', expenseId.value);
 
+        if (error) throw error;
+
+        $q.notify({ type: 'positive', message: 'Expense deleted.' });
+        void router.back();
+    } catch (error) {
+        console.error('Error deleting expense:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        $q.notify({ type: 'negative', message: 'Failed to delete expense: ' + errorMessage });
+    } finally {
+        saving.value = false;
+    }
+}
+
+function handleBack(): void {
+  void router.back();
+}
+
+// Lifecycle
 onMounted(() => {
   if (!tripId.value) {
     $q.notify({ type: 'negative', message: 'Missing Trip ID. Cannot open expense editor.' });
-    router.back();
+    void router.back();
     return;
   }
-  fetchTripData();
+  void fetchTripData();
 });
 </script>
 

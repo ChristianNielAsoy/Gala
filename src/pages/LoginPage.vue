@@ -1,5 +1,5 @@
 <template>
-  <q-page class="flex flex-center bg-grey-2">
+  <div class="flex flex-center bg-grey-2" style="min-height: 100vh;">
     <q-card class="q-pa-md shadow-2 my_card" style="width: 90%; max-width: 400px;">
       <q-card-section class="text-center">
         <div class="text-h5 text-weight-bold text-primary">GALA App</div>
@@ -17,7 +17,7 @@
             dense
             class="q-mb-md"
             lazy-rules
-            :rules="[val => !!val || 'Email is required']"
+            :rules="[(val: string) => !!val || 'Email is required']"
           />
           <q-input
             v-model="password"
@@ -28,7 +28,7 @@
             dense
             class="q-mb-lg"
             lazy-rules
-            :rules="[val => !!val || 'Password is required']"
+            :rules="[(val: string) => !!val || 'Password is required']"
           />
 
           <q-btn
@@ -47,14 +47,13 @@
         <q-btn flat dense color="grey-7" label="Don't have an account? Sign Up" to="/signup" />
       </q-card-section>
     </q-card>
-  </q-page>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
-// Import the direct export of the Supabase client
 import { supabase } from 'boot/supabase';
 
 const $q = useQuasar();
@@ -64,17 +63,15 @@ const email = ref<string>('');
 const password = ref<string>('');
 const loading = ref<boolean>(false);
 
-async function handleLogin() {
+async function handleLogin(): Promise<void> {
   loading.value = true;
 
-  // Basic Input Validation
   if (!email.value || !password.value) {
     $q.notify({ type: 'warning', message: 'Please fill in both fields.' });
     loading.value = false;
     return;
   }
 
-  // Call Supabase Auth
   const { error } = await supabase.auth.signInWithPassword({
     email: email.value,
     password: password.value,
@@ -82,17 +79,14 @@ async function handleLogin() {
 
   loading.value = false;
 
-  // Handle result
   if (error) {
-    // Show error message from Supabase (e.g., "Invalid login credentials")
     $q.notify({
       type: 'negative',
       message: error.message,
       position: 'top',
     });
   } else {
-    // Success: The router guard automatically redirects to /dashboard
-    router.push('/dashboard');
+    void router.push('/dashboard');
   }
 }
 </script>

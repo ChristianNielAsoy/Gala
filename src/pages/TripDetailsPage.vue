@@ -3,11 +3,10 @@
     <!-- Header with Back Button and Trip Name -->
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
-        <q-btn flat round icon="arrow_back" @click="router.back()" aria-label="Go Back to Trips" />
+        <q-btn flat round icon="arrow_back" @click="handleBack" aria-label="Go Back to Trips" />
         <q-toolbar-title>
           {{ trip ? trip.name : 'Loading Trip...' }}
         </q-toolbar-title>
-        <!-- Trip Settings Button -->
         <q-btn flat round icon="settings" @click="openSettingsModal" aria-label="Trip Settings" />
       </q-toolbar>
 
@@ -50,14 +49,13 @@
             <q-card-section>
               <div class="text-h6">Expense List</div>
               <q-list separator class="q-mt-sm">
-
                 <!-- Actual Expense Listing -->
                 <q-item
                   v-for="expense in expenses"
                   :key="expense.id"
                   clickable
                   v-ripple
-                  @click="editExpense(expense.id)"
+                  @click="handleEditExpense(expense.id)"
                 >
                   <q-item-section avatar>
                     <q-avatar :icon="getCategoryIcon(expense.category)" color="grey-2" text-color="primary" />
@@ -78,7 +76,6 @@
                         {{ expense.paid_by_id === currentMemberId ? 'You paid' : 'Settlement due' }}
                     </q-item-label>
                   </q-item-section>
-
                 </q-item>
 
                 <!-- Empty State for Expenses -->
@@ -102,7 +99,7 @@
             <q-item-section>{{ member.name }} {{ member.is_owner ? '(Owner)' : '' }}</q-item-section>
             <q-item-section side>
               <q-icon name="star" color="amber" v-if="member.is_owner" />
-              <q-btn flat round icon="share" color="primary" size="sm" v-else @click="shareInvite(member.id)" />
+              <q-btn flat round icon="share" color="primary" size="sm" v-else @click="handleShareInvite" />
             </q-item-section>
           </q-item>
         </q-list>
@@ -116,7 +113,12 @@
           <q-timeline-entry title="Trip Created" subtitle="Yesterday" icon="add_circle">
             <div>The {{ trip?.name }} was started by you.</div>
           </q-timeline-entry>
-          <q-timeline-entry title="Expense Added" subtitle="2 hours ago" icon="receipt_long" v-if="expenses.length > 0">
+          <q-timeline-entry
+            v-if="expenses.length > 0 && expenses[0]"
+            title="Expense Added"
+            subtitle="2 hours ago"
+            icon="receipt_long"
+          >
             <div>{{ expenses[0].description }} ({{ expenses[0].currency_code }} {{ expenses[0].amount.toFixed(2) }}) was added.</div>
           </q-timeline-entry>
         </q-timeline>
@@ -125,7 +127,7 @@
 
     <!-- Floating Action Button for Adding EXPENSE (Visible only on Expenses tab) -->
     <q-page-sticky position="bottom-right" :offset="[18, 18]" v-if="tab === 'expenses'">
-      <q-btn fab icon="add" color="accent" size="lg" aria-label="Add Expense" @click="addExpense" />
+      <q-btn fab icon="add" color="accent" size="lg" aria-label="Add Expense" @click="handleAddExpense" />
     </q-page-sticky>
 
     <!-- Trip Settings Modal Placeholder -->
@@ -153,34 +155,39 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
-import { Trip } from 'src/types/trip';
-import { Expense, TripMember } from 'src/types/expense'; // Import Expense and TripMember
+import type { Trip } from 'src/types/trip';
+import type { Expense, TripMember } from 'src/types/expense';
 
 const route = useRoute();
 const router = useRouter();
 const $q = useQuasar();
 
 // State
-const tab = ref('expenses'); // Default to the expenses tab
+const tab = ref('expenses');
 const loading = ref(true);
 const trip = ref<Trip | null>(null);
 const members = ref<TripMember[]>([]);
 const expenses = ref<Expense[]>([]);
 const showSettings = ref(false);
 
-// Get the trip ID from the route parameters
 const tripId = ref(route.params.tripId as string);
-const currentUserId = supabase.auth.currentUser?.id;
-const currentMemberId = computed(() => members.value.find(m => m.user_id === currentUserId)?.id);
 
-// --- Computed ---
+// Get current user ID using the CORRECT Supabase API
+let currentUserId: string | undefined;
+supabase.auth.getUser().then(({ data: { user } }) => {
+  currentUserId = user?.id;
+}).catch(console.error);
 
+const currentMemberId = computed(() =>
+  members.value.find((m: TripMember) => m.user_id === currentUserId)?.id
+);
+
+// Computed
 const totalSpent = computed(() => {
-  return expenses.value.reduce((sum, expense) => sum + expense.amount, 0);
+  return expenses.value.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
 });
 
-// --- Utility Functions ---
-
+// Utility Functions
 function getCategoryIcon(category: string): string {
   switch (category) {
     case 'Food': return 'restaurant';
@@ -193,19 +200,15 @@ function getCategoryIcon(category: string): string {
 }
 
 function getMemberName(memberId: string): string {
-  return members.value.find(m => m.id === memberId)?.name || 'Unknown';
+  return members.value.find((m: TripMember) => m.id === memberId)?.name || 'Unknown';
 }
 
-function shareInvite() {
+function handleShareInvite(): void {
   $q.notify({ type: 'info', message: 'Share invite link feature coming soon!' });
 }
 
-// --- Data Fetching ---
-
-/**
- * Fetches all necessary data for the trip: details, members, and expenses.
- */
-async function fetchTripData() {
+// Data Fetching
+async function fetchTripData(): Promise<void> {
   loading.value = true;
   const id = tripId.value;
 
@@ -226,7 +229,7 @@ async function fetchTripData() {
     if (tripError || !tripData) throw new Error('Trip not found or access denied.');
     trip.value = tripData as Trip;
 
-    // 2. Fetch Trip Members (Needed for expense display)
+    // 2. Fetch Trip Members
     const { data: memberData, error: memberError } = await supabase
         .from('members')
         .select('*')
@@ -235,7 +238,6 @@ async function fetchTripData() {
 
     if (memberError || !memberData) throw new Error('Could not load trip members.');
     members.value = memberData as TripMember[];
-
 
     // 3. Fetch Expenses
     const { data: expenseData, error: expenseError } = await supabase
@@ -247,9 +249,10 @@ async function fetchTripData() {
     if (expenseError || !expenseData) throw new Error('Could not load expenses.');
     expenses.value = expenseData as Expense[];
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching trip data:', error);
-    $q.notify({ type: 'negative', message: error.message || 'Error fetching trip data.' });
+    const errorMessage = error instanceof Error ? error.message : 'Error fetching trip data.';
+    $q.notify({ type: 'negative', message: errorMessage });
     trip.value = null;
     members.value = [];
     expenses.value = [];
@@ -258,43 +261,35 @@ async function fetchTripData() {
   }
 }
 
-// --- Action Handlers ---
-
-function openSettingsModal() {
+// Action Handlers
+function openSettingsModal(): void {
   showSettings.value = true;
 }
 
-/**
- * Navigates to the Expense Editor to ADD a new expense.
- */
-function addExpense() {
-  // Navigate to the Expense Editor page, passing the tripId
-  router.push(`/trips/${tripId.value}/expense/new`);
+function handleAddExpense(): void {
+  void router.push(`/trips/${tripId.value}/expense/new`);
 }
 
-/**
- * Navigates to the Expense Editor to EDIT an existing expense.
- */
-function editExpense(expenseId: string) {
-  // Navigate to the Expense Editor page, passing the tripId and expenseId
-  router.push(`/trips/${tripId.value}/expense/${expenseId}`);
+function handleEditExpense(expenseId: string): void {
+  void router.push(`/trips/${tripId.value}/expense/${expenseId}`);
 }
 
+function handleBack(): void {
+  void router.back();
+}
 
-// --- Lifecycle and Watchers ---
-
-// Watch the route param to re-fetch if the user navigates between trip detail pages
+// Lifecycle and Watchers
 watch(() => route.params.tripId, (newId) => {
   if (newId) {
     tripId.value = newId as string;
-    fetchTripData();
+    void fetchTripData();
   }
 });
 
 onMounted(() => {
-  fetchTripData();
+  void fetchTripData();
 
-  // Set up real-time subscription for expenses and members in this trip
+  // Set up real-time subscription
   supabase
     .channel(`trip_${tripId.value}_changes`)
     .on('postgres_changes', {
@@ -304,9 +299,11 @@ onMounted(() => {
         filter: `trip_id=eq.${tripId.value}`
     }, (payload) => {
         console.log('Realtime expense change detected:', payload);
-        // Only re-fetch if the change affects this trip
-        if (payload.new.trip_id === tripId.value || payload.old.trip_id === tripId.value) {
-            fetchTripData();
+        const newRecord = payload.new as Record<string, unknown>;
+        const oldRecord = payload.old as Record<string, unknown>;
+
+        if (newRecord?.trip_id === tripId.value || oldRecord?.trip_id === tripId.value) {
+            void fetchTripData();
         }
     })
     .on('postgres_changes', {
@@ -316,8 +313,11 @@ onMounted(() => {
         filter: `trip_id=eq.${tripId.value}`
     }, (payload) => {
         console.log('Realtime member change detected:', payload);
-        if (payload.new.trip_id === tripId.value || payload.old.trip_id === tripId.value) {
-            fetchTripData();
+        const newRecord = payload.new as Record<string, unknown>;
+        const oldRecord = payload.old as Record<string, unknown>;
+
+        if (newRecord?.trip_id === tripId.value || oldRecord?.trip_id === tripId.value) {
+            void fetchTripData();
         }
     })
     .subscribe();
@@ -325,7 +325,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Ensure the page uses the full viewport height */
 .q-page {
   min-height: 100vh;
 }
