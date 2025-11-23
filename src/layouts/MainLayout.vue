@@ -4,30 +4,31 @@
       <router-view />
     </q-page-container>
 
-    <!-- Persistent Bottom Navigation Bar -->
-    <q-footer class="bg-white q-py-xs" bordered elevated>
+    <!-- Bottom Navigation Bar -->
+    <q-footer elevated class="bg-white">
       <q-tabs
         v-model="activeTab"
         align="justify"
         indicator-color="transparent"
-        no-caps
-        active-color="primary"
-        class="text-grey-7"
+        active-color="deep-orange"
+        class="text-grey-6 bottom-nav"
       >
         <q-route-tab
-          name="dashboard"
+          name="home"
           icon="home"
           label="Home"
-          to="/dashboard"
+          to="/home"
           exact
+          class="bottom-nav-tab"
         />
 
         <q-route-tab
           name="trips"
-          icon="flight_takeoff"
+          icon="luggage"
           label="Trips"
           to="/trips"
           exact
+          class="bottom-nav-tab"
         />
 
         <q-route-tab
@@ -36,6 +37,7 @@
           label="Settings"
           to="/settings"
           exact
+          class="bottom-nav-tab"
         />
       </q-tabs>
     </q-footer>
@@ -47,16 +49,23 @@ import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
-
-const activeTab = ref(route.path.split('/')[1] || 'dashboard');
+const activeTab = ref('home');
 
 watch(() => route.path, (newPath) => {
-  activeTab.value = newPath.split('/')[1] || 'dashboard';
-});
+  const segment = newPath.split('/')[1] || 'home';
+  if (['home', 'trips', 'settings'].includes(segment)) {
+    activeTab.value = segment;
+  }
+}, { immediate: true });
 </script>
 
 <style scoped>
-.q-footer {
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+.bottom-nav {
+  border-top: 1px solid #e0e0e0;
+  padding: 4px 0;
+}
+
+.bottom-nav-tab {
+  min-height: 56px;
 }
 </style>

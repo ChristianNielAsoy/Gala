@@ -5,12 +5,43 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
     children: [
-      { path: '', redirect: '/dashboard' },
-      { path: 'dashboard', component: () => import('pages/DashboardPage.vue'), meta: { requiresAuth: true } },
-      { path: 'trips', component: () => import('pages/TripsPage.vue'), meta: { requiresAuth: true } },
-      { path: 'trips/:tripId', component: () => import('pages/TripDetailsPage.vue'), meta: { requiresAuth: true } },
-      { path: 'trips/:tripId/expense/:expenseId', component: () => import('pages/ExpenseEditorPage.vue'), meta: { requiresAuth: true } },
-      { path: 'settings', component: () => import('pages/SettingsPage.vue'), meta: { requiresAuth: true } },
+      // Protect the main app pages
+      { path: '', redirect: '/home' },
+      {
+        path: 'home',
+        component: () => import('pages/HomePage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'dashboard',
+        component: () => import('pages/DashboardPage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'trips',
+        component: () => import('pages/TripsPage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'trips/:tripId',
+        component: () => import('pages/TripDetailsPage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'trips/:tripId/expense/new',
+        component: () => import('pages/ExpenseEditorPage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'trips/:tripId/expense/:expenseId',
+        component: () => import('pages/ExpenseEditorPage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'settings',
+        component: () => import('pages/SettingsPage.vue'),
+        meta: { requiresAuth: true }
+      },
     ],
   },
   {
@@ -23,6 +54,7 @@ const routes: RouteRecordRaw[] = [
     component: () => import('pages/SignupPage.vue'),
     meta: { requiresAuth: false }
   },
+  // Always leave this as last one
   {
     path: '/:catchAll(.*)*',
     component: () => import('pages/ErrorNotFound.vue'),

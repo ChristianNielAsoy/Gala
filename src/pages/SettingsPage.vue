@@ -1,102 +1,133 @@
 <template>
-  <q-page class="q-pa-md">
-    <div class="text-h5 text-weight-bold q-mb-lg">Settings</div>
+  <q-page class="bg-grey-1">
+    <!-- Header -->
+    <div class="q-pa-md bg-white">
+      <div class="text-h5 text-weight-bold">Settings</div>
+    </div>
 
-    <!-- Profile Section -->
-    <q-card flat bordered class="q-mb-md">
-      <q-card-section>
-        <div class="text-subtitle1 text-weight-bold q-mb-md">Profile & Account</div>
-
-        <div class="row items-center q-mb-md">
-          <q-avatar size="64px" color="primary" text-color="white" class="q-mr-md">
-            <q-icon name="person" size="32px" />
-          </q-avatar>
-          <div>
-            <div class="text-body1 text-weight-medium">{{ userEmail }}</div>
-            <div class="text-caption text-grey-7">Gala Member</div>
-          </div>
-        </div>
-
-        <q-btn
-          flat
-          color="primary"
-          icon="edit"
-          label="Edit Profile"
-          class="full-width"
-          align="left"
-        />
-      </q-card-section>
-    </q-card>
-
-    <!-- App Preferences -->
-    <q-card flat bordered class="q-mb-md">
-      <q-card-section>
-        <div class="text-subtitle1 text-weight-bold q-mb-md">App Preferences</div>
-
-        <q-item tag="label" class="q-pa-none q-mb-sm">
-          <q-item-section>
-            <q-item-label>Dark Mode</q-item-label>
-            <q-item-label caption>Enable dark theme</q-item-label>
+    <!-- Profile & Team -->
+    <div class="q-pa-md">
+      <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">PROFILE & TEAM</div>
+      <q-card flat class="rounded-borders">
+        <q-item clickable>
+          <q-item-section avatar>
+            <q-avatar color="deep-orange" text-color="white" icon="person" />
           </q-item-section>
-          <q-item-section side>
-            <q-toggle v-model="darkMode" color="primary" />
+          <q-item-section>
+            <q-item-label class="text-weight-medium">{{ userName }}</q-item-label>
+            <q-item-label caption>{{ userEmail }}</q-item-label>
           </q-item-section>
         </q-item>
 
-        <q-separator class="q-my-md" />
+        <q-separator />
 
-        <q-item clickable class="q-pa-none">
+        <q-item clickable>
+          <q-item-section avatar>
+            <q-icon name="edit" color="grey-7" />
+          </q-item-section>
           <q-item-section>
-            <q-item-label>Currency</q-item-label>
-            <q-item-label caption>PHP - Philippine Peso</q-item-label>
+            <q-item-label>Edit Profile</q-item-label>
           </q-item-section>
           <q-item-section side>
             <q-icon name="chevron_right" color="grey-5" />
           </q-item-section>
         </q-item>
-      </q-card-section>
-    </q-card>
+
+        <q-item clickable>
+          <q-item-section avatar>
+            <q-icon name="groups" color="grey-7" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label>Manage Team</q-item-label>
+          </q-item-section>
+          <q-item-section side>
+            <q-icon name="chevron_right" color="grey-5" />
+          </q-item-section>
+        </q-item>
+      </q-card>
+    </div>
 
     <!-- Notifications -->
-    <q-card flat bordered class="q-mb-md">
-      <q-card-section>
-        <div class="text-subtitle1 text-weight-bold q-mb-md">Notifications</div>
-
-        <q-item tag="label" class="q-pa-none q-mb-sm">
+    <div class="q-pa-md">
+      <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">NOTIFICATIONS</div>
+      <q-card flat class="rounded-borders">
+        <q-item>
+          <q-item-section avatar>
+            <q-icon name="notifications" color="grey-7" />
+          </q-item-section>
           <q-item-section>
             <q-item-label>Expense Updates</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="notifications.expenses" color="orange" />
+            <q-toggle v-model="notifications.expenses" color="deep-orange" />
           </q-item-section>
         </q-item>
 
-        <q-item tag="label" class="q-pa-none q-mb-sm">
+        <q-item>
+          <q-item-section avatar>
+            <q-icon name="event" color="grey-7" />
+          </q-item-section>
           <q-item-section>
             <q-item-label>Trip Reminders</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="notifications.trips" color="primary" />
+            <q-toggle v-model="notifications.trips" color="deep-orange" />
           </q-item-section>
         </q-item>
 
-        <q-item tag="label" class="q-pa-none">
+        <q-item>
+          <q-item-section avatar>
+            <q-icon name="payment" color="grey-7" />
+          </q-item-section>
           <q-item-section>
             <q-item-label>Settlement Alerts</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="notifications.settlements" color="orange" />
+            <q-toggle v-model="notifications.settlements" color="deep-orange" />
           </q-item-section>
         </q-item>
-      </q-card-section>
-    </q-card>
+      </q-card>
+    </div>
+
+    <!-- App Preferences -->
+    <div class="q-pa-md">
+      <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">APP PREFERENCES</div>
+      <q-card flat class="rounded-borders">
+        <q-item>
+          <q-item-section avatar>
+            <q-icon name="dark_mode" color="grey-7" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label>Dark Mode</q-item-label>
+          </q-item-section>
+          <q-item-section side>
+            <q-toggle v-model="darkMode" color="deep-orange" />
+          </q-item-section>
+        </q-item>
+
+        <q-item clickable>
+          <q-item-section avatar>
+            <q-icon name="attach_money" color="grey-7" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label>Currency</q-item-label>
+            <q-item-label caption>{{ defaultCurrency }}</q-item-label>
+          </q-item-section>
+          <q-item-section side>
+            <q-icon name="chevron_right" color="grey-5" />
+          </q-item-section>
+        </q-item>
+      </q-card>
+    </div>
 
     <!-- Legal & About -->
-    <q-card flat bordered class="q-mb-md">
-      <q-card-section>
-        <div class="text-subtitle1 text-weight-bold q-mb-md">Legal & About</div>
-
-        <q-item clickable class="q-pa-none q-mb-sm">
+    <div class="q-pa-md">
+      <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">LEGAL & ABOUT</div>
+      <q-card flat class="rounded-borders">
+        <q-item clickable>
+          <q-item-section avatar>
+            <q-icon name="description" color="grey-7" />
+          </q-item-section>
           <q-item-section>
             <q-item-label>Terms of Service</q-item-label>
           </q-item-section>
@@ -105,7 +136,10 @@
           </q-item-section>
         </q-item>
 
-        <q-item clickable class="q-pa-none q-mb-sm">
+        <q-item clickable>
+          <q-item-section avatar>
+            <q-icon name="privacy_tip" color="grey-7" />
+          </q-item-section>
           <q-item-section>
             <q-item-label>Privacy Policy</q-item-label>
           </q-item-section>
@@ -114,62 +148,82 @@
           </q-item-section>
         </q-item>
 
-        <q-item class="q-pa-none">
+        <q-item clickable>
+          <q-item-section avatar>
+            <q-icon name="info" color="grey-7" />
+          </q-item-section>
           <q-item-section>
             <q-item-label>App Version</q-item-label>
             <q-item-label caption>1.0.0</q-item-label>
           </q-item-section>
         </q-item>
-      </q-card-section>
-    </q-card>
+      </q-card>
+    </div>
 
     <!-- Logout Button -->
-    <q-btn
-      label="Logout"
-      @click="handleLogout"
-      color="negative"
-      icon="logout"
-      class="full-width"
-      unelevated
-    />
+    <div class="q-pa-md q-pb-xl">
+      <q-btn
+        unelevated
+        rounded
+        color="negative"
+        text-color="white"
+        label="Logout"
+        icon="logout"
+        class="full-width"
+        @click="handleLogout"
+      />
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
+import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 
-const $q = useQuasar();
 const router = useRouter();
+const $q = useQuasar();
 
-const userEmail = ref('');
+// State
+const userName = ref('Team Gala Member');
+const userEmail = ref('user@example.com');
 const darkMode = ref(false);
+const defaultCurrency = ref('PHP - Philippine Peso');
 const notifications = ref({
   expenses: true,
   trips: false,
-  settlements: true,
+  settlements: true
 });
 
-async function loadUserData(): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    userEmail.value = user.email || 'User';
-  }
-}
-
-async function handleLogout(): Promise<void> {
+// Methods
+async function handleLogout() {
   const { error } = await supabase.auth.signOut();
+
   if (error) {
     $q.notify({ type: 'negative', message: error.message });
   } else {
-    $q.notify({ type: 'positive', message: 'Logged out successfully' });
     void router.push('/login');
   }
 }
 
+async function fetchUserProfile() {
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    userEmail.value = user.email ?? 'user@example.com';
+    userName.value = user.email?.split('@')[0] ?? 'User';
+  }
+}
+
+// Lifecycle
 onMounted(() => {
-  void loadUserData();
+  void fetchUserProfile();
 });
 </script>
+
+<style scoped>
+.rounded-borders {
+  border-radius: 12px;
+}
+</style>
