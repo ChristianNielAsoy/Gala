@@ -53,11 +53,6 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true }
       },
       {
-        path: '/trips/create',
-        component: () => import('pages/TripCreationPage.vue'),
-        meta: { requiresAuth: true }
-      },
-      {
         path: '/trips/:tripId/settlement',
         component: () => import('pages/SettlementPage.vue'),
         meta: { requiresAuth: true }

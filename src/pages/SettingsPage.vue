@@ -441,7 +441,7 @@ function selectCurrency(currency: { code: string; name: string }) {
   });
 }
 
-async function saveProfile() {
+function saveProfile() {
   $q.notify({
     type: 'positive',
     message: 'Profile updated successfully!',

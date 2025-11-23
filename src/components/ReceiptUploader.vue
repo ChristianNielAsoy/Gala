@@ -150,7 +150,7 @@ async function uploadFile(file: File): Promise<void> {
     const fileName = `${props.tripId || 'temp'}/${Date.now()}.${fileExt}`;
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('expense-receipts')
       .upload(fileName, file, {
         cacheControl: '3600',
@@ -176,12 +176,13 @@ async function uploadFile(file: File): Promise<void> {
       icon: 'check_circle'
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Upload error:', error);
     $q.notify({
       type: 'negative',
       message: 'Failed to upload receipt',
-      caption: error.message
+      caption: errorMessage
     });
   } finally {
     uploading.value = false;

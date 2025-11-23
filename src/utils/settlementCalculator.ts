@@ -28,7 +28,7 @@ export function calculateMemberBalances(
     balances.set(member.id, {
       member_id: member.id,
       member_name: member.name,
-      member_avatar: member.avatar_url || undefined,
+      member_avatar: member.avatar_url ?? '',
       total_paid: 0,
       total_owed: 0,
       net_balance: 0,
@@ -72,29 +72,31 @@ export function generateSettlementSuggestions(
 ): SettlementSuggestion[] {
   const suggestions: SettlementSuggestion[] = [];
 
-  // Create mutable copies of balances to avoid mutation
   interface MutableBalance extends MemberBalance {
     net_balance: number;
   }
 
-  // Separate creditors (people who should receive money) and debtors (people who owe money)
   const creditors: MutableBalance[] = balances
-    .filter((b) => b.net_balance > 0.01) // Ignore tiny rounding errors
-    .map((b) => ({ ...b })) // Clone to avoid mutation
-    .sort((a, b) => b.net_balance - a.net_balance); // Sort descending
+    .filter((b) => b.net_balance > 0.01)
+    .map((b) => ({ ...b }))
+    .sort((a, b) => b.net_balance - a.net_balance);
 
   const debtors: MutableBalance[] = balances
     .filter((b) => b.net_balance < -0.01)
     .map((b) => ({ ...b }))
-    .sort((a, b) => a.net_balance - b.net_balance); // Sort ascending (most negative first)
+    .sort((a, b) => a.net_balance - b.net_balance);
 
   let creditorIdx = 0;
   let debtorIdx = 0;
 
-  // Greedy algorithm: Match largest creditor with largest debtor
   while (creditorIdx < creditors.length && debtorIdx < debtors.length) {
     const creditor = creditors[creditorIdx];
     const debtor = debtors[debtorIdx];
+
+    // ✅ Null check to satisfy TypeScript
+    if (!creditor || !debtor) {
+      break;
+    }
 
     const amountToSettle = Math.min(
       creditor.net_balance,
@@ -102,7 +104,6 @@ export function generateSettlementSuggestions(
     );
 
     if (amountToSettle > 0.01) {
-      // Only create settlement if amount is significant
       suggestions.push({
         from_member_id: debtor.member_id,
         to_member_id: creditor.member_id,
@@ -110,12 +111,10 @@ export function generateSettlementSuggestions(
         currency_code: currencyCode,
       });
 
-      // Update balances
       creditor.net_balance -= amountToSettle;
       debtor.net_balance += amountToSettle;
     }
 
-    // Move to next creditor or debtor if current one is settled
     if (Math.abs(creditor.net_balance) < 0.01) creditorIdx++;
     if (Math.abs(debtor.net_balance) < 0.01) debtorIdx++;
   }

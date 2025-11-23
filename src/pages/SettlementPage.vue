@@ -341,7 +341,7 @@ function isPaid(settlement: SettlementSuggestion): boolean {
   );
 }
 
-async function markAsPaid(settlement: SettlementSuggestion) {
+function markAsPaid(settlement: SettlementSuggestion) {
   currentSettlement.value = settlement;
   showProofDialog.value = true;
 }
@@ -358,7 +358,7 @@ async function confirmPayment() {
     // Upload payment proof if provided
     if (paymentProof.value) {
       const fileName = `${tripId.value}/${Date.now()}_${paymentProof.value.name}`;
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('payment-proofs')
         .upload(fileName, paymentProof.value);
 
@@ -404,12 +404,13 @@ async function confirmPayment() {
     // Reload data
     await fetchData();
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error marking payment:', error);
     $q.notify({
       type: 'negative',
       message: 'Failed to mark payment',
-      caption: error.message
+      caption: errorMessage
     });
   } finally {
     submittingPayment.value = false;
@@ -474,13 +475,15 @@ async function fetchData() {
     if (settlementError) throw settlementError;
     existingSettlements.value = settlementData;
 
-  } catch (error: any) {
-    console.error('Error fetching data:', error);
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to load settlement data'
-    });
-  } finally {
+  } catch (error: unknown) {
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  console.error('Error fetching data:', error);
+  $q.notify({
+    type: 'negative',
+    message: 'Failed to load data',
+    caption: errorMessage
+  });
+} finally {
     loading.value = false;
   }
 }

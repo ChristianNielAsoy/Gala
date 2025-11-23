@@ -264,7 +264,6 @@ import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
 import type { Expense, TripMember } from 'src/types/expense';
-import SettlementTab from 'components/SettlementTab.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -280,7 +279,6 @@ const showSettings = ref(false);
 const addMemberDialog = ref(false);
 const newMemberName = ref('');
 const tripId = ref(route.params.tripId as string);
-const settlementTabRef = ref();
 
 let currentUserId: string | undefined;
 supabase.auth.getUser().then(({ data: { user } }) => {
@@ -365,7 +363,7 @@ async function fetchTripData(): Promise<void> {
 }
 
 function goToSettlement() {
-  router.push(`/trips/${tripId.value}/settlement`);
+  void router.push(`/trips/${tripId.value}/settlement`);
 }
 
 async function addMember(): Promise<void> {
