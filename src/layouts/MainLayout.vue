@@ -1,81 +1,76 @@
 <template>
-  <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
-      <q-toolbar>
-        <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
-
-        <q-toolbar-title> Quasar App </q-toolbar-title>
-
-        <div>Quasar v{{ $q.version }}</div>
-      </q-toolbar>
-    </q-header>
-
-    <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
-      <q-list>
-        <q-item-label header> Essential Links </q-item-label>
-
-        <EssentialLink v-for="link in linksList" :key="link.title" v-bind="link" />
-      </q-list>
-    </q-drawer>
-
+  <q-layout view="lHh lpr lFf">
     <q-page-container>
+      <!-- Main view content loads here -->
       <router-view />
     </q-page-container>
+
+    <!-- Persistent Bottom Navigation Bar -->
+    <q-footer class="bg-white q-py-xs" bordered>
+      <q-tabs
+        v-model="activeTab"
+        align="justify"
+        indicator-color="primary"
+        no-caps
+        active-color="primary"
+        class="text-grey-7"
+      >
+        <q-route-tab
+          name="dashboard"
+          icon="dashboard"
+          label="Dashboard"
+          to="/dashboard"
+          exact
+        />
+
+        <q-route-tab
+          name="trips"
+          icon="flight_takeoff"
+          label="Trips"
+          to="/trips"
+          exact
+        />
+
+        <q-route-tab
+          name="people"
+          icon="people"
+          label="People"
+          to="/people"
+          exact
+        />
+
+        <!-- Add a route for profile/settings -->
+        <q-route-tab
+          name="settings"
+          icon="settings"
+          label="Settings"
+          to="/settings"
+          exact
+        />
+      </q-tabs>
+    </q-footer>
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue';
+import { ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 
-const linksList: EssentialLinkProps[] = [
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev',
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev',
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev',
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev',
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev',
-  },
-];
+const route = useRoute();
 
-const leftDrawerOpen = ref(false);
+// The active tab is synchronized with the current route path
+const activeTab = ref(route.path.split('/')[1] || 'dashboard');
 
-function toggleLeftDrawer() {
-  leftDrawerOpen.value = !leftDrawerOpen.value;
-}
+// Watch for route changes to update the active tab
+watch(() => route.path, (newPath) => {
+  // Sets the active tab name based on the first segment of the path (e.g., '/trips' -> 'trips')
+  activeTab.value = newPath.split('/')[1] || 'dashboard';
+});
 </script>
+
+<style scoped>
+/* Ensure footer sits above content on mobile */
+.q-footer {
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+}
+</style>
