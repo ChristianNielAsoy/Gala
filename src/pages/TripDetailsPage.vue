@@ -20,6 +20,7 @@
       >
         <q-tab name="expenses" label="Expenses" icon="receipt_long" />
         <q-tab name="settlement" label="Settlement" icon="account_balance_wallet" />
+
         <q-tab name="members" label="Members" icon="people" />
         <q-tab name="activity" label="Activity" icon="timeline" />
       </q-tabs>
@@ -105,12 +106,21 @@
 
       <!-- Settlement Tab -->
       <q-tab-panel name="settlement" class="q-pa-none">
-        <SettlementTab
-          v-if="trip"
-          :trip-id="tripId"
-          :trip="trip"
-          ref="settlementTabRef"
-        />
+        <div class="q-pa-md">
+          <q-btn
+            color="primary"
+            class="full-width"
+            size="lg"
+            label="View Settlement Details"
+            icon="account_balance"
+            @click="goToSettlement"
+          />
+
+          <div class="q-mt-md text-center text-grey-7">
+            <q-icon name="info" size="sm" class="q-mr-xs" />
+            See who owes whom and mark payments
+          </div>
+        </div>
       </q-tab-panel>
 
       <!-- Members Tab -->
@@ -352,6 +362,10 @@ async function fetchTripData(): Promise<void> {
   } finally {
     loading.value = false;
   }
+}
+
+function goToSettlement() {
+  router.push(`/trips/${tripId.value}/settlement`);
 }
 
 async function addMember(): Promise<void> {

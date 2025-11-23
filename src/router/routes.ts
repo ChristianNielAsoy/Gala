@@ -38,6 +38,31 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true }
       },
       {
+        path: '/settings',
+        component: () => import('pages/SettingsPage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/people',
+        component: () => import('pages/PeoplePage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/trips/:tripId/settlement',
+        component: () => import('pages/SettlementPage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/trips/create',
+        component: () => import('pages/TripCreationPage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/trips/:tripId/settlement',
+        component: () => import('pages/SettlementPage.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
         path: 'settings',
         component: () => import('pages/SettingsPage.vue'),
         meta: { requiresAuth: true }

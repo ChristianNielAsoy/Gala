@@ -189,9 +189,58 @@ USING (
     )
 );
 
--- =============================================
--- VERIFICATION
--- =============================================
--- After running this, verify policies are working:
--- SELECT * FROM trips; -- Should work
--- SELECT * FROM members; -- Should work
+-- Policies for expense-receipts bucket
+
+-- Allow authenticated users to upload receipts
+CREATE POLICY "Users can upload expense receipts"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'expense-receipts' AND
+  auth.uid() IS NOT NULL
+);
+
+-- Allow users to read receipts for their trips
+CREATE POLICY "Users can view expense receipts"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'expense-receipts'
+);
+
+-- Allow users to delete receipts they uploaded
+CREATE POLICY "Users can delete their expense receipts"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'expense-receipts' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Policies for payment-proofs bucket
+
+-- Allow authenticated users to upload payment proofs
+CREATE POLICY "Users can upload payment proofs"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'payment-proofs' AND
+  auth.uid() IS NOT NULL
+);
+
+-- Allow users to view payment proofs for their trips
+CREATE POLICY "Users can view payment proofs"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'payment-proofs'
+);
+
+-- Allow users to delete payment proofs they uploaded
+CREATE POLICY "Users can delete their payment proofs"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'payment-proofs' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);

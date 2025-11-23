@@ -262,32 +262,145 @@ USING (
     )
 );
 
--- =============================================
--- HELPER FUNCTIONS
--- =============================================
 
--- Function to update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
--- Triggers to auto-update updated_at
-CREATE TRIGGER update_trips_updated_at 
-    BEFORE UPDATE ON public.trips 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+-- 1. Add missing columns to trips table
+ALTER TABLE trips 
+ADD COLUMN IF NOT EXISTS cover_image_url TEXT,
+ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'planning', -- 'planning', 'active', 'completed'
+ADD COLUMN IF NOT EXISTS budget_amount DECIMAL(10,2),
+ADD COLUMN IF NOT EXISTS location TEXT,
+ADD COLUMN IF NOT EXISTS description TEXT;
 
-CREATE TRIGGER update_expenses_updated_at 
-    BEFORE UPDATE ON public.expenses 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+-- Add check constraint for status
+ALTER TABLE trips 
+ADD CONSTRAINT trips_status_check 
+CHECK (status IN ('planning', 'active', 'completed', 'archived'));
 
--- =============================================
--- COMPLETED!
--- =============================================
--- Now your database is ready for the Gala app
--- All tables have proper RLS policies for security
+-- 2. Create itinerary_events table
+CREATE TABLE IF NOT EXISTS itinerary_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+  event_date DATE NOT NULL,
+  event_time TIME,
+  title TEXT NOT NULL,
+  location TEXT,
+  description TEXT,
+  icon TEXT DEFAULT 'event',
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Index for faster trip queries
+CREATE INDEX IF NOT EXISTS idx_itinerary_events_trip_id 
+ON itinerary_events(trip_id);
+
+CREATE INDEX IF NOT EXISTS idx_itinerary_events_date 
+ON itinerary_events(event_date);
+
+-- 3. Create settlements table
+CREATE TABLE IF NOT EXISTS settlements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+  from_member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  to_member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
+  currency_code VARCHAR(3) NOT NULL DEFAULT 'PHP',
+  status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'verified', 'cancelled'
+  payment_method TEXT, -- 'cash', 'gcash', 'card', 'bank_transfer'
+  payment_proof_url TEXT,
+  notes TEXT,
+  paid_at TIMESTAMP WITH TIME ZONE,
+  verified_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Add constraint: can't owe yourself
+ALTER TABLE settlements 
+ADD CONSTRAINT settlements_different_members_check 
+CHECK (from_member_id != to_member_id);
+
+-- Add constraint for status
+ALTER TABLE settlements 
+ADD CONSTRAINT settlements_status_check 
+CHECK (status IN ('pending', 'paid', 'verified', 'cancelled'));
+
+-- Indexes for settlements
+CREATE INDEX IF NOT EXISTS idx_settlements_trip_id 
+ON settlements(trip_id);
+
+CREATE INDEX IF NOT EXISTS idx_settlements_from_member 
+ON settlements(from_member_id);
+
+CREATE INDEX IF NOT EXISTS idx_settlements_to_member 
+ON settlements(to_member_id);
+
+CREATE INDEX IF NOT EXISTS idx_settlements_status 
+ON settlements(status);
+
+-- 4. Create expense_items table (for itemized expenses)
+CREATE TABLE IF NOT EXISTS expense_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  expense_id UUID NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
+  item_name TEXT NOT NULL,
+  item_amount DECIMAL(10,2) NOT NULL CHECK (item_amount >= 0),
+  quantity INTEGER DEFAULT 1 CHECK (quantity > 0),
+  display_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Index for expense items
+CREATE INDEX IF NOT EXISTS idx_expense_items_expense_id 
+ON expense_items(expense_id);
+
+-- 5. Create user_preferences table
+CREATE TABLE IF NOT EXISTS user_preferences (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  dark_mode BOOLEAN DEFAULT FALSE,
+  default_currency VARCHAR(3) DEFAULT 'PHP',
+  notifications_enabled BOOLEAN DEFAULT TRUE,
+  expense_updates BOOLEAN DEFAULT TRUE,
+  trip_reminders BOOLEAN DEFAULT TRUE,
+  settlement_alerts BOOLEAN DEFAULT TRUE,
+  language VARCHAR(10) DEFAULT 'en',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 6. Add receipt fields to expenses table
+ALTER TABLE expenses 
+ADD COLUMN IF NOT EXISTS receipt_url TEXT,
+ADD COLUMN IF NOT EXISTS has_receipt BOOLEAN DEFAULT FALSE;
+
+-- 7. Create trip_tags table (for categorizing trips)
+CREATE TABLE IF NOT EXISTS trip_tags (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+  tag_name TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(trip_id, tag_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_trip_tags_trip_id 
+ON trip_tags(trip_id);
+
+-- 8. Create activity_log table (for timeline/audit trail)
+CREATE TABLE IF NOT EXISTS activity_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  action_type TEXT NOT NULL, -- 'expense_added', 'member_joined', 'settlement_paid', etc.
+  entity_type TEXT, -- 'expense', 'member', 'settlement', 'itinerary'
+  entity_id UUID,
+  description TEXT NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_log_trip_id 
+ON activity_log(trip_id);
+
+CREATE INDEX IF NOT EXISTS idx_activity_log_created_at 
+ON activity_log(created_at DESC);

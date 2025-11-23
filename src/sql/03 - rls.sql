@@ -258,23 +258,161 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.expense_splits TO authenticated;
 -- Grant usage on sequences (for auto-increment IDs)
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
--- =============================================
--- VERIFICATION QUERIES
--- =============================================
--- After running, test these queries:
 
--- 1. Check if policies exist
-SELECT schemaname, tablename, policyname 
-FROM pg_policies 
-WHERE schemaname = 'public' 
-ORDER BY tablename, policyname;
+-- ========================================
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- ========================================
 
--- 2. Check RLS status
-SELECT tablename, rowsecurity 
-FROM pg_tables 
-WHERE schemaname = 'public' 
-AND tablename IN ('trips', 'members', 'expenses', 'expense_splits');
+-- Enable RLS on new tables
+ALTER TABLE itinerary_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expense_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trip_tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
 
--- =============================================
--- DONE!
--- =============================================
+-- Policies for itinerary_events
+CREATE POLICY "Users can view itinerary events for their trips"
+ON itinerary_events FOR SELECT
+USING (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can insert itinerary events for their trips"
+ON itinerary_events FOR INSERT
+WITH CHECK (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can update itinerary events for their trips"
+ON itinerary_events FOR UPDATE
+USING (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can delete itinerary events for their trips"
+ON itinerary_events FOR DELETE
+USING (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+-- Policies for settlements
+CREATE POLICY "Users can view settlements for their trips"
+ON settlements FOR SELECT
+USING (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can create settlements for their trips"
+ON settlements FOR INSERT
+WITH CHECK (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can update settlements for their trips"
+ON settlements FOR UPDATE
+USING (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+-- Policies for expense_items
+CREATE POLICY "Users can view expense items for their trip expenses"
+ON expense_items FOR SELECT
+USING (
+  expense_id IN (
+    SELECT e.id FROM expenses e
+    INNER JOIN members m ON e.trip_id = m.trip_id
+    WHERE m.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can insert expense items for their trip expenses"
+ON expense_items FOR INSERT
+WITH CHECK (
+  expense_id IN (
+    SELECT e.id FROM expenses e
+    INNER JOIN members m ON e.trip_id = m.trip_id
+    WHERE m.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can update expense items for their trip expenses"
+ON expense_items FOR UPDATE
+USING (
+  expense_id IN (
+    SELECT e.id FROM expenses e
+    INNER JOIN members m ON e.trip_id = m.trip_id
+    WHERE m.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can delete expense items for their trip expenses"
+ON expense_items FOR DELETE
+USING (
+  expense_id IN (
+    SELECT e.id FROM expenses e
+    INNER JOIN members m ON e.trip_id = m.trip_id
+    WHERE m.user_id = auth.uid()
+  )
+);
+
+-- Policies for user_preferences
+CREATE POLICY "Users can view their own preferences"
+ON user_preferences FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own preferences"
+ON user_preferences FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own preferences"
+ON user_preferences FOR UPDATE
+USING (auth.uid() = user_id);
+
+-- Policies for trip_tags
+CREATE POLICY "Users can view tags for their trips"
+ON trip_tags FOR SELECT
+USING (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can manage tags for their trips"
+ON trip_tags FOR ALL
+USING (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+-- Policies for activity_log
+CREATE POLICY "Users can view activity for their trips"
+ON activity_log FOR SELECT
+USING (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can create activity logs for their trips"
+ON activity_log FOR INSERT
+WITH CHECK (
+  trip_id IN (
+    SELECT trip_id FROM members WHERE user_id = auth.uid()
+  )
+);
