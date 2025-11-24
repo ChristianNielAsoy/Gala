@@ -53,6 +53,7 @@ export interface Expense {
   id: string;
   trip_id: string;
   paid_by_id: string;
+  paid_by_name?: string;
   amount: number;
   currency_code: string;
   description: string;

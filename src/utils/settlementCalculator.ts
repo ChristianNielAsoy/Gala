@@ -1,257 +1,167 @@
 // src/utils/settlementCalculator.ts
-// Core logic for calculating who owes whom in a trip
 
-import type {
-  Expense,
-  ExpenseSplit,
-  TripMember,
-  MemberBalance,
-  SettlementSuggestion,
-} from 'src/types/expense';
+export interface MemberBalance {
+  memberId: string;
+  memberName: string;
+  balance: number; // Positive = owed to them, Negative = they owe
+}
+
+export interface Settlement {
+  from: string;
+  fromName: string;
+  to: string;
+  toName: string;
+  amount: number;
+}
+
+export interface ExpenseWithSplits {
+  id: string;
+  paid_by_id: string;
+  amount: number;
+  splits: {
+    member_id: string;
+    share_amount: number;
+  }[];
+}
 
 /**
- * Calculate the net balance for each member in a trip
- * @param expenses - All expenses in the trip
- * @param splits - All expense splits
- * @param members - All trip members
- * @returns Array of member balances (positive = owed, negative = owes)
+ * Calculate net balances for all members
+ * Returns positive balance if member is owed money, negative if they owe
  */
 export function calculateMemberBalances(
-  expenses: Expense[],
-  splits: ExpenseSplit[],
-  members: TripMember[]
+  expenses: ExpenseWithSplits[],
+  members: { id: string; name: string }[]
 ): MemberBalance[] {
-  const balances = new Map<string, MemberBalance>();
+  const balances = new Map<string, number>();
 
-  // Initialize balances for all members
-  members.forEach((member) => {
-    balances.set(member.id, {
-      member_id: member.id,
-      member_name: member.name,
-      member_avatar: member.avatar_url ?? '',
-      total_paid: 0,
-      total_owed: 0,
-      net_balance: 0,
+  // Initialize all members with 0 balance
+  members.forEach(member => {
+    balances.set(member.id, 0);
+  });
+
+  // Process each expense
+  expenses.forEach(expense => {
+    const payerId = expense.paid_by_id;
+    const totalPaid = expense.amount;
+
+    // The payer gets credited for the full amount
+    balances.set(payerId, (balances.get(payerId) || 0) + totalPaid);
+
+    // Each consumer owes their share
+    expense.splits.forEach(split => {
+      balances.set(
+        split.member_id,
+        (balances.get(split.member_id) || 0) - split.share_amount
+      );
     });
   });
 
-  // Calculate total paid by each member
-  expenses.forEach((expense) => {
-    const balance = balances.get(expense.paid_by_id);
-    if (balance) {
-      balance.total_paid += expense.amount;
-    }
-  });
-
-  // Calculate total owed by each member (their share of expenses)
-  splits.forEach((split) => {
-    const balance = balances.get(split.member_id);
-    if (balance) {
-      balance.total_owed += split.share_amount;
-    }
-  });
-
-  // Calculate net balance (positive = should receive money, negative = should pay money)
-  balances.forEach((balance) => {
-    balance.net_balance = balance.total_paid - balance.total_owed;
-  });
-
-  return Array.from(balances.values());
+  // Convert to array and add names
+  return members.map(member => ({
+    memberId: member.id,
+    memberName: member.name,
+    balance: balances.get(member.id) || 0
+  }));
 }
 
 /**
- * Generate optimal settlement suggestions to minimize transactions
- * Uses a greedy algorithm to settle debts efficiently
- * @param balances - Member balances calculated from expenses
- * @param currencyCode - The trip's currency code
- * @returns Array of suggested settlements
+ * Simplify debts to minimize number of transactions
+ * Uses greedy algorithm to match largest debtor with largest creditor
  */
-export function generateSettlementSuggestions(
-  balances: MemberBalance[],
-  currencyCode: string
-): SettlementSuggestion[] {
-  const suggestions: SettlementSuggestion[] = [];
+export function simplifySettlements(balances: MemberBalance[]): Settlement[] {
+  const settlements: Settlement[] = [];
 
-  interface MutableBalance extends MemberBalance {
-    net_balance: number;
-  }
+  // Create mutable working arrays
+  const creditors = balances
+    .filter(b => b.balance > 0.01)
+    .map(b => ({
+      memberId: b.memberId,
+      memberName: b.memberName,
+      balance: b.balance
+    }))
+    .sort((a, b) => b.balance - a.balance);
 
-  const creditors: MutableBalance[] = balances
-    .filter((b) => b.net_balance > 0.01)
-    .map((b) => ({ ...b }))
-    .sort((a, b) => b.net_balance - a.net_balance);
+  const debtors = balances
+    .filter(b => b.balance < -0.01)
+    .map(b => ({
+      memberId: b.memberId,
+      memberName: b.memberName,
+      balance: Math.abs(b.balance)
+    }))
+    .sort((a, b) => b.balance - a.balance);
 
-  const debtors: MutableBalance[] = balances
-    .filter((b) => b.net_balance < -0.01)
-    .map((b) => ({ ...b }))
-    .sort((a, b) => a.net_balance - b.net_balance);
+  let creditorIndex = 0;
+  let debtorIndex = 0;
 
-  let creditorIdx = 0;
-  let debtorIdx = 0;
+  while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
+    // Get current creditor and debtor with null checks
+    const currentCreditor = creditors[creditorIndex];
+    const currentDebtor = debtors[debtorIndex];
 
-  while (creditorIdx < creditors.length && debtorIdx < debtors.length) {
-    const creditor = creditors[creditorIdx];
-    const debtor = debtors[debtorIdx];
+    if (!currentCreditor || !currentDebtor) break;
 
-    // ✅ Null check to satisfy TypeScript
-    if (!creditor || !debtor) {
-      break;
-    }
+    // Calculate settlement amount
+    const settleAmount = Math.min(currentCreditor.balance, currentDebtor.balance);
 
-    const amountToSettle = Math.min(
-      creditor.net_balance,
-      Math.abs(debtor.net_balance)
-    );
-
-    if (amountToSettle > 0.01) {
-      suggestions.push({
-        from_member_id: debtor.member_id,
-        to_member_id: creditor.member_id,
-        amount: parseFloat(amountToSettle.toFixed(2)),
-        currency_code: currencyCode,
+    if (settleAmount > 0.01) {
+      settlements.push({
+        from: currentDebtor.memberId,
+        fromName: currentDebtor.memberName,
+        to: currentCreditor.memberId,
+        toName: currentCreditor.memberName,
+        amount: Math.round(settleAmount * 100) / 100
       });
 
-      creditor.net_balance -= amountToSettle;
-      debtor.net_balance += amountToSettle;
+      // Update balances
+      currentCreditor.balance -= settleAmount;
+      currentDebtor.balance -= settleAmount;
     }
 
-    if (Math.abs(creditor.net_balance) < 0.01) creditorIdx++;
-    if (Math.abs(debtor.net_balance) < 0.01) debtorIdx++;
+    // Move to next creditor or debtor if balance is settled
+    if (currentCreditor.balance < 0.01) creditorIndex++;
+    if (currentDebtor.balance < 0.01) debtorIndex++;
   }
 
-  return suggestions;
+  return settlements;
 }
 
 /**
- * Calculate the total expense amount for a trip
+ * Get settlement summary for a specific member
  */
-export function calculateTripTotal(expenses: Expense[]): number {
-  return expenses.reduce((sum, expense) => sum + expense.amount, 0);
-}
-
-/**
- * Calculate how much a specific member owes or is owed
- */
-export function getMemberBalance(
+export function getMemberSettlementSummary(
   memberId: string,
-  balances: MemberBalance[]
-): number {
-  const balance = balances.find((b) => b.member_id === memberId);
-  return balance ? balance.net_balance : 0;
+  settlements: Settlement[]
+): {
+  toReceive: Settlement[];
+  toPay: Settlement[];
+  netBalance: number;
+} {
+  const toReceive = settlements.filter(s => s.to === memberId);
+  const toPay = settlements.filter(s => s.from === memberId);
+
+  const netBalance =
+    toReceive.reduce((sum, s) => sum + s.amount, 0) -
+    toPay.reduce((sum, s) => sum + s.amount, 0);
+
+  return {
+    toReceive,
+    toPay,
+    netBalance
+  };
 }
 
 /**
  * Format currency amount for display
  */
-export function formatCurrency(amount: number, currencyCode: string): string {
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: currencyCode,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+export function formatCurrency(amount: number, currencyCode = 'PHP'): string {
+  return `${currencyCode} ${amount.toFixed(2)}`;
 }
 
 /**
- * Get settlement summary text for a member
+ * Get color class based on balance
  */
-export function getSettlementSummary(
-  memberId: string,
-  balances: MemberBalance[],
-  suggestions: SettlementSuggestion[],
-  allMembers: TripMember[]
-): {
-  status: 'settled' | 'owes' | 'owed';
-  message: string;
-  details: Array<{ to: string; amount: number }>;
-} {
-  const balance = balances.find((b) => b.member_id === memberId);
-  if (!balance) {
-    return { status: 'settled', message: 'All settled!', details: [] };
-  }
-
-  if (Math.abs(balance.net_balance) < 0.01) {
-    return { status: 'settled', message: 'All settled!', details: [] };
-  }
-
-  const relevantSuggestions = suggestions.filter(
-    (s) => s.from_member_id === memberId || s.to_member_id === memberId
-  );
-
-  const details = relevantSuggestions.map((suggestion) => {
-    const isDebtor = suggestion.from_member_id === memberId;
-    const otherMemberId = isDebtor
-      ? suggestion.to_member_id
-      : suggestion.from_member_id;
-    const otherMember = allMembers.find((m) => m.id === otherMemberId);
-
-    return {
-      to: otherMember?.name || 'Unknown',
-      amount: suggestion.amount,
-    };
-  });
-
-  if (balance.net_balance < 0) {
-    const totalOwed = Math.abs(balance.net_balance);
-    return {
-      status: 'owes',
-      message: `You owe ${formatCurrency(totalOwed, 'PHP')}`,
-      details,
-    };
-  } else {
-    return {
-      status: 'owed',
-      message: `You are owed ${formatCurrency(balance.net_balance, 'PHP')}`,
-      details,
-    };
-  }
-}
-
-/**
- * Validate if settlement amounts match expected values
- */
-export function validateSettlement(
-  settlement: SettlementSuggestion,
-  balances: MemberBalance[]
-): { valid: boolean; error?: string } {
-  const fromBalance = balances.find(
-    (b) => b.member_id === settlement.from_member_id
-  );
-  const toBalance = balances.find(
-    (b) => b.member_id === settlement.to_member_id
-  );
-
-  if (!fromBalance || !toBalance) {
-    return { valid: false, error: 'Invalid member IDs' };
-  }
-
-  if (fromBalance.net_balance >= 0) {
-    return {
-      valid: false,
-      error: 'From member does not owe money',
-    };
-  }
-
-  if (toBalance.net_balance <= 0) {
-    return {
-      valid: false,
-      error: 'To member is not owed money',
-    };
-  }
-
-  if (settlement.amount > Math.abs(fromBalance.net_balance) + 0.01) {
-    return {
-      valid: false,
-      error: 'Settlement amount exceeds debt',
-    };
-  }
-
-  if (settlement.amount > toBalance.net_balance + 0.01) {
-    return {
-      valid: false,
-      error: 'Settlement amount exceeds credit',
-    };
-  }
-
-  return { valid: true };
+export function getBalanceColorClass(balance: number): string {
+  if (balance > 0.01) return 'text-positive';
+  if (balance < -0.01) return 'text-negative';
+  return 'text-grey-7';
 }

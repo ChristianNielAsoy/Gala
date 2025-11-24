@@ -20,7 +20,6 @@
       >
         <q-tab name="expenses" label="Expenses" icon="receipt_long" />
         <q-tab name="settlement" label="Settlement" icon="account_balance_wallet" />
-
         <q-tab name="members" label="Members" icon="people" />
         <q-tab name="activity" label="Activity" icon="timeline" />
       </q-tabs>
@@ -29,98 +28,61 @@
     <!-- Tab Panels -->
     <q-tab-panels v-model="tab" animated class="bg-grey-1">
 
-      <!-- Expenses Tab -->
+      <!-- Expenses Tab Panel -->
       <q-tab-panel name="expenses" class="q-pa-none">
-        <div v-if="loading" class="text-center q-pa-xl">
+        <div v-if="loadingExpenses" class="text-center q-pa-xl">
           <q-spinner color="primary" size="lg" />
         </div>
-        <div v-else-if="!trip" class="text-center q-pa-xl">
-          <q-icon name="error_outline" size="lg" color="negative" />
-          <p class="text-h6 q-mt-sm">Trip Not Found</p>
-        </div>
-        <div v-else class="q-pa-md">
 
-          <!-- Balance Overview -->
+        <div v-else class="q-pa-md">
+          <!-- Balances Overview -->
           <q-card class="q-mb-md shadow-2">
             <q-card-section>
               <div class="text-h6 text-primary">Balances Overview</div>
+              <div class="text-h4 text-weight-bold q-mt-sm">
+                {{ trip?.currency_code }} {{ totalSpent.toFixed(2) }}
+              </div>
               <div class="text-subtitle2 text-grey-7">
-                Total spent: {{ trip.currency_code }} {{ totalSpent.toFixed(2) }}
+                Total spent across {{ expenses.length }} expenses
               </div>
             </q-card-section>
           </q-card>
 
           <!-- Expense List -->
-          <q-card class="q-mb-md shadow-2">
+          <q-card class="shadow-2">
             <q-card-section>
-              <div class="text-h6">Expense List</div>
-              <q-list separator class="q-mt-sm">
-                <q-item
+              <div class="text-h6 q-mb-sm">Expense List</div>
+
+              <q-list separator v-if="expenses.length > 0">
+                <expense-list-item
                   v-for="expense in expenses"
                   :key="expense.id"
-                  clickable
-                  v-ripple
-                  @click="handleEditExpense(expense.id)"
-                >
-                  <q-item-section avatar>
-                    <q-avatar
-                      :icon="getCategoryIcon(expense.category)"
-                      color="grey-2"
-                      text-color="primary"
-                    />
-                  </q-item-section>
-
-                  <q-item-section>
-                    <q-item-label class="text-weight-bold">
-                      {{ expense.description }}
-                    </q-item-label>
-                    <q-item-label caption>
-                      Paid by {{ getMemberName(expense.paid_by_id) }} | {{ formatDate(expense.date) }}
-                    </q-item-label>
-                  </q-item-section>
-
-                  <q-item-section side>
-                    <q-item-label
-                      class="text-weight-bolder text-right"
-                      :class="expense.paid_by_id === currentMemberId ? 'text-positive' : 'text-grey-8'"
-                    >
-                      {{ expense.currency_code }} {{ expense.amount.toFixed(2) }}
-                    </q-item-label>
-                    <q-item-label caption class="text-right">
-                      {{ expense.paid_by_id === currentMemberId ? 'You paid' : 'Shared' }}
-                    </q-item-label>
-                  </q-item-section>
-                </q-item>
-
-                <!-- Empty State -->
-                <div class="text-center q-py-lg text-grey-6" v-if="expenses.length === 0">
-                  <q-icon name="receipt_long" size="48px" class="q-mb-sm" />
-                  <div>No expenses recorded yet</div>
-                  <div class="text-caption">Tap the + button to add one</div>
-                </div>
+                  :expense="expense"
+                  :current-member-id="currentMemberId"
+                  @click="editExpense(expense.id)"
+                />
               </q-list>
+
+              <!-- Empty State -->
+              <div v-else class="text-center q-py-xl">
+                <q-icon name="receipt_long" size="xl" color="grey-4" />
+                <p class="text-h6 text-grey-6 q-mt-md">No expenses yet</p>
+                <p class="text-grey-7">Tap the + button below to add your first expense</p>
+              </div>
             </q-card-section>
           </q-card>
         </div>
       </q-tab-panel>
 
-      <!-- Settlement Tab -->
+      <!-- Settlement Tab with SettlementView Component -->
       <q-tab-panel name="settlement" class="q-pa-none">
-        <div class="q-pa-md">
-          <q-btn
-            color="primary"
-            class="full-width"
-            size="lg"
-            label="View Settlement Details"
-            icon="account_balance"
-            @click="goToSettlement"
-          />
-
-          <div class="q-mt-md text-center text-grey-7">
-            <q-icon name="info" size="sm" class="q-mr-xs" />
-            See who owes whom and mark payments
-          </div>
-        </div>
+        <settlement-view
+          :expenses="expensesWithSplits"
+          :members="members"
+          :current-member-id="currentMemberId"
+          :currency-code="trip?.currency_code || 'PHP'"
+          :loading="loadingExpenses"
+        />
       </q-tab-panel>
 
       <!-- Members Tab -->
@@ -264,6 +226,9 @@ import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
 import type { Expense, TripMember } from 'src/types/expense';
+import ExpenseListItem from 'src/components/ExpenseListItem.vue';
+import SettlementView from 'src/components/SettlementView.vue';
+import type { ExpenseWithSplits } from 'src/utils/settlementCalculator';
 
 const route = useRoute();
 const router = useRouter();
@@ -272,9 +237,11 @@ const $q = useQuasar();
 // State
 const tab = ref('expenses');
 const loading = ref(true);
+const loadingExpenses = ref(false);
 const trip = ref<Trip | null>(null);
 const members = ref<TripMember[]>([]);
 const expenses = ref<Expense[]>([]);
+const expensesWithSplits = ref<ExpenseWithSplits[]>([]);
 const showSettings = ref(false);
 const addMemberDialog = ref(false);
 const newMemberName = ref('');
@@ -285,7 +252,7 @@ supabase.auth.getUser().then(({ data: { user } }) => {
   currentUserId = user?.id;
 }).catch(console.error);
 
-const currentMemberId = computed(() =>
+const currentMemberId = computed<string | undefined>(() =>
   members.value.find((m: TripMember) => m.user_id === currentUserId)?.id
 );
 
@@ -322,48 +289,82 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function editExpense(expenseId: string): void {
+  void router.push(`/trips/${tripId.value}/expense/${expenseId}`);
+}
+
 async function fetchTripData(): Promise<void> {
   loading.value = true;
+  loadingExpenses.value = true;
+  const id = tripId.value;
+
+  if (!id) {
+    trip.value = null;
+    loading.value = false;
+    loadingExpenses.value = false;
+    return;
+  }
 
   try {
-    // Fetch trip
+    // 1. Fetch Trip Details
     const { data: tripData, error: tripError } = await supabase
       .from('trips')
       .select('*')
-      .eq('id', tripId.value)
+      .eq('id', id)
       .single();
 
-    if (tripError || !tripData) throw new Error('Trip not found');
+    if (tripError || !tripData) throw new Error('Trip not found or access denied.');
     trip.value = tripData as Trip;
 
-    // Fetch members
-    const { data: memberData } = await supabase
+    // 2. Fetch Trip Members
+    const { data: memberData, error: memberError } = await supabase
       .from('members')
       .select('*')
-      .eq('trip_id', tripId.value)
+      .eq('trip_id', id)
       .order('name');
 
-    members.value = (memberData as TripMember[]) || [];
+    if (memberError || !memberData) throw new Error('Could not load trip members.');
+    members.value = memberData as TripMember[];
 
-    // Fetch expenses
-    const { data: expenseData } = await supabase
+    // 3. Fetch Expenses WITH splits (for both display and settlement)
+    const { data: expenseData, error: expenseError } = await supabase
       .from('expenses')
-      .select('*')
-      .eq('trip_id', tripId.value)
+      .select(`
+        *,
+        payer:members!paid_by_id(name),
+        splits:expense_splits(member_id, share_amount)
+      `)
+      .eq('trip_id', id)
       .order('date', { ascending: false });
 
-    expenses.value = (expenseData as Expense[]) || [];
+    if (expenseError) throw expenseError;
 
-  } catch (error) {
-    console.error('Error fetching trip data:', error);
-    $q.notify({ type: 'negative', message: 'Failed to load trip' });
+    // Map data for expense list display
+    expenses.value = (expenseData || []).map(exp => ({
+      ...exp,
+      paid_by_name: exp.payer?.name || 'Unknown'
+    })) as Expense[];
+
+    // Store expenses with splits for settlement calculation
+    expensesWithSplits.value = (expenseData || []).map(exp => ({
+      id: exp.id,
+      paid_by_id: exp.paid_by_id,
+      amount: exp.amount,
+      splits: exp.splits || []
+    }));
+
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('Error fetching trip data:', err);
+    $q.notify({ type: 'negative', message: err.message || 'Error fetching trip data.' });
+    trip.value = null;
+    members.value = [];
+    expenses.value = [];
+    expensesWithSplits.value = [];
   } finally {
     loading.value = false;
+    loadingExpenses.value = false;
   }
-}
-
-function goToSettlement() {
-  void router.push(`/trips/${tripId.value}/settlement`);
 }
 
 async function addMember(): Promise<void> {
@@ -399,10 +400,6 @@ function handleAddExpense(): void {
   void router.push(`/trips/${tripId.value}/expense/new`);
 }
 
-function handleEditExpense(expenseId: string): void {
-  void router.push(`/trips/${tripId.value}/expense/${expenseId}`);
-}
-
 function handleBack(): void {
   void router.back();
 }
@@ -410,6 +407,38 @@ function handleBack(): void {
 // Lifecycle
 onMounted(() => {
   void fetchTripData();
+
+  // Real-time subscriptions for live updates
+  const channel = supabase.channel(`trip_${tripId.value}_changes`);
+
+  channel
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'expenses',
+      filter: `trip_id=eq.${tripId.value}`
+    }, () => {
+      console.log('Realtime expense change detected');
+      void fetchTripData();
+    })
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'expense_splits'
+    }, () => {
+      console.log('Realtime split change detected');
+      void fetchTripData();
+    })
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'members',
+      filter: `trip_id=eq.${tripId.value}`
+    }, () => {
+      console.log('Realtime member change detected');
+      void fetchTripData();
+    })
+    .subscribe();
 });
 </script>
 

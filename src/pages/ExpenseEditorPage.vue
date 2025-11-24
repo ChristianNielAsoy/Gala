@@ -108,6 +108,16 @@
               class="q-mb-md"
             />
 
+            <!-- Custom Split Component (NEW) -->
+            <custom-split-amounts
+              v-if="expenseForm.split_type === 'custom'"
+              v-model="customSplits"
+              :involved-members="involvedMembersData"
+              :total-amount="expenseForm.amount || 0"
+              :currency-code="trip?.currency_code || 'PHP'"
+              class="q-mt-md"
+            />
+
             <!-- ITEM-BASED SPLITTING -->
             <div v-if="splitMode === 'itemized'" class="q-mt-md">
               <div class="row items-center justify-between q-mb-sm">
@@ -292,6 +302,12 @@ import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
 import type { Expense, TripMember, SplitType, ExpenseSplit } from 'src/types/expense';
+import CustomSplitAmounts from 'src/components/CustomSplitAmounts.vue';
+
+// Add computed to transform member IDs to member objects
+const involvedMembersData = computed(() => {
+  return members.value.filter(m => involvedMembers.value.includes(m.id));
+});
 
 const route = useRoute();
 const router = useRouter();
@@ -550,55 +566,82 @@ function calculateSplits(): ExpenseSplit[] {
 }
 
 // Save expense
-async function handleSave(): Promise<void> {
+async function handleSave() {
   if (!isValid.value) {
-    $q.notify({ type: 'warning', message: 'Please complete all required fields correctly.' });
+    $q.notify({
+      type: 'warning',
+      message: 'Please complete all required fields and ensure splits are valid.'
+    });
     return;
   }
 
   saving.value = true;
-  const splits = calculateSplits();
-
-  const newExpense: Partial<Expense> = {
-    trip_id: tripId.value,
-    paid_by_id: expenseForm.value.paid_by_id,
-    description: expenseForm.value.description,
-    amount: expenseForm.value.amount!,
-    currency_code: trip.value?.currency_code || 'PHP',
-    category: expenseForm.value.category,
-    date: expenseForm.value.date,
-  };
 
   try {
-    const { data: expenseInsertData, error: expenseError } = await supabase
+    // 1. Calculate splits based on type
+    let splits: { member_id: string; share_amount: number }[] = [];
+
+    if (expenseForm.value.split_type === 'equal') {
+      const count = involvedMembers.value.length;
+      const baseShare = Math.floor((expenseForm.value.amount! * 100) / count) / 100;
+      const remainder = expenseForm.value.amount! - (baseShare * count);
+
+      splits = involvedMembers.value.map((memberId, index) => ({
+        member_id: memberId,
+        share_amount: index === 0 ? baseShare + remainder : baseShare
+      }));
+
+    } else if (expenseForm.value.split_type === 'custom') {
+      splits = involvedMembers.value.map(memberId => ({
+        member_id: memberId,
+        share_amount: customSplits.value[memberId] || 0
+      })).filter(s => s.share_amount > 0);
+    }
+
+    // 2. Insert Expense
+    const { data: expenseData, error: expenseError } = await supabase
       .from('expenses')
-      .insert(newExpense)
+      .insert({
+        trip_id: tripId.value,
+        paid_by_id: expenseForm.value.paid_by_id,
+        description: expenseForm.value.description,
+        amount: expenseForm.value.amount!,
+        currency_code: trip.value?.currency_code || 'PHP',
+        category: expenseForm.value.category,
+        date: expenseForm.value.date,
+      })
       .select('id')
       .single();
 
-    if (expenseError || !expenseInsertData) throw expenseError;
+    if (expenseError || !expenseData) throw expenseError;
 
-    const newExpenseId = expenseInsertData.id;
-
-    // Insert splits
-    const splitsToInsert = splits.map((s: ExpenseSplit) => ({
-      ...s,
-      expense_id: newExpenseId,
+    // 3. Insert Splits
+    const splitsToInsert = splits.map(s => ({
+      expense_id: expenseData.id,
+      member_id: s.member_id,
+      share_amount: s.share_amount
     }));
 
-    const { error: splitError } = await supabase
+    const { error: splitsError } = await supabase
       .from('expense_splits')
       .insert(splitsToInsert);
 
-    if (splitError) throw splitError;
+    if (splitsError) throw splitsError;
 
-    $q.notify({ type: 'positive', message: 'Expense saved successfully!' });
-    void router.back();
+    $q.notify({
+      type: 'positive',
+      message: 'Expense saved successfully!',
+      icon: 'check_circle'
+    });
 
-  } catch (error) {
+    router.back();
+
+  } catch (error: any) {
     console.error('Error saving expense:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    $q.notify({ type: 'negative', message: 'Failed to save expense: ' + errorMessage });
+    $q.notify({
+      type: 'negative',
+      message: error.message || 'Failed to save expense'
+    });
   } finally {
     saving.value = false;
   }
