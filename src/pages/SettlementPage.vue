@@ -18,25 +18,29 @@
       <q-card class="q-mb-lg shadow-4 text-center">
         <q-card-section class="bg-gradient-primary text-white q-py-xl">
           <q-avatar size="80px" class="q-mb-md">
-            <img v-if="currentMember?.avatar_url" :src="currentMember.avatar_url" alt="User avatar" />
+            <img
+              v-if="currentMember?.avatar_url"
+              :src="currentMember.avatar_url"
+              alt="User avatar"
+            />
             <q-icon v-else name="person" size="40px" />
           </q-avatar>
 
           <div v-if="userBalance">
-            <div v-if="Math.abs(userBalance.net_balance) < 0.01" class="text-h5 q-mb-sm">
+            <div v-if="Math.abs(userBalance.netBalance) < 0.01" class="text-h5 q-mb-sm">
               <q-icon name="check_circle" size="md" class="q-mr-sm" />
               All Settled!
             </div>
-            <div v-else-if="userBalance.net_balance < 0">
-              <div class="text-subtitle2 text-grey-3">You owe</div>
-              <div class="text-h3 text-weight-bold text-negative">
-                {{ formatCurrency(Math.abs(userBalance.net_balance), trip?.currency_code || 'PHP') }}
+           <div v-else-if="userBalance.netBalance < 0">
+                <div class="text-subtitle2 text-grey-3">You owe</div>
+                <div class="text-h3 text-weight-bold text-negative">
+                  {{ formatCurrency(Math.abs(userBalance.netBalance), trip?.currency_code || 'PHP') }}
+                </div>
               </div>
-            </div>
             <div v-else>
               <div class="text-subtitle2 text-grey-3">You are owed</div>
               <div class="text-h3 text-weight-bold text-positive">
-                {{ formatCurrency(userBalance.net_balance, trip?.currency_code || 'PHP') }}
+                {{ formatCurrency(userBalance.netBalance, trip?.currency_code || 'PHP') }}
               </div>
             </div>
           </div>
@@ -44,7 +48,7 @@
       </q-card>
 
       <!-- Settlements to Make (if user owes money) -->
-      <div v-if="userBalance && userBalance.net_balance < -0.01">
+      <div v-if="userBalance && userBalance.netBalance < -0.01">
         <div class="text-h6 q-mb-md">Your Payments</div>
 
         <q-card
@@ -55,7 +59,11 @@
           <q-card-section>
             <div class="row items-center q-mb-md">
               <q-avatar size="50px" class="q-mr-md">
-                <img v-if="getMemberAvatar(suggestion.to_member_id)" :src="getMemberAvatar(suggestion.to_member_id) || ''" alt="Member avatar" />
+                <img
+                  v-if="getMemberAvatar(suggestion.to_member_id)"
+                  :src="getMemberAvatar(suggestion.to_member_id) || ''"
+                  alt="Member avatar"
+                />
                 <q-icon v-else name="person" size="24px" />
               </q-avatar>
               <div class="col">
@@ -74,7 +82,9 @@
               <div class="col-4">
                 <q-btn
                   outline
-                  :color="selectedPaymentMethod[suggestion.to_member_id] === 'cash' ? 'primary' : 'grey-5'"
+                  :color="
+                    selectedPaymentMethod[suggestion.to_member_id] === 'cash' ? 'primary' : 'grey-5'
+                  "
                   class="full-width"
                   padding="md"
                   @click="selectPaymentMethod(suggestion.to_member_id, 'cash')"
@@ -88,7 +98,11 @@
               <div class="col-4">
                 <q-btn
                   outline
-                  :color="selectedPaymentMethod[suggestion.to_member_id] === 'gcash' ? 'primary' : 'grey-5'"
+                  :color="
+                    selectedPaymentMethod[suggestion.to_member_id] === 'gcash'
+                      ? 'primary'
+                      : 'grey-5'
+                  "
                   class="full-width"
                   padding="md"
                   @click="selectPaymentMethod(suggestion.to_member_id, 'gcash')"
@@ -102,7 +116,9 @@
               <div class="col-4">
                 <q-btn
                   outline
-                  :color="selectedPaymentMethod[suggestion.to_member_id] === 'card' ? 'primary' : 'grey-5'"
+                  :color="
+                    selectedPaymentMethod[suggestion.to_member_id] === 'card' ? 'primary' : 'grey-5'
+                  "
                   class="full-width"
                   padding="md"
                   @click="selectPaymentMethod(suggestion.to_member_id, 'card')"
@@ -118,7 +134,9 @@
             <!-- Payment Details -->
             <div class="bg-grey-2 rounded-borders q-pa-md q-mb-md">
               <div class="text-caption text-grey-7">
-                Prepare the exact amount for {{ selectedPaymentMethod[suggestion.to_member_id] || 'your chosen method' }} payment upon meeting {{ getMemberName(suggestion.to_member_id) }}.
+                Prepare the exact amount for
+                {{ selectedPaymentMethod[suggestion.to_member_id] || 'your chosen method' }} payment
+                upon meeting {{ getMemberName(suggestion.to_member_id) }}.
               </div>
             </div>
 
@@ -137,7 +155,7 @@
       </div>
 
       <!-- Settlements to Receive (if user is owed money) -->
-      <div v-if="userBalance && userBalance.net_balance > 0.01">
+      <div v-if="userBalance && userBalance.netBalance > 0.01">
         <div class="text-h6 q-mb-md">Payments You'll Receive</div>
 
         <q-card
@@ -148,7 +166,11 @@
           <q-card-section>
             <div class="row items-center">
               <q-avatar size="50px" class="q-mr-md">
-                <img v-if="getMemberAvatar(suggestion.from_member_id)" :src="getMemberAvatar(suggestion.from_member_id) || ''" alt="Member avatar" />
+                <img
+                  v-if="getMemberAvatar(suggestion.from_member_id)"
+                  :src="getMemberAvatar(suggestion.from_member_id) || ''"
+                  alt="Member avatar"
+                />
                 <q-icon v-else name="person" size="24px" />
               </q-avatar>
               <div class="col">
@@ -171,10 +193,17 @@
         <div class="text-h6 q-mb-md">All Trip Settlements</div>
 
         <q-list bordered separator>
-          <q-item v-for="suggestion in allSettlements" :key="`${suggestion.from_member_id}-${suggestion.to_member_id}`">
+          <q-item
+            v-for="suggestion in allSettlements"
+            :key="`${suggestion.from_member_id}-${suggestion.to_member_id}`"
+          >
             <q-item-section avatar>
               <q-avatar>
-                <img v-if="getMemberAvatar(suggestion.from_member_id)" :src="getMemberAvatar(suggestion.from_member_id) || ''" alt="Member avatar" />
+                <img
+                  v-if="getMemberAvatar(suggestion.from_member_id)"
+                  :src="getMemberAvatar(suggestion.from_member_id) || ''"
+                  alt="Member avatar"
+                />
                 <q-icon v-else name="person" />
               </q-avatar>
             </q-item-section>
@@ -202,15 +231,13 @@
 
     <!-- Upload Payment Proof Dialog -->
     <q-dialog v-model="showProofDialog">
-      <q-card style="width: 100%; max-width: 400px;">
+      <q-card style="width: 100%; max-width: 400px">
         <q-card-section>
           <div class="text-h6">Payment Confirmation</div>
         </q-card-section>
 
         <q-card-section>
-          <div class="text-body2 q-mb-md">
-            Add a note or upload proof of payment (optional):
-          </div>
+          <div class="text-body2 q-mb-md">Add a note or upload proof of payment (optional):</div>
 
           <q-input
             v-model="paymentNotes"
@@ -255,20 +282,37 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
-import type {
-  Trip,
-  Expense,
-  ExpenseSplit,
-  TripMember,
-  Settlement,
-  SettlementSuggestion,
-  PaymentMethod
-} from 'src/types/expense';
+import type { Trip } from 'src/types/trip';
+import type { Expense, ExpenseSplit, TripMember } from 'src/types/expense';
 import {
   calculateMemberBalances,
-  generateSettlementSuggestions,
-  formatCurrency
+  formatCurrency,
+  type MemberBalance,
 } from 'src/utils/settlementCalculator';
+
+// Define types locally
+interface SettlementSuggestion {
+  from_member_id: string;
+  to_member_id: string;
+  amount: number;
+  currency_code: string;
+}
+
+interface Settlement {
+  id?: string;
+  trip_id: string;
+  from_member_id: string;
+  to_member_id: string;
+  amount: number;
+  currency_code: string;
+  payment_method?: string;
+  payment_proof_url?: string;
+  notes?: string;
+  status: string;
+  paid_at?: string;
+}
+
+type PaymentMethod = 'cash' | 'gcash' | 'card';
 
 const route = useRoute();
 const router = useRouter();
@@ -294,39 +338,79 @@ const paymentNotes = ref('');
 const paymentProof = ref<File | null>(null);
 const submittingPayment = ref(false);
 
-// Current user - FIXED: Get user ID on mount, not in computed
-const currentMember = computed(() =>
-  members.value.find(m => m.user_id === currentUserId.value)
-);
+// Current user
+const currentMember = computed(() => members.value.find((m) => m.user_id === currentUserId.value));
+
+// Generate settlement suggestions from balances
+function generateSettlementSuggestions(
+  balances: MemberBalance[],
+  currencyCode: string,
+): SettlementSuggestion[] {
+  const suggestions: SettlementSuggestion[] = [];
+
+  // Separate debtors and creditors
+  const debtors = balances
+    .filter((b) => b.netBalance < -0.01)
+    .sort((a, b) => a.netBalance - b.netBalance);
+  const creditors = balances
+    .filter((b) => b.netBalance > 0.01)
+    .sort((a, b) => b.netBalance - a.netBalance);
+
+  let i = 0,
+    j = 0;
+
+  while (i < debtors.length && j < creditors.length) {
+    const debt = Math.abs(debtors[i].netBalance);
+    const credit = creditors[j].netBalance;
+    const amount = Math.min(debt, credit);
+
+    suggestions.push({
+      from_member_id: debtors[i].memberId,
+      to_member_id: creditors[j].memberId,
+      amount: Math.round(amount * 100) / 100,
+      currency_code: currencyCode,
+    });
+
+    debtors[i].netBalance += amount;
+    creditors[j].netBalance -= amount;
+
+    if (Math.abs(debtors[i].netBalance) < 0.01) i++;
+    if (Math.abs(creditors[j].netBalance) < 0.01) j++;
+  }
+
+  return suggestions;
+}
 
 // Calculations
-const balances = computed(() =>
-  calculateMemberBalances(expenses.value, splits.value, members.value)
-);
+const balances = computed(() => calculateMemberBalances(expenses.value, splits.value));
 
 const allSettlements = computed(() =>
-  generateSettlementSuggestions(balances.value, trip.value?.currency_code || 'PHP')
+  generateSettlementSuggestions(balances.value, trip.value?.currency_code || 'PHP'),
 );
 
 const userBalance = computed(() =>
-  balances.value.find(b => b.member_id === currentMember.value?.id)
+  balances.value.find((b: MemberBalance) => b.memberId === currentMember.value?.id),
 );
 
 const userSettlements = computed(() =>
-  allSettlements.value.filter(s => s.from_member_id === currentMember.value?.id)
+  allSettlements.value.filter(
+    (s: SettlementSuggestion) => s.from_member_id === currentMember.value?.id,
+  ),
 );
 
 const paymentsToReceive = computed(() =>
-  allSettlements.value.filter(s => s.to_member_id === currentMember.value?.id)
+  allSettlements.value.filter(
+    (s: SettlementSuggestion) => s.to_member_id === currentMember.value?.id,
+  ),
 );
 
 // Helper Functions
 function getMemberName(memberId: string): string {
-  return members.value.find(m => m.id === memberId)?.name || 'Unknown';
+  return members.value.find((m) => m.id === memberId)?.name || 'Unknown';
 }
 
 function getMemberAvatar(memberId: string): string | undefined {
-  return members.value.find(m => m.id === memberId)?.avatar_url;
+  return members.value.find((m) => m.id === memberId)?.avatar_url;
 }
 
 function selectPaymentMethod(toMemberId: string, method: PaymentMethod) {
@@ -335,9 +419,10 @@ function selectPaymentMethod(toMemberId: string, method: PaymentMethod) {
 
 function isPaid(settlement: SettlementSuggestion): boolean {
   return existingSettlements.value.some(
-    s => s.from_member_id === settlement.from_member_id &&
-         s.to_member_id === settlement.to_member_id &&
-         (s.status === 'paid' || s.status === 'verified')
+    (s) =>
+      s.from_member_id === settlement.from_member_id &&
+      s.to_member_id === settlement.to_member_id &&
+      (s.status === 'paid' || s.status === 'verified'),
   );
 }
 
@@ -364,35 +449,31 @@ async function confirmPayment() {
 
       if (error) throw error;
 
-      const { data: urlData } = supabase.storage
-        .from('payment-proofs')
-        .getPublicUrl(fileName);
+      const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(fileName);
 
       proofUrl = urlData.publicUrl;
     }
 
     // Create settlement record
-    const { error } = await supabase
-      .from('settlements')
-      .insert({
-        trip_id: tripId.value,
-        from_member_id: settlement.from_member_id,
-        to_member_id: settlement.to_member_id,
-        amount: settlement.amount,
-        currency_code: settlement.currency_code,
-        payment_method: selectedPaymentMethod.value[settlement.to_member_id],
-        payment_proof_url: proofUrl,
-        notes: paymentNotes.value,
-        status: 'paid',
-        paid_at: new Date().toISOString()
-      });
+    const { error } = await supabase.from('settlements').insert({
+      trip_id: tripId.value,
+      from_member_id: settlement.from_member_id,
+      to_member_id: settlement.to_member_id,
+      amount: settlement.amount,
+      currency_code: settlement.currency_code,
+      payment_method: selectedPaymentMethod.value[settlement.to_member_id],
+      payment_proof_url: proofUrl,
+      notes: paymentNotes.value,
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+    });
 
     if (error) throw error;
 
     $q.notify({
       type: 'positive',
       message: 'Payment marked as paid!',
-      caption: 'Waiting for verification from receiver'
+      caption: 'Waiting for verification from receiver',
     });
 
     // Reset dialog
@@ -403,14 +484,13 @@ async function confirmPayment() {
 
     // Reload data
     await fetchData();
-
   } catch (error: unknown) {
-  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error marking payment:', error);
     $q.notify({
       type: 'negative',
       message: 'Failed to mark payment',
-      caption: errorMessage
+      caption: errorMessage,
     });
   } finally {
     submittingPayment.value = false;
@@ -420,7 +500,7 @@ async function confirmPayment() {
 function onProofRejected() {
   $q.notify({
     type: 'warning',
-    message: 'File must be an image under 5MB'
+    message: 'File must be an image under 5MB',
   });
 }
 
@@ -461,7 +541,10 @@ async function fetchData() {
     const { data: splitData, error: splitError } = await supabase
       .from('expense_splits')
       .select('*')
-      .in('expense_id', expenses.value.map(e => e.id));
+      .in(
+        'expense_id',
+        expenses.value.map((e) => e.id),
+      );
 
     if (splitError) throw splitError;
     splits.value = splitData;
@@ -474,16 +557,15 @@ async function fetchData() {
 
     if (settlementError) throw settlementError;
     existingSettlements.value = settlementData;
-
   } catch (error: unknown) {
-  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-  console.error('Error fetching data:', error);
-  $q.notify({
-    type: 'negative',
-    message: 'Failed to load data',
-    caption: errorMessage
-  });
-} finally {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error fetching data:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to load data',
+      caption: errorMessage,
+    });
+  } finally {
     loading.value = false;
   }
 }

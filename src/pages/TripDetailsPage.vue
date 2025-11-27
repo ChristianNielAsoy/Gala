@@ -58,7 +58,8 @@
                   v-for="expense in expenses"
                   :key="expense.id"
                   :expense="expense"
-                  :current-member-id="currentMemberId"
+                  :members="members"
+                  :current-member-id="currentMemberId ?? ''"
                   @click="editExpense(expense.id)"
                 />
               </q-list>
@@ -74,15 +75,19 @@
         </div>
       </q-tab-panel>
 
-      <!-- Settlement Tab with SettlementView Component -->
+      <!-- Settlement Tab Panel -->
       <q-tab-panel name="settlement" class="q-pa-none">
         <settlement-view
+          v-if="trip && members.length > 0 && !loading"
           :expenses="expensesWithSplits"
           :members="members"
-          :current-member-id="currentMemberId"
-          :currency-code="trip?.currency_code || 'PHP'"
-          :loading="loadingExpenses"
+          :current-member-id="currentMemberId ?? ''"
+          :currency-code="trip.currency_code"
         />
+        <div v-else class="text-center q-pa-xl">
+          <q-spinner color="primary" size="lg" />
+          <p class="text-grey-6 q-mt-md">Loading settlement data...</p>
+        </div>
       </q-tab-panel>
 
       <!-- Members Tab -->
@@ -225,10 +230,14 @@ import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
-import type { Expense, TripMember } from 'src/types/expense';
-import ExpenseListItem from 'src/components/ExpenseListItem.vue';
+import type { Expense, TripMember, ExpenseSplit } from 'src/types/expense';
 import SettlementView from 'src/components/SettlementView.vue';
-import type { ExpenseWithSplits } from 'src/utils/settlementCalculator';
+import ExpenseListItem from 'src/components/ExpenseListItem.vue';
+
+// Define ExpenseWithSplits interface
+interface ExpenseWithSplits extends Expense {
+  splits: ExpenseSplit[];
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -252,7 +261,7 @@ supabase.auth.getUser().then(({ data: { user } }) => {
   currentUserId = user?.id;
 }).catch(console.error);
 
-const currentMemberId = computed<string | undefined>(() =>
+const currentMemberId = computed(() =>
   members.value.find((m: TripMember) => m.user_id === currentUserId)?.id
 );
 
@@ -314,7 +323,10 @@ async function fetchTripData(): Promise<void> {
       .single();
 
     if (tripError || !tripData) throw new Error('Trip not found or access denied.');
-    trip.value = tripData as Trip;
+      trip.value = {
+        ...tripData,
+        currencyCode: tripData.currency_code
+      } as Trip;
 
     // 2. Fetch Trip Members
     const { data: memberData, error: memberError } = await supabase
@@ -326,7 +338,7 @@ async function fetchTripData(): Promise<void> {
     if (memberError || !memberData) throw new Error('Could not load trip members.');
     members.value = memberData as TripMember[];
 
-    // 3. Fetch Expenses WITH splits (for both display and settlement)
+    // 3. Fetch Expenses WITH SPLITS for settlement calculations
     const { data: expenseData, error: expenseError } = await supabase
       .from('expenses')
       .select(`
@@ -339,24 +351,25 @@ async function fetchTripData(): Promise<void> {
 
     if (expenseError) throw expenseError;
 
-    // Map data for expense list display
-    expenses.value = (expenseData || []).map(exp => ({
+    // Map the joined data to include paid_by_name AND splits
+    const mappedExpenses = (expenseData || []).map(exp => ({
       ...exp,
-      paid_by_name: exp.payer?.name || 'Unknown'
-    })) as Expense[];
-
-    // Store expenses with splits for settlement calculation
-    expensesWithSplits.value = (expenseData || []).map(exp => ({
-      id: exp.id,
-      paid_by_id: exp.paid_by_id,
-      amount: exp.amount,
+      paid_by_name: exp.payer?.name || 'Unknown',
       splits: exp.splits || []
     }));
 
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.error('Error fetching trip data:', err);
-    $q.notify({ type: 'negative', message: err.message || 'Error fetching trip data.' });
+    // Store basic expenses for the expense list
+    expenses.value = mappedExpenses as Expense[];
+
+    // Store expenses with splits for the Settlement component
+    expensesWithSplits.value = mappedExpenses as ExpenseWithSplits[];
+
+  } catch (error) {
+    console.error('Error fetching trip data:', error);
+   $q.notify({ 
+      type: 'negative', 
+      message: errorMessage || 'Error fetching trip data.' 
+    });
     trip.value = null;
     members.value = [];
     expenses.value = [];
@@ -400,6 +413,10 @@ function handleAddExpense(): void {
   void router.push(`/trips/${tripId.value}/expense/new`);
 }
 
+function handleEditExpense(expenseId: string): void {
+  void router.push(`/trips/${tripId.value}/expense/${expenseId}`);
+}
+
 function handleBack(): void {
   void router.back();
 }
@@ -407,38 +424,6 @@ function handleBack(): void {
 // Lifecycle
 onMounted(() => {
   void fetchTripData();
-
-  // Real-time subscriptions for live updates
-  const channel = supabase.channel(`trip_${tripId.value}_changes`);
-
-  channel
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'expenses',
-      filter: `trip_id=eq.${tripId.value}`
-    }, () => {
-      console.log('Realtime expense change detected');
-      void fetchTripData();
-    })
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'expense_splits'
-    }, () => {
-      console.log('Realtime split change detected');
-      void fetchTripData();
-    })
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'members',
-      filter: `trip_id=eq.${tripId.value}`
-    }, () => {
-      console.log('Realtime member change detected');
-      void fetchTripData();
-    })
-    .subscribe();
 });
 </script>
 

@@ -5,5 +5,6 @@ export interface Trip {
   start_date: string;
   end_date: string;
   currency_code: string;
-  created_at?: string;
+  currencyCode?: string;  // Add this line - TypeScript needs it explicitly
+  created_at: string;
 }

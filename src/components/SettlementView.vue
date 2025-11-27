@@ -319,7 +319,7 @@ async function confirmPayment() {
     showPaymentDialog.value = false;
     selectedSettlement.value = null;
 
-  } catch (error: any) {
+  } catch (error) {
     $q.notify({
       type: 'negative',
       message: error.message || 'Failed to record payment'

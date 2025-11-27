@@ -12,7 +12,6 @@
 
     <div class="q-pa-md">
       <q-form @submit.prevent="handleSave" class="q-gutter-y-md">
-
         <!-- Section 1: Basic Details -->
         <q-card flat bordered class="shadow-2">
           <q-card-section>
@@ -202,7 +201,9 @@
                 <template v-slot:avatar>
                   <q-icon name="warning" />
                 </template>
-                Items total ({{ itemsTotal.toFixed(2) }}) doesn't match expense amount ({{ expenseForm.amount?.toFixed(2) || '0.00' }})
+                Items total ({{ itemsTotal.toFixed(2) }}) doesn't match expense amount ({{
+                  expenseForm.amount?.toFixed(2) || '0.00'
+                }})
               </q-banner>
             </div>
 
@@ -221,7 +222,11 @@
             <div v-else-if="splitMode === 'custom'" class="q-mt-md">
               <div class="text-subtitle2 text-weight-medium q-mb-sm">Custom amounts per person</div>
 
-              <div v-for="memberId in involvedMembers" :key="memberId" class="row items-center q-mb-sm">
+              <div
+                v-for="memberId in involvedMembers"
+                :key="memberId"
+                class="row items-center q-mb-sm"
+              >
                 <div class="col-6 text-weight-medium">
                   {{ memberIdToName(memberId) }}
                 </div>
@@ -243,7 +248,13 @@
 
               <div class="row q-pt-sm">
                 <div class="col-6 text-weight-bold">Total Assigned:</div>
-                <div class="col-6 text-right text-weight-bold" :class="{'text-negative': splitDifference !== 0, 'text-positive': splitDifference === 0}">
+                <div
+                  class="col-6 text-right text-weight-bold"
+                  :class="{
+                    'text-negative': splitDifference !== 0,
+                    'text-positive': splitDifference === 0,
+                  }"
+                >
                   {{ customTotal.toFixed(2) }}
                 </div>
               </div>
@@ -252,7 +263,6 @@
                 Difference: {{ splitDifference.toFixed(2) }}
               </div>
             </div>
-
           </q-card-section>
         </q-card>
 
@@ -278,7 +288,6 @@
             </q-file>
           </q-card-section>
         </q-card>
-
       </q-form>
 
       <!-- Delete Button (Edit Mode Only) -->
@@ -290,7 +299,6 @@
         class="full-width q-mt-lg"
         @click="handleDeleteExpense"
       />
-
     </div>
   </q-page>
 </template>
@@ -301,12 +309,12 @@ import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
-import type { Expense, TripMember, SplitType, ExpenseSplit } from 'src/types/expense';
+import type { TripMember, SplitType, ExpenseSplit } from 'src/types/expense';
 import CustomSplitAmounts from 'src/components/CustomSplitAmounts.vue';
 
 // Add computed to transform member IDs to member objects
 const involvedMembersData = computed(() => {
-  return members.value.filter(m => involvedMembers.value.includes(m.id));
+  return members.value.filter((m) => involvedMembers.value.includes(m.id));
 });
 
 const route = useRoute();
@@ -378,31 +386,30 @@ const splitModeOptions = [
 
 // Computed
 const memberOptions = computed(() =>
-  members.value.map((m: TripMember) => ({ label: m.name, value: m.id }))
+  members.value.map((m: TripMember) => ({ label: m.name, value: m.id })),
 );
 
 const memberCheckOptions = computed(() =>
-  members.value.map((m: TripMember) => ({ label: m.name, value: m.id }))
+  members.value.map((m: TripMember) => ({ label: m.name, value: m.id })),
 );
 
-const itemsTotal = computed(() =>
-  items.value.reduce((sum, item) => sum + (item.amount || 0), 0)
-);
+const itemsTotal = computed(() => items.value.reduce((sum, item) => sum + (item.amount || 0), 0));
 
-const itemsTotalMismatch = computed(() =>
-  splitMode.value === 'itemized' &&
-  expenseForm.value.amount !== null &&
-  Math.abs(itemsTotal.value - expenseForm.value.amount) > 0.01
+const itemsTotalMismatch = computed(
+  () =>
+    splitMode.value === 'itemized' &&
+    expenseForm.value.amount !== null &&
+    Math.abs(itemsTotal.value - expenseForm.value.amount) > 0.01,
 );
 
 const customTotal = computed(() =>
-  involvedMembers.value.reduce((sum: number, memberId: string) =>
-    sum + (customSplits.value[memberId] || 0), 0)
+  involvedMembers.value.reduce(
+    (sum: number, memberId: string) => sum + (customSplits.value[memberId] || 0),
+    0,
+  ),
 );
 
-const splitDifference = computed(() =>
-  (expenseForm.value.amount || 0) - customTotal.value
-);
+const splitDifference = computed(() => (expenseForm.value.amount || 0) - customTotal.value);
 
 const isValid = computed(() => {
   const basicValid =
@@ -421,10 +428,13 @@ const isValid = computed(() => {
   }
 
   if (splitMode.value === 'itemized') {
-    return items.value.length > 0 &&
-           !itemsTotalMismatch.value &&
-           items.value.every(item => item.name && item.amount > 0 &&
-             (item.isLibre || item.participants.length > 0));
+    return (
+      items.value.length > 0 &&
+      !itemsTotalMismatch.value &&
+      items.value.every(
+        (item) => item.name && item.amount > 0 && (item.isLibre || item.participants.length > 0),
+      )
+    );
   }
 
   return false;
@@ -440,7 +450,7 @@ function addItem(): void {
     name: '',
     amount: 0,
     isLibre: false,
-    participants: [...involvedMembers.value]
+    participants: [...involvedMembers.value],
   });
 }
 
@@ -494,7 +504,9 @@ async function fetchTripData(): Promise<void> {
   }
 
   // Set defaults
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const currentUserMember = members.value.find((m: TripMember) => m.user_id === user?.id);
 
   if (currentUserMember) {
@@ -515,7 +527,7 @@ function calculateSplits(): ExpenseSplit[] {
     if (shareCount === 0) return [];
 
     const baseShare = Math.floor((totalAmount * 100) / shareCount) / 100;
-    const remainder = totalAmount - (baseShare * shareCount);
+    const remainder = totalAmount - baseShare * shareCount;
 
     involvedMembers.value.forEach((memberId: string, index: number) => {
       let shareAmount = baseShare;
@@ -527,7 +539,6 @@ function calculateSplits(): ExpenseSplit[] {
         share_amount: shareAmount,
       });
     });
-
   } else if (splitMode.value === 'custom') {
     involvedMembers.value.forEach((memberId: string) => {
       const amount = customSplits.value[memberId] || 0;
@@ -539,16 +550,15 @@ function calculateSplits(): ExpenseSplit[] {
         });
       }
     });
-
   } else if (splitMode.value === 'itemized') {
     // Calculate per-item splits
     const memberTotals: Record<string, number> = {};
 
-    items.value.forEach(item => {
+    items.value.forEach((item) => {
       if (item.isLibre || item.participants.length === 0) return;
 
       const itemShare = item.amount / item.participants.length;
-      item.participants.forEach(memberId => {
+      item.participants.forEach((memberId) => {
         memberTotals[memberId] = (memberTotals[memberId] || 0) + itemShare;
       });
     });
@@ -570,7 +580,7 @@ async function handleSave() {
   if (!isValid.value) {
     $q.notify({
       type: 'warning',
-      message: 'Please complete all required fields and ensure splits are valid.'
+      message: 'Please complete all required fields and ensure splits are valid.',
     });
     return;
   }
@@ -584,18 +594,19 @@ async function handleSave() {
     if (expenseForm.value.split_type === 'equal') {
       const count = involvedMembers.value.length;
       const baseShare = Math.floor((expenseForm.value.amount! * 100) / count) / 100;
-      const remainder = expenseForm.value.amount! - (baseShare * count);
+      const remainder = expenseForm.value.amount! - baseShare * count;
 
       splits = involvedMembers.value.map((memberId, index) => ({
         member_id: memberId,
-        share_amount: index === 0 ? baseShare + remainder : baseShare
+        share_amount: index === 0 ? baseShare + remainder : baseShare,
       }));
-
     } else if (expenseForm.value.split_type === 'custom') {
-      splits = involvedMembers.value.map(memberId => ({
-        member_id: memberId,
-        share_amount: customSplits.value[memberId] || 0
-      })).filter(s => s.share_amount > 0);
+      splits = involvedMembers.value
+        .map((memberId) => ({
+          member_id: memberId,
+          share_amount: customSplits.value[memberId] || 0,
+        }))
+        .filter((s) => s.share_amount > 0);
     }
 
     // 2. Insert Expense
@@ -616,31 +627,29 @@ async function handleSave() {
     if (expenseError || !expenseData) throw expenseError;
 
     // 3. Insert Splits
-    const splitsToInsert = splits.map(s => ({
+    const splitsToInsert = splits.map((s) => ({
       expense_id: expenseData.id,
       member_id: s.member_id,
-      share_amount: s.share_amount
+      share_amount: s.share_amount,
     }));
 
-    const { error: splitsError } = await supabase
-      .from('expense_splits')
-      .insert(splitsToInsert);
+    const { error: splitsError } = await supabase.from('expense_splits').insert(splitsToInsert);
 
     if (splitsError) throw splitsError;
 
     $q.notify({
       type: 'positive',
       message: 'Expense saved successfully!',
-      icon: 'check_circle'
+      icon: 'check_circle',
     });
 
     router.back();
-
-  } catch (error: any) {
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error saving expense:', error);
     $q.notify({
       type: 'negative',
-      message: error.message || 'Failed to save expense'
+      message: error.message || 'Failed to save expense',
     });
   } finally {
     saving.value = false;
@@ -653,17 +662,14 @@ function handleDeleteExpense(): void {
     message: 'Delete this expense permanently?',
     cancel: true,
     persistent: true,
-    color: 'negative'
+    color: 'negative',
   }).onOk(() => void deleteExpense());
 }
 
 async function deleteExpense(): Promise<void> {
   saving.value = true;
   try {
-    const { error } = await supabase
-      .from('expenses')
-      .delete()
-      .eq('id', expenseId.value);
+    const { error } = await supabase.from('expenses').delete().eq('id', expenseId.value);
 
     if (error) throw error;
 

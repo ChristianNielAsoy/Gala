@@ -12,10 +12,7 @@
     </q-item-section>
 
     <q-item-section side>
-      <q-item-label
-        class="text-weight-bold text-h6"
-        :class="amountColorClass"
-      >
+      <q-item-label class="text-weight-bold text-h6" :class="amountColorClass">
         {{ expense.currency_code }} {{ expense.amount.toFixed(2) }}
       </q-item-label>
       <q-item-label caption class="text-right">
@@ -27,7 +24,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Expense } from 'src/types/expense';
+import type { Expense } from 'src/types/expense';
 
 const props = defineProps<{
   expense: Expense;
@@ -37,10 +34,10 @@ const props = defineProps<{
 const categoryIcon = computed(() => {
   const icons: Record<string, string> = {
     'Food & Drinks': 'restaurant',
-    'Transport': 'commute',
-    'Lodging': 'hotel',
-    'Activity': 'attractions',
-    'Groceries': 'shopping_cart'
+    Transport: 'commute',
+    Lodging: 'hotel',
+    Activity: 'attractions',
+    Groceries: 'shopping_cart',
   };
   return icons[props.expense.category] || 'receipt';
 });
@@ -48,10 +45,10 @@ const categoryIcon = computed(() => {
 const categoryColor = computed(() => {
   const colors: Record<string, string> = {
     'Food & Drinks': 'orange',
-    'Transport': 'blue',
-    'Lodging': 'purple',
-    'Activity': 'green',
-    'Groceries': 'teal'
+    Transport: 'blue',
+    Lodging: 'purple',
+    Activity: 'green',
+    Groceries: 'teal',
   };
   return colors[props.expense.category] || 'grey';
 });
@@ -61,22 +58,18 @@ const isPaidByMe = computed(() => {
   return props.expense.paid_by_id === props.currentMemberId;
 });
 
-const amountColorClass = computed(() =>
-  isPaidByMe.value ? 'text-positive' : 'text-negative'
-);
+const amountColorClass = computed(() => (isPaidByMe.value ? 'text-positive' : 'text-negative'));
 
-const yourShareText = computed(() =>
-  isPaidByMe.value ? 'You paid' : 'You owe settlement'
-);
+const yourShareText = computed(() => (isPaidByMe.value ? 'You paid' : 'You owe settlement'));
 
 const formattedDate = computed(() =>
   new Date(props.expense.date).toLocaleDateString('en-US', {
     month: 'short',
-    day: 'numeric'
-  })
+    day: 'numeric',
+  }),
 );
 
 defineEmits<{
-  click: [expense: Expense]
+  click: [expense: Expense];
 }>();
 </script>
