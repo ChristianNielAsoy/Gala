@@ -3,7 +3,9 @@
 export interface MemberBalance {
   memberId: string;
   memberName: string;
-  balance: number; // Positive = owed to them, Negative = they owe
+  netBalance: number; // ✅ Changed from 'balance' to 'netBalance'
+  totalPaid: number;
+  totalOwed: number;
 }
 
 export interface Settlement {
@@ -30,17 +32,17 @@ export interface ExpenseWithSplits {
  */
 export function calculateMemberBalances(
   expenses: ExpenseWithSplits[],
-  members: { id: string; name: string }[]
+  members: { id: string; name: string }[],
 ): MemberBalance[] {
   const balances = new Map<string, number>();
 
   // Initialize all members with 0 balance
-  members.forEach(member => {
+  members.forEach((member) => {
     balances.set(member.id, 0);
   });
 
   // Process each expense
-  expenses.forEach(expense => {
+  expenses.forEach((expense) => {
     const payerId = expense.paid_by_id;
     const totalPaid = expense.amount;
 
@@ -48,19 +50,16 @@ export function calculateMemberBalances(
     balances.set(payerId, (balances.get(payerId) || 0) + totalPaid);
 
     // Each consumer owes their share
-    expense.splits.forEach(split => {
-      balances.set(
-        split.member_id,
-        (balances.get(split.member_id) || 0) - split.share_amount
-      );
+    expense.splits.forEach((split) => {
+      balances.set(split.member_id, (balances.get(split.member_id) || 0) - split.share_amount);
     });
   });
 
   // Convert to array and add names
-  return members.map(member => ({
+  return members.map((member) => ({
     memberId: member.id,
     memberName: member.name,
-    balance: balances.get(member.id) || 0
+    balance: balances.get(member.id) || 0,
   }));
 }
 
@@ -73,20 +72,20 @@ export function simplifySettlements(balances: MemberBalance[]): Settlement[] {
 
   // Create mutable working arrays
   const creditors = balances
-    .filter(b => b.balance > 0.01)
-    .map(b => ({
+    .filter((b) => b.netBalance > 0.01)
+    .map((b) => ({
       memberId: b.memberId,
       memberName: b.memberName,
-      balance: b.balance
+      balance: b.netBalance,
     }))
     .sort((a, b) => b.balance - a.balance);
 
   const debtors = balances
-    .filter(b => b.balance < -0.01)
-    .map(b => ({
+    .filter((b) => b.netBalance < -0.01)
+    .map((b) => ({
       memberId: b.memberId,
       memberName: b.memberName,
-      balance: Math.abs(b.balance)
+      balance: Math.abs(b.netBalance),
     }))
     .sort((a, b) => b.balance - a.balance);
 
@@ -109,7 +108,7 @@ export function simplifySettlements(balances: MemberBalance[]): Settlement[] {
         fromName: currentDebtor.memberName,
         to: currentCreditor.memberId,
         toName: currentCreditor.memberName,
-        amount: Math.round(settleAmount * 100) / 100
+        amount: Math.round(settleAmount * 100) / 100,
       });
 
       // Update balances
@@ -130,23 +129,22 @@ export function simplifySettlements(balances: MemberBalance[]): Settlement[] {
  */
 export function getMemberSettlementSummary(
   memberId: string,
-  settlements: Settlement[]
+  settlements: Settlement[],
 ): {
   toReceive: Settlement[];
   toPay: Settlement[];
   netBalance: number;
 } {
-  const toReceive = settlements.filter(s => s.to === memberId);
-  const toPay = settlements.filter(s => s.from === memberId);
+  const toReceive = settlements.filter((s) => s.to === memberId);
+  const toPay = settlements.filter((s) => s.from === memberId);
 
   const netBalance =
-    toReceive.reduce((sum, s) => sum + s.amount, 0) -
-    toPay.reduce((sum, s) => sum + s.amount, 0);
+    toReceive.reduce((sum, s) => sum + s.amount, 0) - toPay.reduce((sum, s) => sum + s.amount, 0);
 
   return {
     toReceive,
     toPay,
-    netBalance
+    netBalance,
   };
 }
 

@@ -649,7 +649,7 @@ async function handleSave() {
     console.error('Error saving expense:', error);
     $q.notify({
       type: 'negative',
-      message: error.message || 'Failed to save expense',
+      message: error instanceof Error ? error.message : 'Failed to save expense',
     });
   } finally {
     saving.value = false;

@@ -171,7 +171,7 @@
               <q-item v-for="balance in memberBalances" :key="balance.memberId">
                 <q-item-section avatar>
                   <q-avatar
-                    :color="balance.balance > 0 ? 'positive' : balance.balance < 0 ? 'negative' : 'grey'"
+                    :color="balance.netBalance  > 0 ? 'positive' : balance.netBalance  < 0 ? 'negative' : 'grey'"
                     text-color="white"
                   >
                     {{ balance.memberName.charAt(0).toUpperCase() }}
@@ -185,14 +185,14 @@
                 <q-item-section side>
                   <q-item-label
                     class="text-weight-bold"
-                    :class="getBalanceColorClass(balance.balance)"
+                    :class="getBalanceColorClass(balance.netBalance )"
                   >
-                    <span v-if="balance.balance > 0">+</span>
-                    {{ currencyCode }} {{ Math.abs(balance.balance).toFixed(2) }}
+                    <span v-if="balance.netBalance  > 0">+</span>
+                    {{ currencyCode }} {{ Math.abs(balance.netBalance ).toFixed(2) }}
                   </q-item-label>
                   <q-item-label caption>
-                    <span v-if="balance.balance > 0">is owed</span>
-                    <span v-else-if="balance.balance < 0">owes</span>
+                    <span v-if="balance.netBalance  > 0">is owed</span>
+                    <span v-else-if="balance.netBalance  < 0">owes</span>
                     <span v-else>settled</span>
                   </q-item-label>
                 </q-item-section>
@@ -283,7 +283,7 @@ const allSettlements = computed((): Settlement[] => {
 const yourBalance = computed((): number => {
   if (!props.currentMemberId) return 0;
   const balance = memberBalances.value.find(b => b.memberId === props.currentMemberId);
-  return balance?.balance || 0;
+  return balance?.netBalance  || 0;
 });
 
 const settlementsToPay = computed((): Settlement[] => {
@@ -322,7 +322,7 @@ async function confirmPayment() {
   } catch (error) {
     $q.notify({
       type: 'negative',
-      message: error.message || 'Failed to record payment'
+      message: error instanceof Error ? error.message : 'Failed to record payment'
     });
   } finally {
     processingPayment.value = false;

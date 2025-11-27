@@ -360,23 +360,28 @@ function generateSettlementSuggestions(
     j = 0;
 
   while (i < debtors.length && j < creditors.length) {
-    const debt = Math.abs(debtors[i].netBalance);
-    const credit = creditors[j].netBalance;
-    const amount = Math.min(debt, credit);
+  const debtor = debtors[i];      // ✅ Safe access
+  const creditor = creditors[j];  // ✅ Safe access
 
-    suggestions.push({
-      from_member_id: debtors[i].memberId,
-      to_member_id: creditors[j].memberId,
-      amount: Math.round(amount * 100) / 100,
-      currency_code: currencyCode,
-    });
+  if (!debtor || !creditor) break; // ✅ Guard clause
 
-    debtors[i].netBalance += amount;
-    creditors[j].netBalance -= amount;
+  const debt = Math.abs(debtor.netBalance);
+  const credit = creditor.netBalance;
+  const amount = Math.min(debt, credit);
 
-    if (Math.abs(debtors[i].netBalance) < 0.01) i++;
-    if (Math.abs(creditors[j].netBalance) < 0.01) j++;
-  }
+  suggestions.push({
+    from_member_id: debtor.memberId,
+    to_member_id: creditor.memberId,
+    amount: Math.round(amount * 100) / 100,
+    currency_code: currencyCode,
+  });
+
+  debtor.netBalance += amount;
+  creditor.netBalance -= amount;
+
+  if (Math.abs(debtor.netBalance) < 0.01) i++;
+  if (Math.abs(creditor.netBalance) < 0.01) j++;
+}
 
   return suggestions;
 }

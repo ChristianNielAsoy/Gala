@@ -366,9 +366,9 @@ async function fetchTripData(): Promise<void> {
 
   } catch (error) {
     console.error('Error fetching trip data:', error);
-   $q.notify({ 
-      type: 'negative', 
-      message: errorMessage || 'Error fetching trip data.' 
+   $q.notify({
+      type: 'negative',
+      message: errorMessage || 'Error fetching trip data.'
     });
     trip.value = null;
     members.value = [];

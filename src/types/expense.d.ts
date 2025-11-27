@@ -253,5 +253,5 @@ export interface MemberBalance {
   member_avatar?: string;
   total_paid: number;
   total_owed: number;
-  net_balance: number; // positive = owed money, negative = owes money
+  netBalance: number; // positive = owed money, negative = owes money
 }
