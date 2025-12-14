@@ -416,3 +416,16 @@ WITH CHECK (
     SELECT trip_id FROM members WHERE user_id = auth.uid()
   )
 );
+
+-- Enable RLS on activity_log
+ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
+
+-- Users can view activity logs for trips they belong to
+CREATE POLICY "Users can view activity logs of their trips"
+ON activity_log FOR SELECT
+USING (
+  trip_id IN (
+    SELECT trip_id FROM members
+    WHERE user_id = auth.uid()
+  )
+);

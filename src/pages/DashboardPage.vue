@@ -1,137 +1,194 @@
 <template>
-  <q-page class="q-pa-md">
-    <!-- Welcome Header -->
-    <div class="q-mb-lg">
-      <div class="text-h5 text-weight-bold text-primary">Welcome Back!</div>
-      <div class="text-caption text-grey-7">{{ greetingMessage }}</div>
+  <q-page class="bg-surface">
+    <!-- Stats Dashboard -->
+    <div class="q-pa-md">
+      <h2 class="text-h6 text-weight-bold q-mb-md">Your Travel Stats</h2>
+      <div class="row q-col-gutter-md">
+        <div class="col-12 col-sm-6 col-md-3">
+          <q-card flat bordered class="stat-card text-center q-pa-lg">
+            <q-icon name="flight_takeoff" size="40px" color="primary" class="q-mb-sm" />
+            <div class="text-h4 text-primary text-weight-bold">{{ stats.totalTrips }}</div>
+            <div class="text-caption text-grey-7">Total Trips</div>
+          </q-card>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+          <q-card flat bordered class="stat-card text-center q-pa-lg">
+            <q-icon name="event" size="40px" color="accent" class="q-mb-sm" />
+            <div class="text-h4 text-accent text-weight-bold">{{ stats.upcomingTrips }}</div>
+            <div class="text-caption text-grey-7">Upcoming</div>
+          </q-card>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+          <q-card flat bordered class="stat-card text-center q-pa-lg">
+            <q-icon name="explore" size="40px" color="secondary" class="q-mb-sm" />
+            <div class="text-h4 text-secondary text-weight-bold">{{ stats.activeTrips }}</div>
+            <div class="text-caption text-grey-7">Active</div>
+          </q-card>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+          <q-card flat bordered class="stat-card text-center q-pa-lg">
+            <q-icon name="check_circle" size="40px" color="positive" class="q-mb-sm" />
+            <div class="text-h4 text-positive text-weight-bold">{{ stats.pastTrips }}</div>
+            <div class="text-caption text-grey-7">Completed</div>
+          </q-card>
+        </div>
+      </div>
     </div>
 
-    <!-- Quick Stats -->
-    <div class="row q-col-gutter-md q-mb-lg">
-      <div class="col-6 col-sm-3">
-        <q-card flat bordered class="text-center q-pa-md">
-          <div class="text-h4 text-primary text-weight-bold">{{ stats.totalTrips }}</div>
-          <div class="text-caption text-grey-7">Total Trips</div>
-        </q-card>
-      </div>
-      <div class="col-6 col-sm-3">
-        <q-card flat bordered class="text-center q-pa-md">
-          <div class="text-h4 text-orange text-weight-bold">{{ stats.upcomingTrips }}</div>
-          <div class="text-caption text-grey-7">Upcoming</div>
-        </q-card>
-      </div>
-      <div class="col-6 col-sm-3">
-        <q-card flat bordered class="text-center q-pa-md">
-          <div class="text-h4 text-green text-weight-bold">{{ stats.activeTrips }}</div>
-          <div class="text-caption text-grey-7">Active</div>
-        </q-card>
-      </div>
-      <div class="col-6 col-sm-3">
-        <q-card flat bordered class="text-center q-pa-md">
-          <div class="text-h4 text-grey-7 text-weight-bold">{{ stats.pastTrips }}</div>
-          <div class="text-caption text-grey-7">Completed</div>
-        </q-card>
-      </div>
+    <!-- Activity Feed -->
+    <div class="q-pa-md">
+      <h2 class="text-h6 text-weight-bold q-mb-md">Recent Activity</h2>
+      <q-card flat bordered>
+        <q-card-section>
+          <q-timeline color="primary">
+            <q-timeline-entry
+              v-for="activity in recentActivities"
+              :key="activity.id"
+              :title="activity.title"
+              :subtitle="activity.subtitle"
+              :caption="activity.time"
+              :icon="activity.icon"
+              :color="activity.color"
+            >
+              <div v-if="activity.actions" class="q-mt-sm">
+                <q-btn
+                  v-for="action in activity.actions"
+                  :key="action.label"
+                  flat
+                  dense
+                  :color="action.color"
+                  :label="action.label"
+                  @click="action.handler"
+                  class="q-mr-sm"
+                />
+              </div>
+            </q-timeline-entry>
+          </q-timeline>
+        </q-card-section>
+      </q-card>
     </div>
 
-    <!-- Recent Trips -->
-    <q-card flat bordered class="q-mb-lg">
-      <q-card-section>
-        <div class="row items-center justify-between q-mb-md">
-          <div class="text-h6 text-weight-bold">Recent Trips</div>
-          <q-btn flat dense color="primary" label="View All" @click="goToTrips" />
-        </div>
-
-        <div v-if="loading" class="flex flex-center q-pa-lg">
-          <q-spinner color="primary" size="40px" />
-        </div>
-
-        <div v-else-if="recentTrips.length === 0" class="text-center q-pa-lg text-grey-6">
-          <q-icon name="beach_access" size="48px" class="q-mb-sm" />
-          <div>No trips yet. Start planning your adventure!</div>
-          <q-btn
-            color="primary"
-            label="Create Trip"
-            icon="add"
+    <!-- Quick Actions Hub -->
+    <div class="q-pa-md">
+      <h2 class="text-h6 text-weight-bold q-mb-md">Quick Actions</h2>
+      <div class="row q-col-gutter-sm">
+        <div class="col-6 col-sm-4 col-md-2">
+          <q-card
+            flat
+            bordered
+            class="action-card text-center q-pa-md cursor-pointer"
             @click="goToTrips"
-            class="q-mt-md"
-            rounded
-            unelevated
-          />
-        </div>
-
-        <q-list v-else separator>
-          <q-item
-            v-for="trip in recentTrips"
-            :key="trip.id"
-            clickable
-            @click="goToTripDetails(trip.id)"
-            class="q-pa-md"
           >
-            <q-item-section avatar>
-              <q-avatar rounded size="48px">
-                <img :src="getTripImage(trip.name)" />
-              </q-avatar>
-            </q-item-section>
-
-            <q-item-section>
-              <q-item-label class="text-weight-bold">{{ trip.name }}</q-item-label>
-              <q-item-label caption>
-                {{ formatDateRange(trip.start_date, trip.end_date) }}
-              </q-item-label>
-            </q-item-section>
-
-            <q-item-section side>
-              <q-badge
-                :color="getStatusColor(trip)"
-                :label="getStatusLabel(trip)"
-                class="text-capitalize"
-              />
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </q-card-section>
-    </q-card>
-
-    <!-- Quick Actions -->
-    <q-card flat bordered class="q-mb-lg">
-      <q-card-section>
-        <div class="text-h6 text-weight-bold q-mb-md">Quick Actions</div>
-        <div class="row q-col-gutter-sm">
-          <div class="col-6">
-            <q-btn
-              flat
-              color="primary"
-              icon="flight_takeoff"
-              label="New Trip"
-              @click="goToTrips"
-              class="full-width"
-              align="left"
-            />
-          </div>
-          <div class="col-6">
-            <q-btn
-              flat
-              color="primary"
-              icon="people"
-              label="View Members"
-              class="full-width"
-              align="left"
-            />
-          </div>
+            <q-icon name="add" size="32px" color="primary" class="q-mb-sm" />
+            <div class="text-caption text-weight-medium">New Trip</div>
+          </q-card>
         </div>
-      </q-card-section>
-    </q-card>
+        <div class="col-6 col-sm-4 col-md-2">
+          <q-card
+            flat
+            bordered
+            class="action-card text-center q-pa-md cursor-pointer"
+            @click="goToExpenseAnalytics"
+          >
+            <q-icon name="analytics" size="32px" color="accent" class="q-mb-sm" />
+            <div class="text-caption text-weight-medium">Analytics</div>
+          </q-card>
+        </div>
+        <div class="col-6 col-sm-4 col-md-2">
+          <q-card
+            flat
+            bordered
+            class="action-card text-center q-pa-md cursor-pointer"
+            @click="goToPackingList"
+          >
+            <q-icon name="checklist" size="32px" color="secondary" class="q-mb-sm" />
+            <div class="text-caption text-weight-medium">Packing</div>
+          </q-card>
+        </div>
+        <div class="col-6 col-sm-4 col-md-2">
+          <q-card
+            flat
+            bordered
+            class="action-card text-center q-pa-md cursor-pointer"
+            @click="goToDocumentsVault"
+          >
+            <q-icon name="description" size="32px" color="info" class="q-mb-sm" />
+            <div class="text-caption text-weight-medium">Documents</div>
+          </q-card>
+        </div>
+        <div class="col-6 col-sm-4 col-md-2">
+          <q-card
+            flat
+            bordered
+            class="action-card text-center q-pa-md cursor-pointer"
+            @click="goToItineraryTemplates"
+          >
+            <q-icon name="event_note" size="32px" color="warning" class="q-mb-sm" />
+            <div class="text-caption text-weight-medium">Templates</div>
+          </q-card>
+        </div>
+        <div class="col-6 col-sm-4 col-md-2">
+          <q-card
+            flat
+            bordered
+            class="action-card text-center q-pa-md cursor-pointer"
+            @click="goToUserProfile"
+          >
+            <q-icon name="person" size="32px" color="positive" class="q-mb-sm" />
+            <div class="text-caption text-weight-medium">Profile</div>
+          </q-card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Insights Section -->
+    <div class="q-pa-md">
+      <h2 class="text-h6 text-weight-bold q-mb-md">Travel Insights</h2>
+      <div class="row q-col-gutter-md">
+        <div class="col-12 col-md-6">
+          <q-card flat bordered class="insight-card q-pa-md">
+            <q-card-section>
+              <div class="row items-center q-mb-md">
+                <q-icon name="trending_up" size="24px" color="positive" class="q-mr-sm" />
+                <div class="text-subtitle2 text-weight-bold">Spending Trend</div>
+              </div>
+              <p class="text-body2 text-grey-7">
+                Your average trip expense is 15% higher than last month. Consider setting a budget
+                for your next adventure!
+              </p>
+              <q-btn flat dense color="primary" label="Set Budget" @click="goToSettings" />
+            </q-card-section>
+          </q-card>
+        </div>
+        <div class="col-12 col-md-6">
+          <q-card flat bordered class="insight-card q-pa-md">
+            <q-card-section>
+              <div class="row items-center q-mb-md">
+                <q-icon name="lightbulb" size="24px" color="accent" class="q-mr-sm" />
+                <div class="text-subtitle2 text-weight-bold">Smart Suggestion</div>
+              </div>
+              <p class="text-body2 text-grey-7">
+                Based on your travel history, flights to Southeast Asia are 20% cheaper if booked 2
+                months in advance.
+              </p>
+              <q-btn flat dense color="accent" label="Explore Deals" @click="exploreDeals" />
+            </q-card-section>
+          </q-card>
+        </div>
+      </div>
+    </div>
 
     <!-- Logout -->
-    <q-btn
-      label="Logout"
-      @click="handleLogout"
-      color="negative"
-      flat
-      icon="logout"
-      class="full-width"
-    />
+    <div class="q-pa-md text-center">
+      <q-btn
+        label="Logout"
+        @click="handleLogout"
+        color="negative"
+        flat
+        icon="logout"
+        class="full-width"
+      />
+    </div>
   </q-page>
 </template>
 
@@ -141,12 +198,14 @@ import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
+import type { User } from '@supabase/supabase-js';
 
 const $q = useQuasar();
 const router = useRouter();
 
 const loading = ref(true);
 const trips = ref<Trip[]>([]);
+const user = ref<User | null>(null);
 
 const stats = ref({
   totalTrips: 0,
@@ -155,21 +214,40 @@ const stats = ref({
   pastTrips: 0,
 });
 
-const greetingMessage = computed(() => {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning! Ready for an adventure?';
-  if (hour < 18) return 'Good afternoon! Plan your next trip';
-  return 'Good evening! Dream about your next getaway';
-});
-
-const recentTrips = computed(() => {
-  return trips.value.slice(0, 5);
-});
+const recentActivities = computed(() => [
+  {
+    id: 1,
+    title: 'Trip to Bali completed',
+    subtitle: 'Expenses settled with all members',
+    time: '2 days ago',
+    icon: 'check_circle',
+    color: 'positive',
+    actions: [{ label: 'View Details', color: 'primary', handler: () => goToTrips() }],
+  },
+  {
+    id: 2,
+    title: 'New expense added',
+    subtitle: 'Hotel booking for Tokyo trip',
+    time: '1 week ago',
+    icon: 'receipt',
+    color: 'info',
+  },
+  {
+    id: 3,
+    title: 'Packing list updated',
+    subtitle: 'Added items for Europe trip',
+    time: '2 weeks ago',
+    icon: 'checklist',
+    color: 'accent',
+  },
+]);
 
 async function fetchDashboardData(): Promise<void> {
   loading.value = true;
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
     const { data: memberData } = await supabase
@@ -177,7 +255,7 @@ async function fetchDashboardData(): Promise<void> {
       .select('trip_id')
       .eq('user_id', user.id);
 
-    const tripIds = memberData?.map(m => m.trip_id) || [];
+    const tripIds = memberData?.map((m) => m.trip_id) || [];
 
     if (tripIds.length === 0) {
       trips.value = [];
@@ -197,11 +275,12 @@ async function fetchDashboardData(): Promise<void> {
     const now = new Date().toISOString().split('T')[0] ?? '';
     stats.value = {
       totalTrips: trips.value.length,
-      upcomingTrips: trips.value.filter(t => t.start_date && t.start_date > now).length,
-      activeTrips: trips.value.filter(t => t.start_date && t.end_date && t.start_date <= now && t.end_date >= now).length,
-      pastTrips: trips.value.filter(t => t.end_date && t.end_date < now).length,
+      upcomingTrips: trips.value.filter((t) => t.start_date && t.start_date > now).length,
+      activeTrips: trips.value.filter(
+        (t) => t.start_date && t.end_date && t.start_date <= now && t.end_date >= now,
+      ).length,
+      pastTrips: trips.value.filter((t) => t.end_date && t.end_date < now).length,
     };
-
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
   } finally {
@@ -209,37 +288,41 @@ async function fetchDashboardData(): Promise<void> {
   }
 }
 
-function getTripImage(tripName: string): string {
-  const seed = tripName.toLowerCase().replace(/\s+/g, '-');
-  return `https://source.unsplash.com/100x100/?travel,${seed}`;
-}
-
-function formatDateRange(startDate: string, endDate: string): string {
-  const start = new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const end = new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  return `${start} - ${end}`;
-}
-
-function getStatusLabel(trip: Trip): string {
-  const now = new Date().toISOString().split('T')[0] ?? '';
-  if (trip.start_date && trip.start_date > now) return 'upcoming';
-  if (trip.end_date && trip.end_date < now) return 'completed';
-  return 'active';
-}
-
-function getStatusColor(trip: Trip): string {
-  const now = new Date().toISOString().split('T')[0] ?? '';
-  if (trip.start_date && trip.start_date > now) return 'blue';
-  if (trip.end_date && trip.end_date < now) return 'grey';
-  return 'orange';
-}
-
 function goToTrips(): void {
   void router.push('/trips');
 }
 
-function goToTripDetails(tripId: string): void {
-  void router.push(`/trips/${tripId}`);
+function goToPackingList() {
+  void router.push('/packing-list');
+}
+
+function goToDocumentsVault() {
+  void router.push('/documents-vault');
+}
+
+function goToExpenseAnalytics() {
+  void router.push('/expense-analytics');
+}
+
+function goToItineraryTemplates() {
+  void router.push('/itinerary-templates');
+}
+
+function goToUserProfile() {
+  void router.push('/user-profile');
+}
+
+function goToSettings() {
+  void router.push('/settings');
+}
+
+function exploreDeals() {
+  // Placeholder for deals functionality
+  $q.notify({
+    type: 'info',
+    message: 'Deals feature coming soon!',
+    position: 'top',
+  });
 }
 
 async function handleLogout(): Promise<void> {
@@ -251,7 +334,36 @@ async function handleLogout(): Promise<void> {
   }
 }
 
-onMounted(() => {
-  void fetchDashboardData();
+onMounted(async () => {
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+  user.value = authUser;
+  await fetchDashboardData();
 });
 </script>
+
+<style scoped>
+.stat-card {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.action-card {
+  transition: background-color 0.2s ease;
+}
+
+.action-card:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.insight-card {
+  border-left: 4px solid var(--q-primary);
+}
+</style>

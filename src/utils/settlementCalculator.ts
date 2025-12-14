@@ -59,7 +59,9 @@ export function calculateMemberBalances(
   return members.map((member) => ({
     memberId: member.id,
     memberName: member.name,
-    balance: balances.get(member.id) || 0,
+    netBalance: balances.get(member.id) || 0, // ✅ Changed from 'balance' to 'netBalance'
+    totalPaid: balances.get(member.id) || 0, // Added totalPaid
+    totalOwed: balances.get(member.id) || 0, // Added totalOwed
   }));
 }
 

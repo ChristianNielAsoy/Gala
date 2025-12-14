@@ -30,6 +30,17 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
+-- 3. Create documents bucket for document vault
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'documents',
+  'documents',
+  true,
+  10485760, -- 10MB limit
+  ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/jpg', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+)
+ON CONFLICT (id) DO NOTHING;
+
 -- ========================================
 -- STORAGE RLS POLICIES (FIXED TYPE CASTING)
 -- ========================================

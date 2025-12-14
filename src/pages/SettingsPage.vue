@@ -1,7 +1,7 @@
 <template>
-  <q-page class="bg-grey-1">
+  <q-page class="bg-surface">
     <!-- Header -->
-    <div class="q-pa-md bg-white">
+    <div class="q-pa-md bg-surface">
       <div class="text-h5 text-weight-bold">Settings</div>
     </div>
 
@@ -24,9 +24,7 @@
             <q-item-label caption class="text-body2">
               {{ userProfile.email }}
             </q-item-label>
-            <q-item-label caption class="text-caption text-grey-6">
-              Team Gala Member
-            </q-item-label>
+            <q-item-label caption class="text-caption text-grey-6"> Team Gala Member </q-item-label>
           </q-item-section>
         </q-item>
 
@@ -134,7 +132,7 @@
           </q-item-section>
           <q-item-section>
             <q-item-label>Default Currency</q-item-label>
-            <q-item-label caption>{{ defaultCurrency }}</q-item-label>
+            <q-item-label caption>{{ defaultCurrencyName }}</q-item-label>
           </q-item-section>
           <q-item-section side>
             <q-icon name="chevron_right" color="grey-5" />
@@ -275,12 +273,7 @@
         </q-card-section>
 
         <q-card-section class="q-pt-none">
-          <q-input
-            v-model="userProfile.name"
-            label="Display Name"
-            outlined
-            class="q-mb-md"
-          />
+          <q-input v-model="userProfile.name" label="Display Name" outlined class="q-mb-md" />
           <q-input
             v-model="userProfile.email"
             label="Email"
@@ -289,12 +282,7 @@
             readonly
             class="q-mb-md"
           />
-          <q-file
-            v-model="profilePhoto"
-            label="Profile Photo"
-            outlined
-            accept="image/*"
-          >
+          <q-file v-model="profilePhoto" label="Profile Photo" outlined accept="image/*">
             <template v-slot:prepend>
               <q-icon name="photo_camera" />
             </template>
@@ -328,7 +316,7 @@
                 <q-item-label>{{ currency.name }}</q-item-label>
                 <q-item-label caption>{{ currency.code }}</q-item-label>
               </q-item-section>
-              <q-item-section side v-if="defaultCurrency === currency.name">
+              <q-item-section side v-if="defaultCurrency === currency.code">
                 <q-icon name="check" color="primary" />
               </q-item-section>
             </q-item>
@@ -348,16 +336,10 @@
 
         <q-card-section class="q-pt-none">
           <p class="text-body2 text-center">
-            Manage your group travel expenses with ease.
-            Built for Filipino barkada trips.
+            Manage your group travel expenses with ease. Built for Filipino barkada trips.
           </p>
           <div class="text-center q-mt-md">
-            <q-btn
-              flat
-              label="Check for Updates"
-              color="primary"
-              @click="checkUpdates"
-            />
+            <q-btn flat label="Check for Updates" color="primary" @click="checkUpdates" />
           </div>
         </q-card-section>
 
@@ -366,12 +348,11 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
@@ -383,18 +364,24 @@ const $q = useQuasar();
 const userProfile = ref({
   name: 'Team Gala Member',
   email: 'user@example.com',
-  photo_url: ''
+  photo_url: '',
 });
 
 const notifications = ref({
   expenses: true,
   trips: false,
-  settlements: true
+  settlements: true,
 });
 
 const darkMode = ref(false);
-const defaultCurrency = ref('PHP - Philippine Peso');
+const defaultCurrency = ref('PHP');
 const appVersion = ref('1.0.0');
+
+// Computed
+const defaultCurrencyName = computed(() => {
+  const currency = currencies.value.find((c) => c.code === defaultCurrency.value);
+  return currency ? currency.name : defaultCurrency.value;
+});
 
 // Dialogs
 const editProfileDialog = ref(false);
@@ -403,49 +390,111 @@ const aboutDialog = ref(false);
 const profilePhoto = ref<File | null>(null);
 
 // Currency options
-const currencies = [
-  { code: 'PHP', name: 'PHP - Philippine Peso' },
-  { code: 'USD', name: 'USD - US Dollar' },
-  { code: 'EUR', name: 'EUR - Euro' },
-  { code: 'JPY', name: 'JPY - Japanese Yen' },
-  { code: 'SGD', name: 'SGD - Singapore Dollar' },
-  { code: 'GBP', name: 'GBP - British Pound' },
-  { code: 'AUD', name: 'AUD - Australian Dollar' },
-];
+const currencies = ref<{ code: string; name: string }[]>([]);
 
 // Methods
+async function fetchCurrencies(): Promise<void> {
+  const { data, error } = await supabase
+    .from('currencies')
+    .select('code, name')
+    .eq('is_active', true)
+    .order('display_order');
+
+  if (error) {
+    console.warn('Failed to load currencies:', error);
+    // Fallback to hardcoded currencies
+    currencies.value = [
+      { code: 'PHP', name: 'PHP - Philippine Peso' },
+      { code: 'USD', name: 'USD - US Dollar' },
+      { code: 'EUR', name: 'EUR - Euro' },
+      { code: 'JPY', name: 'JPY - Japanese Yen' },
+      { code: 'SGD', name: 'SGD - Singapore Dollar' },
+      { code: 'GBP', name: 'GBP - British Pound' },
+      { code: 'AUD', name: 'AUD - Australian Dollar' },
+    ];
+  } else {
+    currencies.value = data.map((curr) => ({
+      code: curr.code,
+      name: `${curr.code} - ${curr.name}`,
+    }));
+  }
+}
+
 async function fetchUserProfile() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (user) {
     userProfile.value.email = user.email ?? 'user@example.com';
     userProfile.value.name = user.email?.split('@')[0] ?? 'User';
+
+    // Load user preferences
+    const { data: preferences, error } = await supabase
+      .from('user_preferences')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!error && preferences) {
+      darkMode.value = preferences.dark_mode ?? false;
+      defaultCurrency.value = preferences.default_currency ?? 'PHP';
+      notifications.value = {
+        expenses: preferences.expense_updates ?? true,
+        trips: preferences.trip_reminders ?? false,
+        settlements: preferences.settlement_alerts ?? true,
+      };
+    }
   }
 }
 
 function toggleDarkMode(value: boolean) {
+  darkMode.value = value;
   $q.dark.set(value);
+  void saveUserPreferences();
   $q.notify({
     type: 'info',
     message: value ? 'Dark mode enabled' : 'Light mode enabled',
-    position: 'top'
+    position: 'top',
   });
 }
 
-function selectCurrency(currency: { code: string; name: string }) {
-  defaultCurrency.value = currency.name;
+async function selectCurrency(currency: { code: string; name: string }) {
+  defaultCurrency.value = currency.code;
+  await saveUserPreferences();
   $q.notify({
     type: 'positive',
     message: `Currency changed to ${currency.code}`,
-    position: 'top'
+    position: 'top',
   });
+}
+
+async function saveUserPreferences() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { error } = await supabase.from('user_preferences').upsert({
+    user_id: user.id,
+    dark_mode: darkMode.value,
+    default_currency: defaultCurrency.value,
+    expense_updates: notifications.value.expenses,
+    trip_reminders: notifications.value.trips,
+    settlement_alerts: notifications.value.settlements,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    console.warn('Failed to save user preferences:', error);
+  }
 }
 
 function saveProfile() {
   $q.notify({
     type: 'positive',
     message: 'Profile updated successfully!',
-    position: 'top'
+    position: 'top',
   });
   editProfileDialog.value = false;
 }
@@ -455,7 +504,7 @@ function confirmLogout() {
     title: 'Confirm Logout',
     message: 'Are you sure you want to logout?',
     cancel: true,
-    persistent: true
+    persistent: true,
   }).onOk(() => {
     void handleLogout();
   });
@@ -477,12 +526,12 @@ function confirmExportData() {
     message: 'Download all your trip data as a CSV file?',
     cancel: true,
     persistent: true,
-    ok: { label: 'Export', color: 'primary' }
+    ok: { label: 'Export', color: 'primary' },
   }).onOk(() => {
     $q.notify({
       type: 'info',
       message: 'Export feature coming soon!',
-      position: 'top'
+      position: 'top',
     });
   });
 }
@@ -493,12 +542,12 @@ function confirmClearCache() {
     message: 'This will free up space but may require reloading data.',
     cancel: true,
     persistent: true,
-    ok: { label: 'Clear', color: 'negative' }
+    ok: { label: 'Clear', color: 'negative' },
   }).onOk(() => {
     $q.notify({
       type: 'positive',
       message: 'Cache cleared successfully',
-      position: 'top'
+      position: 'top',
     });
   });
 }
@@ -507,7 +556,7 @@ function checkUpdates() {
   $q.notify({
     type: 'positive',
     message: 'You are using the latest version!',
-    position: 'top'
+    position: 'top',
   });
 }
 
@@ -516,8 +565,8 @@ function openUrl(url: string) {
 }
 
 // Lifecycle
-onMounted(() => {
-  void fetchUserProfile();
+onMounted(async () => {
+  await Promise.all([fetchCurrencies(), fetchUserProfile()]);
 });
 </script>
 

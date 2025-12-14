@@ -1,7 +1,7 @@
 <template>
-  <q-page class="bg-grey-1">
+  <q-page class="bg-surface">
     <!-- Header -->
-    <div class="q-pa-md bg-white">
+    <div class="q-pa-md">
       <div class="row items-center justify-between">
         <div>
           <div class="text-overline text-grey-6">DASHBOARD</div>
@@ -16,7 +16,7 @@
       <div class="text-subtitle1 text-weight-bold q-mb-md">My Trips</div>
 
       <!-- Horizontal Scrollable Trip Cards -->
-      <div class="row no-wrap" style="overflow-x: auto; overflow-y: hidden;">
+      <div class="row no-wrap" style="overflow-x: auto; overflow-y: hidden">
         <q-card
           v-for="trip in recentTrips"
           :key="trip.id"
@@ -52,7 +52,7 @@
         <q-card
           v-if="recentTrips.length === 0"
           flat
-          class="trip-card-small q-mr-md cursor-pointer bg-grey-3"
+          class="trip-card-small q-mr-md cursor-pointer bg-surface"
           @click="goToTrips"
         >
           <div class="trip-card-image-container flex flex-center">
@@ -136,12 +136,12 @@ const totalTrips = computed(() => trips.value.length);
 const upcomingTrips = computed(() => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return trips.value.filter(trip => new Date(trip.start_date) > today).length;
+  return trips.value.filter((trip) => new Date(trip.start_date) > today).length;
 });
 
 const tripDates = computed(() => {
   const dates: string[] = [];
-  trips.value.forEach(trip => {
+  trips.value.forEach((trip) => {
     const start = new Date(trip.start_date);
     const end = new Date(trip.end_date);
 
@@ -158,7 +158,9 @@ const tripDates = computed(() => {
 // Methods
 async function fetchTrips() {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) return;
 
@@ -191,7 +193,7 @@ function getTripImage(trip: Trip): string {
   ];
 
   const index = Math.abs(trip.name.charCodeAt(0) % images.length);
-  return images[index]!;  // Add ! here
+  return images[index]!; // Add ! here
 }
 
 function getStatus(trip: Trip): string {
@@ -208,9 +210,12 @@ function getStatus(trip: Trip): string {
 function getStatusColor(trip: Trip): string {
   const status = getStatus(trip);
   switch (status) {
-    case 'Active': return 'green';
-    case 'Upcoming': return 'cyan';
-    default: return 'grey';
+    case 'Active':
+      return 'green';
+    case 'Upcoming':
+      return 'cyan';
+    default:
+      return 'grey';
   }
 }
 
@@ -275,6 +280,6 @@ onMounted(() => {
 }
 
 .stat-card-highlighted {
-  border: 2px solid #FF5722;
+  border: 2px solid #ff5722;
 }
 </style>

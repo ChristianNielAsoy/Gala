@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pb-xl">
+  <q-page class="q-pb-xl bg-surface">
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
         <q-btn flat round icon="arrow_back" @click="router.back()" aria-label="Go Back" />
@@ -31,12 +31,12 @@
               <q-icon name="check_circle" size="md" class="q-mr-sm" />
               All Settled!
             </div>
-           <div v-else-if="userBalance.netBalance < 0">
-                <div class="text-subtitle2 text-grey-3">You owe</div>
-                <div class="text-h3 text-weight-bold text-negative">
-                  {{ formatCurrency(Math.abs(userBalance.netBalance), trip?.currency_code || 'PHP') }}
-                </div>
+            <div v-else-if="userBalance.netBalance < 0">
+              <div class="text-subtitle2 text-grey-3">You owe</div>
+              <div class="text-h3 text-weight-bold text-negative">
+                {{ formatCurrency(Math.abs(userBalance.netBalance), trip?.currency_code || 'PHP') }}
               </div>
+            </div>
             <div v-else>
               <div class="text-subtitle2 text-grey-3">You are owed</div>
               <div class="text-h3 text-weight-bold text-positive">
@@ -132,7 +132,7 @@
             </div>
 
             <!-- Payment Details -->
-            <div class="bg-grey-2 rounded-borders q-pa-md q-mb-md">
+            <div class="bg-surface rounded-borders q-pa-md q-mb-md">
               <div class="text-caption text-grey-7">
                 Prepare the exact amount for
                 {{ selectedPaymentMethod[suggestion.to_member_id] || 'your chosen method' }} payment
@@ -281,6 +281,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { logActivity, getCurrentUserId } from 'src/utils/activityLogger';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
 import type { Expense, ExpenseSplit, TripMember } from 'src/types/expense';
@@ -289,6 +290,7 @@ import {
   formatCurrency,
   type MemberBalance,
 } from 'src/utils/settlementCalculator';
+import type { ExpenseWithSplits } from 'src/utils/settlementCalculator';
 
 // Define types locally
 interface SettlementSuggestion {
@@ -360,34 +362,41 @@ function generateSettlementSuggestions(
     j = 0;
 
   while (i < debtors.length && j < creditors.length) {
-  const debtor = debtors[i];      // ✅ Safe access
-  const creditor = creditors[j];  // ✅ Safe access
+    const debtor = debtors[i]; // ✅ Safe access
+    const creditor = creditors[j]; // ✅ Safe access
 
-  if (!debtor || !creditor) break; // ✅ Guard clause
+    if (!debtor || !creditor) break; // ✅ Guard clause
 
-  const debt = Math.abs(debtor.netBalance);
-  const credit = creditor.netBalance;
-  const amount = Math.min(debt, credit);
+    const debt = Math.abs(debtor.netBalance);
+    const credit = creditor.netBalance;
+    const amount = Math.min(debt, credit);
 
-  suggestions.push({
-    from_member_id: debtor.memberId,
-    to_member_id: creditor.memberId,
-    amount: Math.round(amount * 100) / 100,
-    currency_code: currencyCode,
-  });
+    suggestions.push({
+      from_member_id: debtor.memberId,
+      to_member_id: creditor.memberId,
+      amount: Math.round(amount * 100) / 100,
+      currency_code: currencyCode,
+    });
 
-  debtor.netBalance += amount;
-  creditor.netBalance -= amount;
+    debtor.netBalance += amount;
+    creditor.netBalance -= amount;
 
-  if (Math.abs(debtor.netBalance) < 0.01) i++;
-  if (Math.abs(creditor.netBalance) < 0.01) j++;
-}
+    if (Math.abs(debtor.netBalance) < 0.01) i++;
+    if (Math.abs(creditor.netBalance) < 0.01) j++;
+  }
 
   return suggestions;
 }
 
 // Calculations
-const balances = computed(() => calculateMemberBalances(expenses.value, splits.value));
+const balances = computed(() => {
+  // Map expenses to ExpenseWithSplits shape (add empty splits if missing)
+  const expensesWithSplits: ExpenseWithSplits[] = expenses.value.map((e) => ({
+    ...e,
+    splits: (splits.value || []).filter((s) => s.expense_id === e.id),
+  }));
+  return calculateMemberBalances(expensesWithSplits, members.value);
+});
 
 const allSettlements = computed(() =>
   generateSettlementSuggestions(balances.value, trip.value?.currency_code || 'PHP'),
@@ -474,6 +483,23 @@ async function confirmPayment() {
     });
 
     if (error) throw error;
+
+    // Log activity
+    const userId = await getCurrentUserId();
+    await logActivity({
+      trip_id: tripId.value,
+      user_id: userId,
+      action_type: 'settlement_paid',
+      entity_type: 'settlement',
+      description: `Marked payment of ${formatCurrency(settlement.amount, settlement.currency_code)} to ${getMemberName(settlement.to_member_id)} as paid`,
+      metadata: {
+        amount: settlement.amount,
+        currency_code: settlement.currency_code,
+        payment_method: selectedPaymentMethod.value[settlement.to_member_id],
+        from_member_id: settlement.from_member_id,
+        to_member_id: settlement.to_member_id,
+      },
+    });
 
     $q.notify({
       type: 'positive',

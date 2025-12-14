@@ -13,7 +13,8 @@
         <q-card-section class="bg-primary text-white">
           <div class="text-subtitle2">Your Balance</div>
           <div class="text-h4 text-weight-bold q-mt-sm">
-            <span v-if="yourBalance > 0">+</span>{{ currencyCode }} {{ Math.abs(yourBalance).toFixed(2) }}
+            <span v-if="yourBalance > 0">+</span>{{ currencyCode }}
+            {{ Math.abs(yourBalance).toFixed(2) }}
           </div>
           <div class="text-subtitle1 q-mt-xs">
             <span v-if="yourBalance > 0">You are owed</span>
@@ -31,11 +32,7 @@
           </div>
 
           <q-list separator>
-            <q-item
-              v-for="settlement in settlementsToPay"
-              :key="settlement.to"
-              class="q-py-md"
-            >
+            <q-item v-for="settlement in settlementsToPay" :key="settlement.to" class="q-py-md">
               <q-item-section avatar>
                 <q-avatar color="negative" text-color="white" size="48px">
                   {{ settlement.toName.charAt(0).toUpperCase() }}
@@ -43,12 +40,8 @@
               </q-item-section>
 
               <q-item-section>
-                <q-item-label class="text-weight-bold">
-                  Pay {{ settlement.toName }}
-                </q-item-label>
-                <q-item-label caption>
-                  Settle your share of expenses
-                </q-item-label>
+                <q-item-label class="text-weight-bold"> Pay {{ settlement.toName }} </q-item-label>
+                <q-item-label caption> Settle your share of expenses </q-item-label>
               </q-item-section>
 
               <q-item-section side>
@@ -93,9 +86,7 @@
                 <q-item-label class="text-weight-bold">
                   {{ settlement.fromName }} owes you
                 </q-item-label>
-                <q-item-label caption>
-                  Waiting for payment
-                </q-item-label>
+                <q-item-label caption> Waiting for payment </q-item-label>
               </q-item-section>
 
               <q-item-section side>
@@ -111,16 +102,10 @@
       <!-- All Trip Settlements -->
       <q-card v-if="allSettlements.length > 0" class="shadow-2">
         <q-card-section>
-          <div class="text-h6 q-mb-md">
-            All Trip Settlements
-          </div>
+          <div class="text-h6 q-mb-md">All Trip Settlements</div>
 
           <q-list separator>
-            <q-item
-              v-for="(settlement, index) in allSettlements"
-              :key="index"
-              class="q-py-sm"
-            >
+            <q-item v-for="(settlement, index) in allSettlements" :key="index" class="q-py-sm">
               <q-item-section>
                 <div class="row items-center">
                   <q-avatar size="32px" color="grey-4" text-color="grey-8" class="q-mr-sm">
@@ -171,7 +156,13 @@
               <q-item v-for="balance in memberBalances" :key="balance.memberId">
                 <q-item-section avatar>
                   <q-avatar
-                    :color="balance.netBalance  > 0 ? 'positive' : balance.netBalance  < 0 ? 'negative' : 'grey'"
+                    :color="
+                      balance.netBalance > 0
+                        ? 'positive'
+                        : balance.netBalance < 0
+                          ? 'negative'
+                          : 'grey'
+                    "
                     text-color="white"
                   >
                     {{ balance.memberName.charAt(0).toUpperCase() }}
@@ -185,14 +176,14 @@
                 <q-item-section side>
                   <q-item-label
                     class="text-weight-bold"
-                    :class="getBalanceColorClass(balance.netBalance )"
+                    :class="getBalanceColorClass(balance.netBalance)"
                   >
-                    <span v-if="balance.netBalance  > 0">+</span>
-                    {{ currencyCode }} {{ Math.abs(balance.netBalance ).toFixed(2) }}
+                    <span v-if="balance.netBalance > 0">+</span>
+                    {{ currencyCode }} {{ Math.abs(balance.netBalance).toFixed(2) }}
                   </q-item-label>
                   <q-item-label caption>
-                    <span v-if="balance.netBalance  > 0">is owed</span>
-                    <span v-else-if="balance.netBalance  < 0">owes</span>
+                    <span v-if="balance.netBalance > 0">is owed</span>
+                    <span v-else-if="balance.netBalance < 0">owes</span>
                     <span v-else>settled</span>
                   </q-item-label>
                 </q-item-section>
@@ -212,8 +203,10 @@
 
         <q-card-section class="q-pt-none">
           <p>
-            Confirm payment of <strong>{{ currencyCode }} {{ selectedSettlement?.amount.toFixed(2) }}</strong>
-            to <strong>{{ selectedSettlement?.toName }}</strong>?
+            Confirm payment of
+            <strong>{{ currencyCode }} {{ selectedSettlement?.amount.toFixed(2) }}</strong> to
+            <strong>{{ selectedSettlement?.toName }}</strong
+            >?
           </p>
 
           <q-select
@@ -250,7 +243,7 @@ import {
   getBalanceColorClass,
   type MemberBalance,
   type Settlement,
-  type ExpenseWithSplits
+  type ExpenseWithSplits,
 } from 'src/utils/settlementCalculator';
 
 const props = defineProps<{
@@ -269,7 +262,7 @@ const selectedSettlement = ref<Settlement | null>(null);
 const paymentMethod = ref('Cash');
 const processingPayment = ref(false);
 
-const paymentMethods = ['Cash', 'GCash', 'Bank Transfer', 'PayMaya', 'Other'];
+const paymentMethods = ['Cash', 'GCash', 'Bank Transfer', 'PayMaya', 'Other', 'PayPal', 'Venmo'];
 
 // Computed settlements
 const memberBalances = computed((): MemberBalance[] => {
@@ -282,18 +275,18 @@ const allSettlements = computed((): Settlement[] => {
 
 const yourBalance = computed((): number => {
   if (!props.currentMemberId) return 0;
-  const balance = memberBalances.value.find(b => b.memberId === props.currentMemberId);
-  return balance?.netBalance  || 0;
+  const balance = memberBalances.value.find((b) => b.memberId === props.currentMemberId);
+  return balance?.netBalance || 0;
 });
 
 const settlementsToPay = computed((): Settlement[] => {
   if (!props.currentMemberId) return [];
-  return allSettlements.value.filter(s => s.from === props.currentMemberId);
+  return allSettlements.value.filter((s) => s.from === props.currentMemberId);
 });
 
 const settlementsToReceive = computed((): Settlement[] => {
   if (!props.currentMemberId) return [];
-  return allSettlements.value.filter(s => s.to === props.currentMemberId);
+  return allSettlements.value.filter((s) => s.to === props.currentMemberId);
 });
 
 // Methods
@@ -308,21 +301,20 @@ async function confirmPayment() {
   try {
     // TODO: Save payment record to database
     // For now, just show success message
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     $q.notify({
       type: 'positive',
-      message: `Payment of ${props.currencyCode} ${selectedSettlement.value?.amount.toFixed(2)} recorded!`,
-      icon: 'check_circle'
+      message: `Payment of ${props.currencyCode} ${selectedSettlement.value?.amount.toFixed(2)} via ${paymentMethod.value} recorded!`,
+      icon: 'check_circle',
     });
 
     showPaymentDialog.value = false;
     selectedSettlement.value = null;
-
   } catch (error) {
     $q.notify({
       type: 'negative',
-      message: error instanceof Error ? error.message : 'Failed to record payment'
+      message: error instanceof Error ? error.message : 'Failed to record payment',
     });
   } finally {
     processingPayment.value = false;

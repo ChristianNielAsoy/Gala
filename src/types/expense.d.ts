@@ -47,7 +47,7 @@ export interface TripMember {
 // EXPENSE TYPES
 // ============================================
 
-export type SplitType = 'equal' | 'custom' | 'percentages';
+export type SplitType = 'equal' | 'custom' | 'itemized';
 
 export interface Expense {
   id: string;
@@ -81,6 +81,8 @@ export interface ExpenseItem {
   item_amount: number;
   quantity: number;
   display_order: number;
+  consumers: string[]; // Array of member IDs who consumed this item
+  is_libre?: boolean; // Whether this item is free (no splitting needed)
 }
 
 // ============================================
@@ -177,12 +179,7 @@ export type ActivityActionType =
   | 'trip_updated'
   | 'trip_completed';
 
-export type ActivityEntityType =
-  | 'expense'
-  | 'member'
-  | 'settlement'
-  | 'itinerary'
-  | 'trip';
+export type ActivityEntityType = 'expense' | 'member' | 'settlement' | 'itinerary' | 'trip';
 
 export interface ActivityLog {
   id: string;

@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pb-xl">
+  <q-page class="q-pb-xl bg-surface">
     <!-- Header with Tabs -->
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
@@ -11,14 +11,9 @@
       </q-toolbar>
 
       <!-- Navigation Tabs -->
-      <q-tabs
-        v-model="tab"
-        align="justify"
-        indicator-color="white"
-        active-color="white"
-        dense
-      >
-        <q-tab name="expenses" label="Expenses" icon="receipt_long" />
+      <q-tabs v-model="tab" align="justify" indicator-color="white" active-color="white" dense>
+        <q-tab name="itinerary" label="Itinerary" icon="event_note" />
+        <!-- <q-tab name="expenses" label="Expenses" icon="receipt_long" /> -->
         <q-tab name="settlement" label="Settlement" icon="account_balance_wallet" />
         <q-tab name="members" label="Members" icon="people" />
         <q-tab name="activity" label="Activity" icon="timeline" />
@@ -26,60 +21,18 @@
     </q-header>
 
     <!-- Tab Panels -->
-    <q-tab-panels v-model="tab" animated class="bg-grey-1">
-
-      <!-- Expenses Tab Panel -->
-      <q-tab-panel name="expenses" class="q-pa-none">
-        <div v-if="loadingExpenses" class="text-center q-pa-xl">
-          <q-spinner color="primary" size="lg" />
-        </div>
-
-        <div v-else class="q-pa-md">
-          <!-- Balances Overview -->
-          <q-card class="q-mb-md shadow-2">
-            <q-card-section>
-              <div class="text-h6 text-primary">Balances Overview</div>
-              <div class="text-h4 text-weight-bold q-mt-sm">
-                {{ trip?.currency_code }} {{ totalSpent.toFixed(2) }}
-              </div>
-              <div class="text-subtitle2 text-grey-7">
-                Total spent across {{ expenses.length }} expenses
-              </div>
-            </q-card-section>
-          </q-card>
-
-          <!-- Expense List -->
-          <q-card class="shadow-2">
-            <q-card-section>
-              <div class="text-h6 q-mb-sm">Expense List</div>
-
-              <q-list separator v-if="expenses.length > 0">
-                <expense-list-item
-                  v-for="expense in expenses"
-                  :key="expense.id"
-                  :expense="expense"
-                  :members="members"
-                  :current-member-id="currentMemberId ?? ''"
-                  @click="editExpense(expense.id)"
-                />
-              </q-list>
-
-              <!-- Empty State -->
-              <div v-else class="text-center q-py-xl">
-                <q-icon name="receipt_long" size="xl" color="grey-4" />
-                <p class="text-h6 text-grey-6 q-mt-md">No expenses yet</p>
-                <p class="text-grey-7">Tap the + button below to add your first expense</p>
-              </div>
-            </q-card-section>
-          </q-card>
-        </div>
+    <q-tab-panels v-model="tab" animated class="bg-surface">
+      <!-- Itinerary Tab Panel -->
+      <q-tab-panel name="itinerary" class="q-pa-md">
+        <itinerary-tab v-model="itineraryItems" />
       </q-tab-panel>
+      <!-- Expenses Tab Panel removed -->
 
       <!-- Settlement Tab Panel -->
       <q-tab-panel name="settlement" class="q-pa-none">
         <settlement-view
           v-if="trip && members.length > 0 && !loading"
-          :expenses="expensesWithSplits"
+          :expenses="itineraryExpensesWithSplits"
           :members="members"
           :current-member-id="currentMemberId ?? ''"
           :currency-code="trip.currency_code"
@@ -96,10 +49,7 @@
         <q-list bordered separator rounded>
           <q-item v-for="member in members" :key="member.id">
             <q-item-section avatar>
-              <q-avatar
-                :color="member.is_owner ? 'primary' : 'grey-5'"
-                text-color="white"
-              >
+              <q-avatar :color="member.is_owner ? 'primary' : 'grey-5'" text-color="white">
                 {{ member.name.charAt(0).toUpperCase() }}
               </q-avatar>
             </q-item-section>
@@ -108,9 +58,7 @@
               <q-item-label class="text-weight-medium">
                 {{ member.name }}
               </q-item-label>
-              <q-item-label caption v-if="member.is_owner">
-                Trip Owner
-              </q-item-label>
+              <q-item-label caption v-if="member.is_owner"> Trip Owner </q-item-label>
             </q-item-section>
 
             <q-item-section side>
@@ -142,45 +90,16 @@
             <div>{{ trip?.name }} was created</div>
           </q-timeline-entry>
 
-          <q-timeline-entry
-            v-for="expense in recentExpenses"
-            :key="expense.id"
-            :title="`${expense.description}`"
-            :subtitle="formatDate(expense.date)"
-            icon="receipt_long"
-          >
-            <div>
-              {{ getMemberName(expense.paid_by_id) }} paid
-              {{ expense.currency_code }} {{ expense.amount.toFixed(2) }}
-            </div>
-          </q-timeline-entry>
-
-          <q-timeline-entry
-            v-if="expenses.length === 0"
-            title="No activity yet"
-            subtitle="Start adding expenses"
-            icon="info"
-          />
+          <!-- Removed old recentExpenses and expenses display -->
         </q-timeline>
       </q-tab-panel>
-
     </q-tab-panels>
 
-    <!-- Floating Action Button -->
-    <q-page-sticky position="bottom-right" :offset="[18, 18]" v-if="tab === 'expenses'">
-      <q-btn
-        fab
-        icon="add"
-        color="accent"
-        size="lg"
-        @click="handleAddExpense"
-        aria-label="Add Expense"
-      />
-    </q-page-sticky>
+    <!-- Floating Action Button for Expenses removed -->
 
     <!-- Settings Modal -->
     <q-dialog v-model="showSettings">
-      <q-card style="width: 100%; max-width: 400px;">
+      <q-card style="width: 100%; max-width: 400px">
         <q-card-section>
           <div class="text-h6">Trip Settings: {{ trip?.name }}</div>
         </q-card-section>
@@ -210,17 +129,10 @@
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat label="Cancel" v-close-popup />
-          <q-btn
-            flat
-            label="Add"
-            color="primary"
-            @click="addMember"
-            :disable="!newMemberName"
-          />
+          <q-btn flat label="Add" color="primary" @click="addMember" :disable="!newMemberName" />
         </q-card-actions>
       </q-card>
     </q-dialog>
-
   </q-page>
 </template>
 
@@ -230,76 +142,77 @@ import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
-import type { Expense, TripMember, ExpenseSplit } from 'src/types/expense';
+import type { TripMember } from 'src/types/expense';
 import SettlementView from 'src/components/SettlementView.vue';
-import ExpenseListItem from 'src/components/ExpenseListItem.vue';
-
-// Define ExpenseWithSplits interface
-interface ExpenseWithSplits extends Expense {
-  splits: ExpenseSplit[];
-}
+import ItineraryTab from 'src/components/ItineraryTab.vue';
 
 const route = useRoute();
 const router = useRouter();
 const $q = useQuasar();
 
 // State
-const tab = ref('expenses');
+const tab = ref('itinerary');
 const loading = ref(true);
 const loadingExpenses = ref(false);
 const trip = ref<Trip | null>(null);
 const members = ref<TripMember[]>([]);
-const expenses = ref<Expense[]>([]);
-const expensesWithSplits = ref<ExpenseWithSplits[]>([]);
 const showSettings = ref(false);
 const addMemberDialog = ref(false);
 const newMemberName = ref('');
 const tripId = ref(route.params.tripId as string);
+import type { ItineraryItem } from 'src/components/itinerary.model';
+
+interface ItineraryEvent {
+  id: string;
+  trip_id: string;
+  event_date: string;
+  event_time?: string;
+  title: string;
+  location?: string;
+  description?: string;
+  icon?: string;
+  display_order: number;
+  created_at: string;
+}
+
+const itineraryItems = ref<ItineraryItem[]>([]);
+
+// Compute expenses from itinerary items (type: 'expense')
+const itineraryExpensesWithSplits = computed(() => {
+  // Only include valid expenses with amount and a paid_by_id
+  return itineraryItems.value
+    .filter((item) => item.type === 'expense' && typeof item.amount === 'number')
+    .map((item) => ({
+      id: item.id,
+      paid_by_id: members.value[0]?.id ?? '', // fallback to first member
+      amount: item.amount as number,
+      splits: members.value.map((m) => ({
+        member_id: m.id,
+        share_amount: (item.amount as number) / members.value.length,
+      })),
+    }));
+});
 
 let currentUserId: string | undefined;
-supabase.auth.getUser().then(({ data: { user } }) => {
-  currentUserId = user?.id;
-}).catch(console.error);
+supabase.auth
+  .getUser()
+  .then(({ data: { user } }) => {
+    currentUserId = user?.id;
+  })
+  .catch(console.error);
 
-const currentMemberId = computed(() =>
-  members.value.find((m: TripMember) => m.user_id === currentUserId)?.id
+const currentMemberId = computed(
+  () => members.value.find((m: TripMember) => m.user_id === currentUserId)?.id,
 );
 
-// Computed
-const totalSpent = computed(() =>
-  expenses.value.reduce((sum: number, expense: Expense) => sum + expense.amount, 0)
-);
-
-const recentExpenses = computed(() =>
-  expenses.value.slice(0, 5).sort((a, b) =>
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  )
-);
+// Removed unused/invalid old expenses logic
 
 // Methods
-function getCategoryIcon(category: string): string {
-  const icons: Record<string, string> = {
-    'Food': 'restaurant',
-    'Lodging': 'hotel',
-    'Transport': 'commute',
-    'Activity': 'attractions',
-    'Groceries': 'local_grocery_store',
-  };
-  return icons[category] || 'receipt_long';
-}
-
-function getMemberName(memberId: string): string {
-  return members.value.find((m: TripMember) => m.id === memberId)?.name || 'Unknown';
-}
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return '';
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function editExpense(expenseId: string): void {
-  void router.push(`/trips/${tripId.value}/expense/${expenseId}`);
 }
 
 async function fetchTripData(): Promise<void> {
@@ -323,10 +236,10 @@ async function fetchTripData(): Promise<void> {
       .single();
 
     if (tripError || !tripData) throw new Error('Trip not found or access denied.');
-      trip.value = {
-        ...tripData,
-        currencyCode: tripData.currency_code
-      } as Trip;
+    trip.value = {
+      ...tripData,
+      currencyCode: tripData.currency_code,
+    } as Trip;
 
     // 2. Fetch Trip Members
     const { data: memberData, error: memberError } = await supabase
@@ -338,42 +251,42 @@ async function fetchTripData(): Promise<void> {
     if (memberError || !memberData) throw new Error('Could not load trip members.');
     members.value = memberData as TripMember[];
 
-    // 3. Fetch Expenses WITH SPLITS for settlement calculations
-    const { data: expenseData, error: expenseError } = await supabase
-      .from('expenses')
-      .select(`
-        *,
-        payer:members!paid_by_id(name),
-        splits:expense_splits(member_id, share_amount)
-      `)
+    // 3. Fetch Itinerary Events
+    const { data: itineraryData, error: itineraryError } = await supabase
+      .from('itinerary_events')
+      .select('*')
       .eq('trip_id', id)
-      .order('date', { ascending: false });
+      .order('event_date', { ascending: true })
+      .order('display_order', { ascending: true });
 
-    if (expenseError) throw expenseError;
+    if (itineraryError) {
+      console.warn('Could not load itinerary events:', itineraryError);
+    } else {
+      // Convert itinerary_events to ItineraryItem format
+      itineraryItems.value = (itineraryData as ItineraryEvent[]).map((event: ItineraryEvent) => ({
+        id: event.id,
+        phase: 'on' as const,
+        title: event.title,
+        type: 'text' as const,
+        date: event.event_date,
+        ...(event.event_time && { time: event.event_time }),
+        ...(event.location && { location: event.location }),
+        ...(event.description && { notes: event.description }),
+      }));
+    }
 
-    // Map the joined data to include paid_by_name AND splits
-    const mappedExpenses = (expenseData || []).map(exp => ({
-      ...exp,
-      paid_by_name: exp.payer?.name || 'Unknown',
-      splits: exp.splits || []
-    }));
+    // 4. Fetch Expenses WITH SPLITS for settlement calculations
 
-    // Store basic expenses for the expense list
-    expenses.value = mappedExpenses as Expense[];
-
-    // Store expenses with splits for the Settlement component
-    expensesWithSplits.value = mappedExpenses as ExpenseWithSplits[];
-
+    // Removed old expenses logic
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '';
     console.error('Error fetching trip data:', error);
-   $q.notify({
+    $q.notify({
       type: 'negative',
-      message: errorMessage || 'Error fetching trip data.'
+      message: errorMessage || 'Error fetching trip data.',
     });
     trip.value = null;
     members.value = [];
-    expenses.value = [];
-    expensesWithSplits.value = [];
   } finally {
     loading.value = false;
     loadingExpenses.value = false;
@@ -384,13 +297,11 @@ async function addMember(): Promise<void> {
   if (!newMemberName.value.trim()) return;
 
   try {
-    const { error } = await supabase
-      .from('members')
-      .insert({
-        trip_id: tripId.value,
-        name: newMemberName.value.trim(),
-        is_owner: false
-      });
+    const { error } = await supabase.from('members').insert({
+      trip_id: tripId.value,
+      name: newMemberName.value.trim(),
+      is_owner: false,
+    });
 
     if (error) throw error;
 
@@ -398,7 +309,6 @@ async function addMember(): Promise<void> {
     newMemberName.value = '';
     addMemberDialog.value = false;
     await fetchTripData();
-
   } catch (error) {
     console.error('Error adding member:', error);
     $q.notify({ type: 'negative', message: 'Failed to add member' });
@@ -407,14 +317,6 @@ async function addMember(): Promise<void> {
 
 function openSettingsModal(): void {
   showSettings.value = true;
-}
-
-function handleAddExpense(): void {
-  void router.push(`/trips/${tripId.value}/expense/new`);
-}
-
-function handleEditExpense(expenseId: string): void {
-  void router.push(`/trips/${tripId.value}/expense/${expenseId}`);
 }
 
 function handleBack(): void {

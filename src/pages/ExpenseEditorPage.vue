@@ -1,16 +1,26 @@
 <template>
-  <q-page>
+  <q-page class="bg-surface">
     <q-header elevated class="bg-primary text-white">
       <q-toolbar>
         <q-btn flat round icon="arrow_back" @click="handleBack" aria-label="Cancel" />
         <q-toolbar-title>
           {{ isEdit ? 'Edit Expense' : 'Add New Expense' }}
+          <q-badge v-if="hasDraft" color="orange" class="q-ml-sm" label="Draft" />
         </q-toolbar-title>
+        <q-btn
+          v-if="hasDraft"
+          flat
+          round
+          icon="delete"
+          color="orange"
+          @click="clearDraft"
+          hint="Clear draft"
+        />
         <q-btn flat label="Save" @click="handleSave" :loading="saving" :disable="!isValid" />
       </q-toolbar>
     </q-header>
 
-    <div class="q-pa-md">
+    <div class="">
       <q-form @submit.prevent="handleSave" class="q-gutter-y-md">
         <!-- Section 1: Basic Details -->
         <q-card flat bordered class="shadow-2">
@@ -134,7 +144,7 @@
 
               <!-- Item Cards -->
               <div v-for="(item, idx) in items" :key="idx" class="q-mb-md">
-                <q-card flat bordered class="bg-grey-1">
+                <q-card flat bordered class="bg-surface">
                   <q-card-section class="q-pa-sm">
                     <div class="row items-center q-gutter-sm">
                       <q-input
@@ -304,12 +314,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { logActivity, getCurrentUserId } from 'src/utils/activityLogger';
+import { formatCurrency } from 'src/utils/settlementCalculator';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
-import type { TripMember, SplitType, ExpenseSplit } from 'src/types/expense';
+import type { TripMember, SplitType } from 'src/types/expense';
 import CustomSplitAmounts from 'src/components/CustomSplitAmounts.vue';
 
 // Add computed to transform member IDs to member objects
@@ -354,9 +366,32 @@ const expenseForm = ref<ExpenseForm>({
 
 // Split modes
 type SplitMode = 'equal' | 'custom' | 'itemized';
-const splitMode = ref<SplitMode>('equal');
+const splitMode = ref<SplitMode>(expenseForm.value.split_type as SplitMode);
 const involvedMembers = ref<string[]>([]);
 const customSplits = ref<Record<string, number>>({});
+
+// Sync splitMode with expenseForm.split_type
+watch(splitMode, (newMode) => {
+  expenseForm.value.split_type = newMode;
+
+  // Initialize data when switching modes
+  if (newMode === 'itemized' && items.value.length === 0) {
+    // Initialize with one empty item
+    addItem();
+  }
+
+  if (newMode === 'equal' || newMode === 'custom') {
+    // Set involved members to all members for equal/custom splits
+    involvedMembers.value = members.value.map((m: TripMember) => m.id);
+  }
+});
+
+watch(
+  () => expenseForm.value.split_type,
+  (newType) => {
+    splitMode.value = newType as SplitMode;
+  },
+);
 
 // Item-based splitting
 interface ExpenseItem {
@@ -368,15 +403,158 @@ interface ExpenseItem {
 
 const items = ref<ExpenseItem[]>([]);
 
+// Draft persistence key
+const draftKey = `expense_draft_${tripId.value}_${expenseId.value || 'new'}`;
+
+// Check if draft exists
+const hasDraft = ref(false);
+
+// Load draft data from Supabase
+async function loadDraft() {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from('expense_drafts')
+      .select('expense_data')
+      .eq('trip_id', tripId.value)
+      .eq('user_id', userId)
+      .eq('draft_key', draftKey)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 is "not found"
+      console.warn('Failed to load draft:', error);
+      return;
+    }
+
+    if (data?.expense_data) {
+      const draftData = data.expense_data;
+
+      // Restore form data
+      if (draftData.expenseForm) {
+        Object.assign(expenseForm.value, draftData.expenseForm);
+      }
+
+      // Restore split mode
+      if (draftData.splitMode) {
+        splitMode.value = draftData.splitMode;
+      }
+
+      // Restore items
+      if (draftData.items) {
+        items.value = draftData.items;
+      }
+
+      // Restore other data
+      if (draftData.involvedMembers) {
+        involvedMembers.value = draftData.involvedMembers;
+      }
+
+      if (draftData.customSplits) {
+        customSplits.value = draftData.customSplits;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load draft:', error);
+  }
+}
+
+// Save draft data to Supabase
+async function saveDraft() {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return;
+
+    const draftData = {
+      expenseForm: expenseForm.value,
+      splitMode: splitMode.value,
+      items: items.value,
+      involvedMembers: involvedMembers.value,
+      customSplits: customSplits.value,
+      timestamp: Date.now(),
+    };
+
+    const { error } = await supabase.from('expense_drafts').upsert({
+      trip_id: tripId.value,
+      user_id: userId,
+      draft_key: draftKey,
+      expense_data: draftData,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      console.warn('Failed to save draft:', error);
+    } else {
+      hasDraft.value = true;
+    }
+  } catch (error) {
+    console.warn('Failed to save draft:', error);
+  }
+}
+
+// Clear draft data
+async function clearDraft() {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return;
+
+    const { error } = await supabase
+      .from('expense_drafts')
+      .delete()
+      .eq('trip_id', tripId.value)
+      .eq('user_id', userId)
+      .eq('draft_key', draftKey);
+
+    if (error) {
+      console.warn('Failed to clear draft:', error);
+    } else {
+      hasDraft.value = false;
+      $q.notify({
+        type: 'info',
+        message: 'Draft cleared',
+        icon: 'delete',
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to clear draft:', error);
+  }
+}
+
+// Check if draft exists in Supabase
+async function checkDraftExists() {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from('expense_drafts')
+      .select('id')
+      .eq('trip_id', tripId.value)
+      .eq('user_id', userId)
+      .eq('draft_key', draftKey)
+      .single();
+
+    hasDraft.value = !error && !!data;
+  } catch (error) {
+    console.warn('Failed to check draft existence:', error);
+    hasDraft.value = false;
+  }
+}
+
+// Auto-save draft when data changes
+watch(
+  [expenseForm, splitMode, items, involvedMembers, customSplits],
+  () => {
+    void saveDraft();
+  },
+  { deep: true },
+);
+
 // Options
-const categoryOptions = [
-  { label: 'Food & Drinks', value: 'Food', icon: 'restaurant' },
-  { label: 'Accommodation', value: 'Lodging', icon: 'hotel' },
-  { label: 'Transportation', value: 'Transport', icon: 'commute' },
-  { label: 'Activities', value: 'Activity', icon: 'attractions' },
-  { label: 'Groceries', value: 'Groceries', icon: 'local_grocery_store' },
-  { label: 'Other', value: 'Other', icon: 'more_horiz' },
-];
+const categoryOptions = ref<{ label: string; value: string; icon?: string }[]>([]);
+const currencyOptions = ref<{ label: string; value: string }[]>([]);
 
 const splitModeOptions = [
   { label: 'Equal Split', value: 'equal' },
@@ -475,8 +653,61 @@ function onFileRejected(): void {
 }
 
 // Data fetching
+async function fetchCategories(): Promise<void> {
+  const { data, error } = await supabase
+    .from('expense_categories')
+    .select('name, icon')
+    .eq('is_active', true)
+    .order('display_order');
+
+  if (error) {
+    console.warn('Failed to load categories:', error);
+    // Fallback to hardcoded categories
+    categoryOptions.value = [
+      { label: 'Food & Drinks', value: 'Food & Drinks', icon: 'restaurant' },
+      { label: 'Accommodation', value: 'Accommodation', icon: 'hotel' },
+      { label: 'Transportation', value: 'Transportation', icon: 'commute' },
+      { label: 'Activities', value: 'Activities', icon: 'attractions' },
+      { label: 'Groceries', value: 'Groceries', icon: 'local_grocery_store' },
+      { label: 'Other', value: 'Other', icon: 'more_horiz' },
+    ];
+  } else {
+    categoryOptions.value = data.map((cat) => ({
+      label: cat.name,
+      value: cat.name,
+      icon: cat.icon || 'more_horiz',
+    }));
+  }
+}
+
+async function fetchCurrencies(): Promise<void> {
+  const { data, error } = await supabase
+    .from('currencies')
+    .select('code, name, symbol')
+    .eq('is_active', true)
+    .order('display_order');
+
+  if (error) {
+    console.warn('Failed to load currencies:', error);
+    // Fallback to hardcoded currencies
+    currencyOptions.value = [
+      { label: 'PHP - Philippine Peso', value: 'PHP' },
+      { label: 'USD - US Dollar', value: 'USD' },
+      { label: 'EUR - Euro', value: 'EUR' },
+    ];
+  } else {
+    currencyOptions.value = data.map((curr) => ({
+      label: `${curr.code} - ${curr.name}`,
+      value: curr.code,
+    }));
+  }
+}
+
 async function fetchTripData(): Promise<void> {
   loading.value = true;
+
+  // Load categories and currencies in parallel
+  await Promise.all([fetchCategories(), fetchCurrencies()]);
 
   const { data: tripData, error: tripError } = await supabase
     .from('trips')
@@ -503,76 +734,96 @@ async function fetchTripData(): Promise<void> {
     members.value = memberData as TripMember[];
   }
 
-  // Set defaults
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const currentUserMember = members.value.find((m: TripMember) => m.user_id === user?.id);
+  // If editing, load existing expense data
+  if (isEdit.value) {
+    await fetchExpenseData();
+  } else {
+    // Set defaults for new expense
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const currentUserMember = members.value.find((m: TripMember) => m.user_id === user?.id);
 
-  if (currentUserMember) {
-    expenseForm.value.paid_by_id = currentUserMember.id;
-    involvedMembers.value = members.value.map((m: TripMember) => m.id);
+    if (currentUserMember) {
+      expenseForm.value.paid_by_id = currentUserMember.id;
+      involvedMembers.value = members.value.map((m: TripMember) => m.id);
+    }
+
+    // Load any existing draft for new expenses
+    void loadDraft();
   }
 
   loading.value = false;
 }
 
-// Calculate splits based on mode
-function calculateSplits(): ExpenseSplit[] {
-  const totalAmount = expenseForm.value.amount || 0;
-  const splits: ExpenseSplit[] = [];
+// Fetch existing expense data for editing
+async function fetchExpenseData(): Promise<void> {
+  if (!expenseId.value) return;
 
-  if (splitMode.value === 'equal') {
-    const shareCount = involvedMembers.value.length;
-    if (shareCount === 0) return [];
+  const { data: expenseData, error: expenseError } = await supabase
+    .from('expenses')
+    .select('*')
+    .eq('id', expenseId.value)
+    .single();
 
-    const baseShare = Math.floor((totalAmount * 100) / shareCount) / 100;
-    const remainder = totalAmount - baseShare * shareCount;
-
-    involvedMembers.value.forEach((memberId: string, index: number) => {
-      let shareAmount = baseShare;
-      if (index === 0) shareAmount = parseFloat((shareAmount + remainder).toFixed(2));
-
-      splits.push({
-        expense_id: 'TEMP_ID',
-        member_id: memberId,
-        share_amount: shareAmount,
-      });
-    });
-  } else if (splitMode.value === 'custom') {
-    involvedMembers.value.forEach((memberId: string) => {
-      const amount = customSplits.value[memberId] || 0;
-      if (amount > 0) {
-        splits.push({
-          expense_id: 'TEMP_ID',
-          member_id: memberId,
-          share_amount: amount,
-        });
-      }
-    });
-  } else if (splitMode.value === 'itemized') {
-    // Calculate per-item splits
-    const memberTotals: Record<string, number> = {};
-
-    items.value.forEach((item) => {
-      if (item.isLibre || item.participants.length === 0) return;
-
-      const itemShare = item.amount / item.participants.length;
-      item.participants.forEach((memberId) => {
-        memberTotals[memberId] = (memberTotals[memberId] || 0) + itemShare;
-      });
-    });
-
-    Object.entries(memberTotals).forEach(([memberId, amount]) => {
-      splits.push({
-        expense_id: 'TEMP_ID',
-        member_id: memberId,
-        share_amount: parseFloat(amount.toFixed(2)),
-      });
-    });
+  if (expenseError || !expenseData) {
+    $q.notify({ type: 'negative', message: 'Could not load expense data.' });
+    return;
   }
 
-  return splits.filter((s: ExpenseSplit) => s.share_amount > 0);
+  // Populate form
+  expenseForm.value = {
+    description: expenseData.description,
+    amount: expenseData.amount,
+    paid_by_id: expenseData.paid_by_id,
+    category: expenseData.category,
+    date: expenseData.date,
+    split_type: expenseData.split_type || 'equal',
+  };
+
+  // Set split mode
+  splitMode.value = expenseData.split_type as SplitMode;
+
+  // Load expense items if itemized
+  if (expenseData.split_type === 'itemized') {
+    const { data: itemsData, error: itemsError } = await supabase
+      .from('expense_items')
+      .select('*')
+      .eq('expense_id', expenseId.value)
+      .order('display_order');
+
+    if (!itemsError && itemsData) {
+      items.value = itemsData.map((item) => ({
+        name: item.item_name,
+        amount: item.item_amount,
+        isLibre: item.is_libre || false,
+        participants: item.consumers || [],
+      }));
+    }
+
+    // If no items found, initialize with one empty item
+    if (items.value.length === 0) {
+      addItem();
+    }
+  }
+
+  // Load expense splits to determine involved members
+  const { data: splitsData, error: splitsError } = await supabase
+    .from('expense_splits')
+    .select('member_id, share_amount')
+    .eq('expense_id', expenseId.value);
+
+  if (!splitsError && splitsData) {
+    involvedMembers.value = splitsData.map((split) => split.member_id);
+
+    // For custom splits, populate customSplits
+    if (expenseData.split_type === 'custom') {
+      customSplits.value = {};
+      splitsData.forEach((split) => {
+        customSplits.value[split.member_id] = split.share_amount;
+      });
+    }
+  }
 }
 
 // Save expense
@@ -609,6 +860,30 @@ async function handleSave() {
         .filter((s) => s.share_amount > 0);
     }
 
+    // Handle itemized expenses
+    if (expenseForm.value.split_type === 'itemized') {
+      // For itemized expenses, splits are calculated from item consumers
+      const itemSplits: Record<string, number> = {};
+
+      // Calculate total owed by each member from items
+      items.value.forEach((item) => {
+        if (!item.isLibre && item.participants.length > 0) {
+          const sharePerPerson = item.amount / item.participants.length;
+          item.participants.forEach((memberId) => {
+            itemSplits[memberId] = (itemSplits[memberId] || 0) + sharePerPerson;
+          });
+        }
+      });
+
+      // Convert to splits array
+      splits = Object.entries(itemSplits)
+        .filter(([, amount]) => amount > 0)
+        .map(([memberId, share_amount]) => ({
+          member_id: memberId,
+          share_amount: Math.round(share_amount * 100) / 100,
+        }));
+    }
+
     // 2. Insert Expense
     const { data: expenseData, error: expenseError } = await supabase
       .from('expenses')
@@ -626,7 +901,22 @@ async function handleSave() {
 
     if (expenseError || !expenseData) throw expenseError;
 
-    // 3. Insert Splits
+    // 3. Insert Expense Items (for itemized expenses)
+    if (expenseForm.value.split_type === 'itemized' && items.value.length > 0) {
+      const itemsToInsert = items.value.map((item, index) => ({
+        expense_id: expenseData.id,
+        item_name: item.name,
+        item_amount: item.amount,
+        quantity: 1, // Default quantity
+        display_order: index,
+        consumers: item.isLibre ? [] : item.participants,
+      }));
+
+      const { error: itemsError } = await supabase.from('expense_items').insert(itemsToInsert);
+      if (itemsError) throw itemsError;
+    }
+
+    // 4. Insert Splits
     const splitsToInsert = splits.map((s) => ({
       expense_id: expenseData.id,
       member_id: s.member_id,
@@ -637,15 +927,36 @@ async function handleSave() {
 
     if (splitsError) throw splitsError;
 
+    // Log activity
+    const userId = await getCurrentUserId();
+    await logActivity({
+      trip_id: tripId.value,
+      user_id: userId,
+      action_type: isEdit.value ? 'expense_updated' : 'expense_added',
+      entity_type: 'expense',
+      entity_id: expenseData.id,
+      description: isEdit.value
+        ? `Updated expense: ${expenseForm.value.description}`
+        : `Added expense: ${expenseForm.value.description} (${formatCurrency(expenseForm.value.amount!, trip.value?.currency_code || 'PHP')})`,
+      metadata: {
+        amount: expenseForm.value.amount,
+        category: expenseForm.value.category,
+        split_type: expenseForm.value.split_type,
+        item_count: expenseForm.value.split_type === 'itemized' ? items.value.length : undefined,
+      },
+    });
+
     $q.notify({
       type: 'positive',
       message: 'Expense saved successfully!',
       icon: 'check_circle',
     });
 
+    // Clear draft data since expense is saved
+    void clearDraft();
+
     router.back();
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error saving expense:', error);
     $q.notify({
       type: 'negative',
@@ -684,17 +995,68 @@ async function deleteExpense(): Promise<void> {
 }
 
 function handleBack(): void {
-  void router.back();
+  // Check if there are unsaved changes
+  const hasChanges =
+    items.value.length > 0 || expenseForm.value.description || expenseForm.value.amount;
+
+  if (hasChanges) {
+    $q.dialog({
+      title: 'Unsaved Changes',
+      message: 'You have unsaved changes. Do you want to save them as a draft for later?',
+      cancel: {
+        label: 'Discard',
+        color: 'negative',
+        flat: true,
+      },
+      ok: {
+        label: 'Keep Draft',
+        color: 'primary',
+      },
+      persistent: true,
+    })
+      .onOk(() => {
+        // Keep draft (already auto-saved)
+        router.back();
+      })
+      .onCancel(() => {
+        // Discard draft
+        void clearDraft();
+        router.back();
+      });
+  } else {
+    router.back();
+  }
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
   if (!tripId.value) {
     $q.notify({ type: 'negative', message: 'Missing Trip ID.' });
     void router.back();
     return;
   }
-  void fetchTripData();
+  await fetchTripData();
+  await checkDraftExists();
+  if (hasDraft.value) {
+    await loadDraft();
+  }
+
+  // Warn about unsaved changes when closing tab
+  const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    const hasChanges =
+      items.value.length > 0 || expenseForm.value.description || expenseForm.value.amount;
+    if (hasChanges) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
+  // Cleanup on unmount
+  onUnmounted(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  });
 });
 </script>
 

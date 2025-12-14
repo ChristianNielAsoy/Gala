@@ -1,6 +1,6 @@
 <template>
-  <div class="flex flex-center bg-grey-2" style="min-height: 100vh;">
-    <q-card class="q-pa-md shadow-2 my_card" style="width: 90%; max-width: 400px;">
+  <div class="flex flex-center bg-white" style="min-height: 100vh">
+    <q-card class="q-pa-md shadow-2 my_card" style="width: 90%; max-width: 400px">
       <q-card-section class="text-center">
         <div class="text-h5 text-weight-bold text-primary">GALA App</div>
         <div class="text-subtitle1 text-grey-7 q-mt-sm">Create Your Account</div>
@@ -120,8 +120,8 @@ async function handleSignup(): Promise<void> {
       options: {
         data: {
           full_name: name.value,
-        }
-      }
+        },
+      },
     });
 
     if (error) throw error;

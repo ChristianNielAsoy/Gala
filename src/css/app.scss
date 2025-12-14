@@ -1,1 +1,85 @@
 // app global css in SCSS form
+
+// Global styles for UI/UX design standards
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  background-color: $background;
+  color: $on-background;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.q-layout {
+  min-height: 100vh;
+}
+
+.q-header {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.q-toolbar {
+  padding: 0 16px;
+}
+
+.q-toolbar-title {
+  font-weight: 500;
+  font-size: 1.25rem;
+}
+
+.q-drawer {
+  border-right: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.q-list .q-item {
+  border-radius: 8px;
+  margin: 4px 8px;
+  transition: background-color 0.2s ease;
+}
+
+.q-list .q-item:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.q-btn {
+  border-radius: 8px;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.q-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.q-input {
+  border-radius: 8px;
+}
+
+.q-field__control {
+  border-radius: 8px;
+}
+
+// Logo styles
+.logo {
+  height: 40px;
+  width: 40px;
+  border-radius: 50%;
+  margin-right: 12px;
+}
+
+// Hide scrollbar in sidebar
+.sidebar-list {
+  height: calc(100vh - 64px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

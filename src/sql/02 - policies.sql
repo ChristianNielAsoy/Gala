@@ -244,3 +244,13 @@ USING (
   bucket_id = 'payment-proofs' AND
   (storage.foldername(name))[1] = auth.uid()::text
 );
+
+-- Trip members can create activity logs
+CREATE POLICY "Trip members can create activity logs"
+ON activity_log FOR INSERT
+WITH CHECK (
+  trip_id IN (
+    SELECT trip_id FROM members
+    WHERE user_id = auth.uid()
+  )
+);
