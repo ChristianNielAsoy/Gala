@@ -185,6 +185,17 @@
                   <!-- Notes -->
                   <div v-if="item.notes" class="text-body2 q-mb-xs">{{ item.notes }}</div>
 
+                  <!-- Weather Information -->
+                  <div v-if="item.weatherForecast" class="weather-info row items-center q-mb-xs">
+                    <img
+                      v-if="item.weatherIcon"
+                      :src="item.weatherIcon"
+                      alt="Weather Icon"
+                      class="q-mr-sm"
+                    />
+                    <div>{{ item.weatherForecast }} ({{ item.temperature }}°C)</div>
+                  </div>
+
                   <!-- Attachments -->
                   <div v-if="item.attachments && item.attachments.length" class="q-mb-xs">
                     <q-chip
@@ -441,6 +452,7 @@ import { ref, watch, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { VueDraggableNext } from 'vue-draggable-next';
 import type { ItineraryItem, ItineraryPhase, ItineraryItemType } from './itinerary.model';
+import { fetchWeather } from '../utils/weatherService';
 
 const props = defineProps<{
   modelValue?: ItineraryItem[];
@@ -673,9 +685,18 @@ function saveItem() {
     const index = itineraryItems.value.findIndex((item) => item.id === currentItem.value.id);
     if (index !== -1) {
       itineraryItems.value[index] = { ...currentItem.value };
+      // Fetch weather if location is set
+      if (currentItem.value.location) {
+        void fetchWeatherForItem(itineraryItems.value[index]);
+      }
     }
   } else {
-    itineraryItems.value.push({ ...currentItem.value });
+    const newItem = { ...currentItem.value };
+    itineraryItems.value.push(newItem);
+    // Fetch weather if location is set
+    if (newItem.location) {
+      void fetchWeatherForItem(newItem);
+    }
   }
 
   closeModal();
@@ -807,9 +828,33 @@ function onDragEnd(evt: {
   }
 }
 
+// Weather functions
+async function fetchWeatherForItem(item: ItineraryItem) {
+  if (!item.location) return;
+  try {
+    const weatherData = await fetchWeather(item.location);
+    item.weatherForecast = weatherData.forecast;
+    item.temperature = weatherData.temperature;
+    item.weatherIcon = weatherData.icon;
+  } catch (error) {
+    console.error(`Failed to fetch weather for ${item.title}:`, error);
+  }
+}
+
+async function fetchWeatherForAllItems() {
+  for (const phaseKey of Object.keys(phaseItems.value) as ItineraryPhase[]) {
+    for (const item of phaseItems.value[phaseKey]) {
+      if (item.location) {
+        await fetchWeatherForItem(item);
+      }
+    }
+  }
+}
+
 // Initialize
-onMounted(() => {
+onMounted(async () => {
   updatePhaseItems();
+  await fetchWeatherForAllItems();
 });
 </script>
 

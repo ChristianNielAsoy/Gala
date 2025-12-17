@@ -21,4 +21,7 @@ export interface ItineraryItem {
   checklist?: ItineraryChecklistItem[];
   attachments?: string[]; // URLs or file references
   amount?: number; // for expense
+  weatherForecast?: string; // e.g., "Sunny", "Rainy"
+  temperature?: number; // e.g., 25 (Celsius)
+  weatherIcon?: string; // URL or identifier for weather icon
 }

@@ -3,17 +3,16 @@
 export interface MemberBalance {
   memberId: string;
   memberName: string;
-  netBalance: number; // ✅ Changed from 'balance' to 'netBalance'
+  netBalance: number; // Positive = owed money, negative = owes money
   totalPaid: number;
   totalOwed: number;
 }
 
-export interface Settlement {
-  from: string;
-  fromName: string;
-  to: string;
-  toName: string;
-  amount: number;
+export interface BalanceBreakdown {
+  memberBalances: MemberBalance[];
+  settlements: Settlement[];
+  totalExpenses: number;
+  allSettled: boolean;
 }
 
 export interface ExpenseWithSplits {
@@ -34,11 +33,15 @@ export function calculateMemberBalances(
   expenses: ExpenseWithSplits[],
   members: { id: string; name: string }[],
 ): MemberBalance[] {
-  const balances = new Map<string, number>();
+  const netBalances = new Map<string, number>();
+  const totalPaidMap = new Map<string, number>();
+  const totalOwedMap = new Map<string, number>();
 
-  // Initialize all members with 0 balance
+  // Initialize all members
   members.forEach((member) => {
-    balances.set(member.id, 0);
+    netBalances.set(member.id, 0);
+    totalPaidMap.set(member.id, 0);
+    totalOwedMap.set(member.id, 0);
   });
 
   // Process each expense
@@ -46,12 +49,16 @@ export function calculateMemberBalances(
     const payerId = expense.paid_by_id;
     const totalPaid = expense.amount;
 
-    // The payer gets credited for the full amount
-    balances.set(payerId, (balances.get(payerId) || 0) + totalPaid);
+    // Track what the payer paid
+    totalPaidMap.set(payerId, (totalPaidMap.get(payerId) || 0) + totalPaid);
+
+    // The payer gets credited for the full amount (net balance)
+    netBalances.set(payerId, (netBalances.get(payerId) || 0) + totalPaid);
 
     // Each consumer owes their share
     expense.splits.forEach((split) => {
-      balances.set(split.member_id, (balances.get(split.member_id) || 0) - split.share_amount);
+      totalOwedMap.set(split.member_id, (totalOwedMap.get(split.member_id) || 0) + split.share_amount);
+      netBalances.set(split.member_id, (netBalances.get(split.member_id) || 0) - split.share_amount);
     });
   });
 
@@ -59,9 +66,9 @@ export function calculateMemberBalances(
   return members.map((member) => ({
     memberId: member.id,
     memberName: member.name,
-    netBalance: balances.get(member.id) || 0, // ✅ Changed from 'balance' to 'netBalance'
-    totalPaid: balances.get(member.id) || 0, // Added totalPaid
-    totalOwed: balances.get(member.id) || 0, // Added totalOwed
+    netBalance: netBalances.get(member.id) || 0,
+    totalPaid: totalPaidMap.get(member.id) || 0,
+    totalOwed: totalOwedMap.get(member.id) || 0,
   }));
 }
 
