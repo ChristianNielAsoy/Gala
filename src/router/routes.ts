@@ -9,86 +9,80 @@ const routes: RouteRecordRaw[] = [
       { path: '', redirect: '/dashboard' },
       {
         path: 'dashboard',
-        component: () => import('pages/DashboardPage.vue'),
+        component: () => import('pages/main/DashboardPage.vue'),
         meta: { requiresAuth: true },
       },
       {
         path: 'trips',
-        component: () => import('pages/TripsPage.vue'),
+        component: () => import('pages/trips/TripsPage.vue'),
         meta: { requiresAuth: true },
       },
       {
         path: 'trips/:tripId',
-        component: () => import('pages/TripDetailsPage.vue'),
-        meta: { requiresAuth: true },
-      },
-      // Expense editor routes removed
-      {
-        path: '/settings',
-        component: () => import('pages/SettingsPage.vue'),
+        component: () => import('pages/trips/TripDetailsPage.vue'),
         meta: { requiresAuth: true },
       },
       {
-        path: '/people',
-        component: () => import('pages/PeoplePage.vue'),
+        path: 'trips/:tripId/expenses/new',
+        component: () => import('pages/expenses/ExpenseEditorPage.vue'),
         meta: { requiresAuth: true },
       },
       {
-        path: '/trips/:tripId/settlement',
-        component: () => import('pages/SettlementPage.vue'),
-        meta: { requiresAuth: true },
-      },
-      {
-        path: '/trips/:tripId/settlement',
-        component: () => import('pages/SettlementPage.vue'),
+        path: 'trips/:tripId/expenses/:expenseId',
+        component: () => import('pages/expenses/ExpenseEditorPage.vue'),
         meta: { requiresAuth: true },
       },
       {
         path: 'settings',
-        component: () => import('pages/SettingsPage.vue'),
+        component: () => import('pages/settings/SettingsPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'trips/:tripId/settlement',
+        component: () => import('pages/settlement/SettlementPage.vue'),
         meta: { requiresAuth: true },
       },
       {
         path: 'documents-vault',
-        component: () => import('pages/DocumentsVaultPage.vue'),
+        component: () => import('pages/documents/DocumentsVaultPage.vue'),
         meta: { requiresAuth: true },
       },
       {
         path: 'expense-analytics',
-        component: () => import('pages/ExpenseAnalyticsPage.vue'),
+        component: () => import('pages/expenses/ExpenseAnalyticsPage.vue'),
         meta: { requiresAuth: true },
       },
       {
         path: 'packing-list',
-        component: () => import('pages/PackingListPage.vue'),
+        component: () => import('pages/trips/PackingListPage.vue'),
         meta: { requiresAuth: true },
       },
       {
         path: 'itinerary-templates',
-        component: () => import('pages/ItineraryTemplatesPage.vue'),
+        component: () => import('pages/trips/ItineraryTemplatesPage.vue'),
         meta: { requiresAuth: true },
       },
       {
         path: 'user-profile',
-        component: () => import('pages/UserProfilePage.vue'),
+        component: () => import('pages/settings/UserProfilePage.vue'),
         meta: { requiresAuth: true },
       },
     ],
   },
   {
     path: '/login',
-    component: () => import('pages/LoginPage.vue'),
+    component: () => import('pages/auth/LoginPage.vue'),
     meta: { requiresAuth: false },
   },
   {
     path: '/signup',
-    component: () => import('pages/SignupPage.vue'),
+    component: () => import('pages/auth/SignupPage.vue'),
     meta: { requiresAuth: false },
   },
   // Always leave this as last one
   {
     path: '/:catchAll(.*)*',
-    component: () => import('pages/ErrorNotFound.vue'),
+    component: () => import('pages/error/ErrorNotFound.vue'),
   },
 ];
 

@@ -47,7 +47,13 @@ export interface TripMember {
 // EXPENSE TYPES
 // ============================================
 
-export type SplitType = 'equal' | 'custom' | 'itemized';
+export type SplitType =
+  | 'equal'
+  | 'custom'
+  | 'itemized'
+  | 'gifted'
+  | 'individual_shared'
+  | 'equalized_meals';
 
 export interface Expense {
   id: string;
@@ -198,12 +204,12 @@ export interface ActivityLog {
 // ============================================
 
 export const EXPENSE_CATEGORIES = [
-  'Food',
-  'Lodging',
-  'Transport',
-  'Activity',
+  'Food & Drinks',
+  'Accommodation',
+  'Transportation',
+  'Activities',
   'Groceries',
-  'Miscellaneous',
+  'Other',
 ] as const;
 
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];

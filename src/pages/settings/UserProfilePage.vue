@@ -16,10 +16,19 @@
       <q-card-section>
         <div class="text-subtitle1 q-mb-sm">Trip History</div>
         <q-list bordered separator>
-          <q-item v-for="trip in userProfile.trips" :key="trip.id">
+          <q-item
+            v-for="trip in userProfile.trips"
+            :key="trip.id"
+            clickable
+            class="cursor-pointer"
+            @click="router.push('/trips/' + trip.id)"
+          >
             <q-item-section>
               <q-item-label class="text-weight-bold">{{ trip.name }}</q-item-label>
               <q-item-label caption>{{ trip.dateRange }}</q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-icon name="arrow_forward_ios" color="grey-5" size="xs" />
             </q-item-section>
           </q-item>
           <div v-if="userProfile.trips.length === 0" class="text-center q-pa-md text-grey-6">
@@ -47,7 +56,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { supabase } from 'boot/supabase';
+
+const router = useRouter();
 
 interface TripSummary {
   id: string;

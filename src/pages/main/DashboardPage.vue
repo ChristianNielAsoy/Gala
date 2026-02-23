@@ -39,7 +39,14 @@
     <div class="q-pa-md">
       <h2 class="text-h6 text-weight-bold q-mb-md">Recent Activity</h2>
       <q-card flat bordered>
-        <q-card-section>
+        <q-card-section v-if="loadingActivity" class="text-center q-py-lg">
+          <q-spinner color="primary" />
+        </q-card-section>
+        <q-card-section v-else-if="recentActivities.length === 0" class="text-center q-py-lg">
+          <q-icon name="history" size="40px" color="grey-4" />
+          <div class="text-grey-6 q-mt-sm">No activity yet. Start planning a trip!</div>
+        </q-card-section>
+        <q-card-section v-else>
           <q-timeline color="primary">
             <q-timeline-entry
               v-for="activity in recentActivities"
@@ -49,20 +56,7 @@
               :caption="activity.time"
               :icon="activity.icon"
               :color="activity.color"
-            >
-              <div v-if="activity.actions" class="q-mt-sm">
-                <q-btn
-                  v-for="action in activity.actions"
-                  :key="action.label"
-                  flat
-                  dense
-                  :color="action.color"
-                  :label="action.label"
-                  @click="action.handler"
-                  class="q-mr-sm"
-                />
-              </div>
-            </q-timeline-entry>
+            />
           </q-timeline>
         </q-card-section>
       </q-card>
@@ -142,7 +136,7 @@
     </div>
 
     <!-- Insights Section -->
-    <div class="q-pa-md">
+    <div class="q-pa-md" v-if="!loading">
       <h2 class="text-h6 text-weight-bold q-mb-md">Travel Insights</h2>
       <div class="row q-col-gutter-md">
         <div class="col-12 col-md-6">
@@ -150,13 +144,19 @@
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="trending_up" size="24px" color="positive" class="q-mr-sm" />
-                <div class="text-subtitle2 text-weight-bold">Spending Trend</div>
+                <div class="text-subtitle2 text-weight-bold">Trip Overview</div>
               </div>
-              <p class="text-body2 text-grey-7">
-                Your average trip expense is 15% higher than last month. Consider setting a budget
-                for your next adventure!
+              <p class="text-body2 text-grey-7" v-if="stats.upcomingTrips > 0">
+                You have <strong>{{ stats.upcomingTrips }} upcoming {{ stats.upcomingTrips === 1 ? 'trip' : 'trips' }}</strong> on the calendar.
+                <span v-if="stats.activeTrips > 0"> {{ stats.activeTrips }} {{ stats.activeTrips === 1 ? 'trip is' : 'trips are' }} currently active!</span>
               </p>
-              <q-btn flat dense color="primary" label="Set Budget" @click="goToSettings" />
+              <p class="text-body2 text-grey-7" v-else-if="stats.pastTrips > 0">
+                You've completed <strong>{{ stats.pastTrips }} {{ stats.pastTrips === 1 ? 'trip' : 'trips' }}</strong> so far. Time to plan the next one!
+              </p>
+              <p class="text-body2 text-grey-7" v-else>
+                No trips yet. Start planning your first barkada adventure!
+              </p>
+              <q-btn flat dense color="primary" label="View Trips" @click="goToTrips" />
             </q-card-section>
           </q-card>
         </div>
@@ -164,14 +164,17 @@
           <q-card flat bordered class="insight-card q-pa-md">
             <q-card-section>
               <div class="row items-center q-mb-md">
-                <q-icon name="lightbulb" size="24px" color="accent" class="q-mr-sm" />
-                <div class="text-subtitle2 text-weight-bold">Smart Suggestion</div>
+                <q-icon name="analytics" size="24px" color="accent" class="q-mr-sm" />
+                <div class="text-subtitle2 text-weight-bold">Expense Tracking</div>
               </div>
-              <p class="text-body2 text-grey-7">
-                Based on your travel history, flights to Southeast Asia are 20% cheaper if booked 2
-                months in advance.
+              <p class="text-body2 text-grey-7" v-if="stats.totalTrips > 0">
+                Tracking expenses across <strong>{{ stats.totalTrips }} {{ stats.totalTrips === 1 ? 'trip' : 'trips' }}</strong>.
+                Use the analytics page to see spending breakdowns and settle up with your barkada.
               </p>
-              <q-btn flat dense color="accent" label="Explore Deals" @click="exploreDeals" />
+              <p class="text-body2 text-grey-7" v-else>
+                Once you create a trip, you can track shared expenses and split costs with your group.
+              </p>
+              <q-btn flat dense color="accent" label="View Analytics" @click="goToExpenseAnalytics" />
             </q-card-section>
           </q-card>
         </div>
@@ -193,19 +196,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
 import type { User } from '@supabase/supabase-js';
+import type { ActivityActionType } from 'src/types/expense';
+
+interface ActivityItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  time: string;
+  icon: string;
+  color: string;
+}
 
 const $q = useQuasar();
 const router = useRouter();
 
 const loading = ref(true);
+const loadingActivity = ref(false);
 const trips = ref<Trip[]>([]);
 const user = ref<User | null>(null);
+const recentActivities = ref<ActivityItem[]>([]);
 
 const stats = ref({
   totalTrips: 0,
@@ -214,33 +229,65 @@ const stats = ref({
   pastTrips: 0,
 });
 
-const recentActivities = computed(() => [
-  {
-    id: 1,
-    title: 'Trip to Bali completed',
-    subtitle: 'Expenses settled with all members',
-    time: '2 days ago',
-    icon: 'check_circle',
-    color: 'positive',
-    actions: [{ label: 'View Details', color: 'primary', handler: () => goToTrips() }],
-  },
-  {
-    id: 2,
-    title: 'New expense added',
-    subtitle: 'Hotel booking for Tokyo trip',
-    time: '1 week ago',
-    icon: 'receipt',
-    color: 'info',
-  },
-  {
-    id: 3,
-    title: 'Packing list updated',
-    subtitle: 'Added items for Europe trip',
-    time: '2 weeks ago',
-    icon: 'checklist',
-    color: 'accent',
-  },
-]);
+function getActivityIcon(actionType: ActivityActionType): string {
+  if (actionType.startsWith('expense')) return 'receipt';
+  if (actionType.startsWith('settlement')) return 'payments';
+  if (actionType.startsWith('member')) return 'person';
+  if (actionType.startsWith('itinerary')) return 'event_note';
+  if (actionType === 'trip_completed') return 'check_circle';
+  return 'luggage';
+}
+
+function getActivityColor(actionType: ActivityActionType): string {
+  if (actionType.startsWith('expense')) return 'info';
+  if (actionType.startsWith('settlement')) return 'positive';
+  if (actionType.startsWith('member')) return 'accent';
+  if (actionType.startsWith('itinerary')) return 'warning';
+  return 'primary';
+}
+
+function formatRelativeTime(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(isoDate).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+}
+
+async function fetchRecentActivities(tripIds: string[]): Promise<void> {
+  if (tripIds.length === 0) return;
+  loadingActivity.value = true;
+  try {
+    const { data } = await supabase
+      .from('activity_log')
+      .select('id, action_type, description, created_at, trips(name)')
+      .in('trip_id', tripIds)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    recentActivities.value = (data || []).map((entry) => {
+      const tripName = Array.isArray(entry.trips)
+        ? (entry.trips[0] as { name?: string } | undefined)?.name
+        : (entry.trips as { name?: string } | null)?.name;
+      return {
+        id: entry.id as string,
+        title: entry.description as string,
+        subtitle: tripName ? `Trip: ${tripName}` : '',
+        time: formatRelativeTime(entry.created_at as string),
+        icon: getActivityIcon(entry.action_type as ActivityActionType),
+        color: getActivityColor(entry.action_type as ActivityActionType),
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching activities:', error);
+  } finally {
+    loadingActivity.value = false;
+  }
+}
 
 async function fetchDashboardData(): Promise<void> {
   loading.value = true;
@@ -281,6 +328,8 @@ async function fetchDashboardData(): Promise<void> {
       ).length,
       pastTrips: trips.value.filter((t) => t.end_date && t.end_date < now).length,
     };
+
+    await fetchRecentActivities(tripIds);
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
   } finally {
@@ -312,18 +361,6 @@ function goToUserProfile() {
   void router.push('/user-profile');
 }
 
-function goToSettings() {
-  void router.push('/settings');
-}
-
-function exploreDeals() {
-  // Placeholder for deals functionality
-  $q.notify({
-    type: 'info',
-    message: 'Deals feature coming soon!',
-    position: 'top',
-  });
-}
 
 async function handleLogout(): Promise<void> {
   const { error } = await supabase.auth.signOut();

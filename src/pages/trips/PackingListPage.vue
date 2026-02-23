@@ -113,7 +113,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
-import PackingListItems from 'src/components/PackingListItems.vue';
+import PackingListItems from 'src/components/packing/PackingListItems.vue';
 
 const $q = useQuasar();
 

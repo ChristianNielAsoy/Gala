@@ -1,5 +1,13 @@
 // src/utils/settlementCalculator.ts
 
+export interface Settlement {
+  from: string;
+  fromName: string;
+  to: string;
+  toName: string;
+  amount: number;
+}
+
 export interface MemberBalance {
   memberId: string;
   memberName: string;
@@ -57,8 +65,14 @@ export function calculateMemberBalances(
 
     // Each consumer owes their share
     expense.splits.forEach((split) => {
-      totalOwedMap.set(split.member_id, (totalOwedMap.get(split.member_id) || 0) + split.share_amount);
-      netBalances.set(split.member_id, (netBalances.get(split.member_id) || 0) - split.share_amount);
+      totalOwedMap.set(
+        split.member_id,
+        (totalOwedMap.get(split.member_id) || 0) + split.share_amount,
+      );
+      netBalances.set(
+        split.member_id,
+        (netBalances.get(split.member_id) || 0) - split.share_amount,
+      );
     });
   });
 
@@ -158,6 +172,48 @@ export function getMemberSettlementSummary(
 }
 
 /**
+ * Calculate complete balance breakdown including settlements
+ */
+export function calculateBalanceBreakdown(
+  expenses: ExpenseWithSplits[],
+  members: { id: string; name: string }[],
+): BalanceBreakdown {
+  const memberBalances = calculateMemberBalances(expenses, members);
+  const settlements = simplifySettlements(memberBalances);
+  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const allSettled = settlements.length === 0 || settlements.every((s) => s.amount < 0.01);
+
+  return {
+    memberBalances,
+    settlements,
+    totalExpenses,
+    allSettled,
+  };
+}
+
+/**
+ * Get settlements involving a specific member
+ */
+export function getSettlementsForMember(
+  settlements: Settlement[],
+  memberId: string,
+): { owes: Settlement[]; owed: Settlement[] } {
+  return {
+    owes: settlements.filter((s) => s.from === memberId),
+    owed: settlements.filter((s) => s.to === memberId),
+  };
+}
+
+/**
+ * Get balance status text
+ */
+export function getBalanceStatus(netBalance: number): string {
+  if (netBalance > 0.01) return 'You are owed';
+  if (netBalance < -0.01) return 'You owe';
+  return 'Settled up';
+}
+
+/**
  * Format currency amount for display
  */
 export function formatCurrency(amount: number, currencyCode = 'PHP'): string {
@@ -167,8 +223,8 @@ export function formatCurrency(amount: number, currencyCode = 'PHP'): string {
 /**
  * Get color class based on balance
  */
-export function getBalanceColorClass(balance: number): string {
-  if (balance > 0.01) return 'text-positive';
-  if (balance < -0.01) return 'text-negative';
-  return 'text-grey-7';
+export function getBalanceColor(balance: number): string {
+  if (balance > 0.01) return 'positive';
+  if (balance < -0.01) return 'negative';
+  return 'grey-7';
 }

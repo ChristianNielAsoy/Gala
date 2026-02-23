@@ -91,7 +91,7 @@
     </q-header>
 
     <q-drawer
-      :model-value="sidebarVisible"
+      v-model="sidebarVisible"
       show-if-above
       :width="250"
       :breakpoint="500"
@@ -200,22 +200,19 @@ import { supabase } from 'boot/supabase';
 const $q = useQuasar();
 const route = useRoute();
 const router = useRouter();
-const drawer = ref(false);
 const sidebarVisible = ref(true);
 const showSearch = ref(false);
 const showNotifications = ref(false);
-const notificationCount = ref(3); // Mock notification count
+const notificationCount = ref(0);
 const userAvatar = ref<string | null>(null);
 
 watch(
   () => route.path,
   () => {
-    // Close drawer on mobile when navigating
     if (!$q.screen.gt.sm) {
-      drawer.value = false;
+      sidebarVisible.value = false;
     }
   },
-  { immediate: true },
 );
 
 onMounted(async () => {
@@ -233,20 +230,13 @@ onMounted(async () => {
 });
 
 function toggleSidebar() {
-  if (!$q.screen.gt.sm) {
-    // Mobile: toggle drawer open/close
-    drawer.value = !drawer.value;
-  } else {
-    // Desktop: toggle sidebar visible/hidden
-    sidebarVisible.value = !sidebarVisible.value;
-  }
+  sidebarVisible.value = !sidebarVisible.value;
 }
 
 function navigateTo(path: string) {
   void router.push(path);
-  // Close drawer on mobile after navigation
   if (!$q.screen.gt.sm) {
-    drawer.value = false;
+    sidebarVisible.value = false;
   }
 }
 

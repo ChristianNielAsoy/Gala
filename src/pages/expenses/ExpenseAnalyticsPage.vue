@@ -1,4 +1,3 @@
-sa
 <template>
   <q-page class="q-pa-md bg-surface">
     <q-card flat bordered>
@@ -21,18 +20,24 @@ sa
           <div class="text-grey-6">Select a trip to view analytics.</div>
         </div>
         <div v-else>
-          <q-card flat bordered class="q-mb-md">
-            <q-card-section>
-              <div class="text-subtitle1 q-mb-sm">Expenses by Category</div>
-              <canvas ref="categoryChart" height="200"></canvas>
-            </q-card-section>
-          </q-card>
-          <q-card flat bordered class="q-mb-md">
-            <q-card-section>
-              <div class="text-subtitle1 q-mb-sm">Expenses by Member</div>
-              <canvas ref="memberChart" height="200"></canvas>
-            </q-card-section>
-          </q-card>
+          <div v-if="expenses.length === 0" class="text-center q-pa-xl">
+            <q-icon name="receipt_long" size="48px" color="grey-4" />
+            <div class="text-grey-6 q-mt-sm">No expenses recorded for this trip yet.</div>
+          </div>
+          <template v-else>
+            <q-card flat bordered class="q-mb-md">
+              <q-card-section>
+                <div class="text-subtitle1 q-mb-sm">Expenses by Category</div>
+                <canvas ref="categoryChart" height="200"></canvas>
+              </q-card-section>
+            </q-card>
+            <q-card flat bordered class="q-mb-md">
+              <q-card-section>
+                <div class="text-subtitle1 q-mb-sm">Expenses by Member</div>
+                <canvas ref="memberChart" height="200"></canvas>
+              </q-card-section>
+            </q-card>
+          </template>
         </div>
       </q-card-section>
     </q-card>

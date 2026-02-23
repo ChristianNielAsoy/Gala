@@ -113,19 +113,9 @@
               v-model="splitMode"
               :options="splitModeOptions"
               color="primary"
-              inline
               class="q-mb-md"
             />
 
-            <!-- Custom Split Component (NEW) -->
-            <custom-split-amounts
-              v-if="expenseForm.split_type === 'custom'"
-              v-model="customSplits"
-              :involved-members="involvedMembersData"
-              :total-amount="expenseForm.amount || 0"
-              :currency-code="trip?.currency_code || 'PHP'"
-              class="q-mt-md"
-            />
 
             <!-- ITEM-BASED SPLITTING -->
             <div v-if="splitMode === 'itemized'" class="q-mt-md">
@@ -228,6 +218,168 @@
               />
             </div>
 
+            <!-- GIFTED / LIBRE MODE -->
+            <div v-else-if="splitMode === 'gifted'" class="q-mt-md">
+              <q-banner class="bg-purple-1 text-purple-8 q-mb-md" rounded>
+                <template v-slot:avatar>
+                  <q-icon name="card_giftcard" color="purple" />
+                </template>
+                This is a free treat (libre) — selected members won't owe anything.
+              </q-banner>
+              <div class="text-subtitle2 text-weight-medium q-mb-sm">Who's receiving this gift?</div>
+              <q-option-group
+                :options="memberCheckOptions"
+                type="checkbox"
+                v-model="involvedMembers"
+              />
+            </div>
+
+            <!-- EQUAL MEALS MODE -->
+            <div v-else-if="splitMode === 'equalized_meals'" class="q-mt-md">
+              <q-banner class="bg-blue-1 text-blue-8 q-mb-md" rounded>
+                <template v-slot:avatar>
+                  <q-icon name="restaurant" color="blue" />
+                </template>
+                Everyone orders separately, but the total is split equally.
+              </q-banner>
+              <div class="text-subtitle2 text-weight-medium q-mb-sm">Who's in?</div>
+              <q-option-group
+                :options="memberCheckOptions"
+                type="checkbox"
+                v-model="involvedMembers"
+              />
+              <!-- Optional: track individual orders for reference -->
+              <div class="q-mt-md">
+                <div class="row items-center justify-between q-mb-sm">
+                  <div class="text-caption text-grey-7">Track individual orders (optional)</div>
+                  <q-btn flat dense color="primary" icon="add" label="Add order" size="sm" @click="addItem" />
+                </div>
+                <div v-for="(item, idx) in items" :key="idx" class="q-mb-sm">
+                  <q-card flat bordered class="bg-surface">
+                    <q-card-section class="q-pa-sm">
+                      <div class="row items-center q-gutter-sm">
+                        <q-select
+                          :model-value="item.participants[0]"
+                          @update:model-value="(val) => { item.participants = val ? [val] : [] }"
+                          :options="memberOptions"
+                          emit-value
+                          map-options
+                          outlined
+                          dense
+                          class="col"
+                          placeholder="Who ordered?"
+                        />
+                        <q-input
+                          v-model="item.name"
+                          placeholder="Item name"
+                          outlined
+                          dense
+                          style="max-width: 130px"
+                        />
+                        <q-input
+                          v-model.number="item.amount"
+                          type="number"
+                          step="0.01"
+                          :prefix="trip?.currency_code || 'PHP'"
+                          outlined
+                          dense
+                          style="max-width: 100px"
+                        />
+                        <q-btn flat round dense icon="delete" color="negative" size="sm" @click="removeItem(idx)" />
+                      </div>
+                    </q-card-section>
+                  </q-card>
+                </div>
+              </div>
+            </div>
+
+            <!-- PERSONAL + SHARED MODE -->
+            <div v-else-if="splitMode === 'individual_shared'" class="q-mt-md">
+              <q-banner class="bg-teal-1 text-teal-8 q-mb-md" rounded>
+                <template v-slot:avatar>
+                  <q-icon name="people" color="teal" />
+                </template>
+                Tag items as <b>personal</b> (one person pays) or <b>shared</b> (split among all).
+              </q-banner>
+              <div class="row items-center justify-between q-mb-sm">
+                <div class="text-subtitle2 text-weight-medium">Items</div>
+                <q-btn flat dense color="primary" icon="add" label="Add Item" size="sm" @click="addIndividualSharedItem" />
+              </div>
+              <div v-for="(item, idx) in items" :key="idx" class="q-mb-md">
+                <q-card flat bordered class="bg-surface">
+                  <q-card-section class="q-pa-sm">
+                    <div class="row items-center q-gutter-sm q-mb-sm">
+                      <q-input
+                        v-model="item.name"
+                        placeholder="Item name"
+                        outlined
+                        dense
+                        class="col"
+                        :rules="[(val: string) => !!val || 'Required']"
+                      />
+                      <q-input
+                        v-model.number="item.amount"
+                        type="number"
+                        step="0.01"
+                        :prefix="trip?.currency_code || 'PHP'"
+                        outlined
+                        dense
+                        style="max-width: 120px"
+                        :rules="[(val: number) => val > 0 || 'Required']"
+                      />
+                      <q-btn flat round dense icon="delete" color="negative" size="sm" @click="removeItem(idx)" />
+                    </div>
+                    <!-- Individual vs Shared toggle -->
+                    <q-btn-toggle
+                      v-model="item.itemType"
+                      :options="[{ label: 'Personal', value: 'individual', icon: 'person' }, { label: 'Shared', value: 'shared', icon: 'group' }]"
+                      toggle-color="primary"
+                      flat
+                      dense
+                      size="sm"
+                      class="q-mb-sm"
+                    />
+                    <!-- For individual: select one person -->
+                    <div v-if="item.itemType === 'individual'">
+                      <q-select
+                        :model-value="item.participants[0]"
+                        @update:model-value="(val) => { item.participants = val ? [val] : [] }"
+                        :options="memberOptions"
+                        emit-value
+                        map-options
+                        label="Who pays for this?"
+                        outlined
+                        dense
+                      />
+                    </div>
+                    <!-- For shared: select multiple people -->
+                    <div v-else>
+                      <div class="text-caption text-grey-7 q-mb-xs">Who's sharing this?</div>
+                      <div class="row q-gutter-xs">
+                        <q-chip
+                          v-for="member in members"
+                          :key="member.id"
+                          :selected="item.participants.includes(member.id)"
+                          clickable
+                          @click="toggleItemParticipant(idx, member.id)"
+                          :color="item.participants.includes(member.id) ? 'teal' : 'grey-3'"
+                          :text-color="item.participants.includes(member.id) ? 'white' : 'grey-8'"
+                          size="sm"
+                        >
+                          {{ member.name }}
+                        </q-chip>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+              </div>
+              <!-- Items total vs expense total -->
+              <q-banner v-if="itemsTotalMismatch" class="bg-warning text-white" rounded>
+                <template v-slot:avatar><q-icon name="warning" /></template>
+                Items total ({{ itemsTotal.toFixed(2) }}) doesn't match expense amount ({{ expenseForm.amount?.toFixed(2) || '0.00' }})
+              </q-banner>
+            </div>
+
             <!-- CUSTOM SPLIT MODE -->
             <div v-else-if="splitMode === 'custom'" class="q-mt-md">
               <div class="text-subtitle2 text-weight-medium q-mb-sm">Custom amounts per person</div>
@@ -322,12 +474,7 @@ import { formatCurrency } from 'src/utils/settlementCalculator';
 import { supabase } from 'boot/supabase';
 import type { Trip } from 'src/types/trip';
 import type { TripMember, SplitType } from 'src/types/expense';
-import CustomSplitAmounts from 'src/components/CustomSplitAmounts.vue';
 
-// Add computed to transform member IDs to member objects
-const involvedMembersData = computed(() => {
-  return members.value.filter((m: TripMember) => involvedMembers.value.includes(m.id));
-});
 
 const route = useRoute();
 const router = useRouter();
@@ -344,6 +491,7 @@ const loading = ref(true);
 const trip = ref<Trip | null>(null);
 const members = ref<TripMember[]>([]);
 const receiptFile = ref<File | null>(null);
+const existingReceiptUrl = ref<string | null>(null);
 
 // Form model
 interface ExpenseForm {
@@ -359,13 +507,13 @@ const expenseForm = ref<ExpenseForm>({
   description: '',
   amount: null,
   paid_by_id: '',
-  category: 'Food',
+  category: 'Food & Drinks',
   date: new Date().toISOString().split('T')[0] ?? '',
   split_type: 'equal',
 });
 
 // Split modes
-type SplitMode = 'equal' | 'custom' | 'itemized';
+type SplitMode = 'equal' | 'custom' | 'itemized' | 'gifted' | 'equalized_meals' | 'individual_shared';
 const splitMode = ref<SplitMode>(expenseForm.value.split_type as SplitMode);
 const involvedMembers = ref<string[]>([]);
 const customSplits = ref<Record<string, number>>({});
@@ -380,8 +528,8 @@ watch(splitMode, (newMode) => {
     addItem();
   }
 
-  if (newMode === 'equal' || newMode === 'custom') {
-    // Set involved members to all members for equal/custom splits
+  if (['equal', 'custom', 'gifted', 'equalized_meals'].includes(newMode)) {
+    // Set involved members to all members by default
     involvedMembers.value = members.value.map((m: TripMember) => m.id);
   }
 });
@@ -399,6 +547,7 @@ interface ExpenseItem {
   amount: number;
   isLibre: boolean;
   participants: string[];
+  itemType?: 'individual' | 'shared'; // Used by individual_shared mode
 }
 
 const items = ref<ExpenseItem[]>([]);
@@ -560,6 +709,9 @@ const splitModeOptions = [
   { label: 'Equal Split', value: 'equal' },
   { label: 'Custom Amounts', value: 'custom' },
   { label: 'Item by Item', value: 'itemized' },
+  { label: 'Gifted / Libre', value: 'gifted' },
+  { label: 'Equal Meals', value: 'equalized_meals' },
+  { label: 'Personal + Shared', value: 'individual_shared' },
 ];
 
 // Computed
@@ -602,7 +754,7 @@ const isValid = computed(() => {
   }
 
   if (splitMode.value === 'custom') {
-    return involvedMembers.value.length > 0 && splitDifference.value === 0;
+    return involvedMembers.value.length > 0 && Math.abs(splitDifference.value) < 0.01;
   }
 
   if (splitMode.value === 'itemized') {
@@ -612,6 +764,22 @@ const isValid = computed(() => {
       items.value.every(
         (item) => item.name && item.amount > 0 && (item.isLibre || item.participants.length > 0),
       )
+    );
+  }
+
+  if (splitMode.value === 'gifted') {
+    return involvedMembers.value.length > 0;
+  }
+
+  if (splitMode.value === 'equalized_meals') {
+    return involvedMembers.value.length > 0;
+  }
+
+  if (splitMode.value === 'individual_shared') {
+    return (
+      items.value.length > 0 &&
+      !itemsTotalMismatch.value &&
+      items.value.every((item) => item.name && item.amount > 0 && item.participants.length > 0)
     );
   }
 
@@ -629,6 +797,17 @@ function addItem(): void {
     amount: 0,
     isLibre: false,
     participants: [...involvedMembers.value],
+    itemType: 'shared',
+  });
+}
+
+function addIndividualSharedItem(): void {
+  items.value.push({
+    name: '',
+    amount: 0,
+    isLibre: false,
+    participants: [...involvedMembers.value],
+    itemType: 'shared',
   });
 }
 
@@ -672,7 +851,7 @@ async function fetchCategories(): Promise<void> {
       { label: 'Other', value: 'Other', icon: 'more_horiz' },
     ];
   } else {
-    categoryOptions.value = (data as Array<{ name: string; icon?: string }>).map((cat) => ({
+    categoryOptions.value = data.map((cat) => ({
       label: cat.name,
       value: cat.name,
       icon: cat.icon || 'more_horiz',
@@ -696,7 +875,7 @@ async function fetchCurrencies(): Promise<void> {
       { label: 'EUR - Euro', value: 'EUR' },
     ];
   } else {
-    currencyOptions.value = (data as Array<{ code: string; name: string }>).map((curr) => ({
+    currencyOptions.value = data.map((curr) => ({
       label: `${curr.code} - ${curr.name}`,
       value: curr.code,
     }));
@@ -784,8 +963,11 @@ async function fetchExpenseData(): Promise<void> {
   // Set split mode
   splitMode.value = expenseData.split_type as SplitMode;
 
-  // Load expense items if itemized
-  if (expenseData.split_type === 'itemized') {
+  // Store existing receipt URL for edit mode
+  existingReceiptUrl.value = expenseData.receipt_url || null;
+
+  // Load expense items if itemized, individual_shared, or equalized_meals
+  if (['itemized', 'individual_shared', 'equalized_meals'].includes(expenseData.split_type)) {
     const { data: itemsData, error: itemsError } = await supabase
       .from('expense_items')
       .select('*')
@@ -793,18 +975,12 @@ async function fetchExpenseData(): Promise<void> {
       .order('display_order');
 
     if (!itemsError && itemsData) {
-      items.value = (
-        itemsData as Array<{
-          item_name: string;
-          item_amount: number;
-          is_libre?: boolean;
-          consumers?: string[];
-        }>
-      ).map((item) => ({
+      items.value = itemsData.map((item) => ({
         name: item.item_name,
         amount: item.item_amount,
         isLibre: item.is_libre || false,
         participants: item.consumers || [],
+        itemType: item.consumers?.length === 1 ? ('individual' as const) : ('shared' as const),
       }));
     }
 
@@ -821,14 +997,12 @@ async function fetchExpenseData(): Promise<void> {
     .eq('expense_id', expenseId.value);
 
   if (!splitsError && splitsData) {
-    involvedMembers.value = (splitsData as Array<{ member_id: string }>).map(
-      (split) => split.member_id,
-    );
+    involvedMembers.value = splitsData.map((split) => split.member_id);
 
     // For custom splits, populate customSplits
     if (expenseData.split_type === 'custom') {
       customSplits.value = {};
-      (splitsData as Array<{ member_id: string; share_amount: number }>).forEach((split) => {
+      splitsData.forEach((split) => {
         customSplits.value[split.member_id] = split.share_amount;
       });
     }
@@ -848,33 +1022,46 @@ async function handleSave() {
   saving.value = true;
 
   try {
-    // 1. Calculate splits based on type
+    // 0. Upload receipt if a new file was selected
+    let receipt_url: string | null = existingReceiptUrl.value;
+    if (receiptFile.value) {
+      const ext = receiptFile.value.name.split('.').pop() || 'jpg';
+      const path = `${tripId.value}/${Date.now()}.${ext}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('expense-receipts')
+        .upload(path, receiptFile.value);
+      if (uploadError) {
+        $q.notify({
+          type: 'warning',
+          message: 'Receipt upload failed — expense will save without receipt.',
+        });
+      } else {
+        const { data: urlData } = supabase.storage.from('expense-receipts').getPublicUrl(uploadData.path);
+        receipt_url = urlData.publicUrl;
+      }
+    }
+
+    // 1. Calculate splits based on split type
     let splits: { member_id: string; share_amount: number }[] = [];
+    const total = expenseForm.value.amount!;
 
-    if (expenseForm.value.split_type === 'equal') {
+    if (splitMode.value === 'equal' || splitMode.value === 'equalized_meals') {
       const count = involvedMembers.value.length;
-      const baseShare = Math.floor((expenseForm.value.amount! * 100) / count) / 100;
-      const remainder = expenseForm.value.amount! - baseShare * count;
-
+      const baseShare = Math.floor((total * 100) / count) / 100;
+      const remainder = Math.round((total - baseShare * count) * 100) / 100;
       splits = involvedMembers.value.map((memberId, index) => ({
         member_id: memberId,
         share_amount: index === 0 ? baseShare + remainder : baseShare,
       }));
-    } else if (expenseForm.value.split_type === 'custom') {
+    } else if (splitMode.value === 'custom') {
       splits = involvedMembers.value
         .map((memberId) => ({
           member_id: memberId,
           share_amount: customSplits.value[memberId] || 0,
         }))
         .filter((s) => s.share_amount > 0);
-    }
-
-    // Handle itemized expenses
-    if (expenseForm.value.split_type === 'itemized') {
-      // For itemized expenses, splits are calculated from item consumers
+    } else if (splitMode.value === 'itemized') {
       const itemSplits: Record<string, number> = {};
-
-      // Calculate total owed by each member from items
       items.value.forEach((item) => {
         if (!item.isLibre && item.participants.length > 0) {
           const sharePerPerson = item.amount / item.participants.length;
@@ -883,9 +1070,39 @@ async function handleSave() {
           });
         }
       });
-
-      // Convert to splits array
       splits = Object.entries(itemSplits)
+        .filter(([, amount]) => amount > 0)
+        .map(([memberId, share_amount]) => ({
+          member_id: memberId,
+          share_amount: Math.round(share_amount * 100) / 100,
+        }));
+    } else if (splitMode.value === 'gifted') {
+      // Payer covers full amount (their expense alone); recipients owe nothing
+      splits = [{ member_id: expenseForm.value.paid_by_id, share_amount: total }];
+      // Record recipients as 0-amount splits for display purposes
+      involvedMembers.value.forEach((memberId) => {
+        if (memberId !== expenseForm.value.paid_by_id) {
+          splits.push({ member_id: memberId, share_amount: 0 });
+        }
+      });
+    } else if (splitMode.value === 'individual_shared') {
+      const memberShares: Record<string, number> = {};
+      items.value.forEach((item) => {
+        if (item.participants.length > 0) {
+          if (item.itemType === 'individual') {
+            // Assigned to one person
+            const memberId = item.participants[0];
+            if (memberId) memberShares[memberId] = (memberShares[memberId] || 0) + item.amount;
+          } else {
+            // Shared equally among participants
+            const sharePerPerson = item.amount / item.participants.length;
+            item.participants.forEach((memberId) => {
+              memberShares[memberId] = (memberShares[memberId] || 0) + sharePerPerson;
+            });
+          }
+        }
+      });
+      splits = Object.entries(memberShares)
         .filter(([, amount]) => amount > 0)
         .map(([memberId, share_amount]) => ({
           member_id: memberId,
@@ -893,77 +1110,91 @@ async function handleSave() {
         }));
     }
 
-    // 2. Insert Expense
-    const { data: expenseData, error: expenseError } = await supabase
-      .from('expenses')
-      .insert({
-        trip_id: tripId.value,
-        paid_by_id: expenseForm.value.paid_by_id,
-        description: expenseForm.value.description,
-        amount: expenseForm.value.amount!,
-        currency_code: trip.value?.currency_code || 'PHP',
-        category: expenseForm.value.category,
-        date: expenseForm.value.date,
-      })
-      .select('id')
-      .single();
+    // 2. Insert or Update the Expense record
+    const expensePayload = {
+      trip_id: tripId.value,
+      paid_by_id: expenseForm.value.paid_by_id,
+      description: expenseForm.value.description,
+      amount: total,
+      currency_code: trip.value?.currency_code || 'PHP',
+      category: expenseForm.value.category,
+      date: expenseForm.value.date,
+      split_type: splitMode.value,
+      receipt_url,
+    };
 
-    if (expenseError || !expenseData) throw expenseError;
+    let savedExpenseId: string;
 
-    // 3. Insert Expense Items (for itemized expenses)
-    if (expenseForm.value.split_type === 'itemized' && items.value.length > 0) {
+    if (isEdit.value && expenseId.value) {
+      const { error: updateError } = await supabase
+        .from('expenses')
+        .update(expensePayload)
+        .eq('id', expenseId.value);
+      if (updateError) throw updateError;
+      savedExpenseId = expenseId.value;
+
+      // Delete existing splits and items before re-inserting
+      await supabase.from('expense_splits').delete().eq('expense_id', savedExpenseId);
+      if (['itemized', 'individual_shared', 'equalized_meals'].includes(splitMode.value)) {
+        await supabase.from('expense_items').delete().eq('expense_id', savedExpenseId);
+      }
+    } else {
+      const { data: newExpense, error: insertError } = await supabase
+        .from('expenses')
+        .insert(expensePayload)
+        .select('id')
+        .single();
+      if (insertError || !newExpense) throw insertError;
+      savedExpenseId = newExpense.id;
+    }
+
+    // 3. Insert Expense Items (itemized / individual_shared / equalized_meals)
+    const saveItems = ['itemized', 'individual_shared', 'equalized_meals'].includes(splitMode.value);
+    if (saveItems && items.value.length > 0) {
       const itemsToInsert = items.value.map((item, index) => ({
-        expense_id: expenseData.id,
+        expense_id: savedExpenseId,
         item_name: item.name,
         item_amount: item.amount,
-        quantity: 1, // Default quantity
+        quantity: 1,
         display_order: index,
         consumers: item.isLibre ? [] : item.participants,
       }));
-
       const { error: itemsError } = await supabase.from('expense_items').insert(itemsToInsert);
       if (itemsError) throw itemsError;
     }
 
     // 4. Insert Splits
-    const splitsToInsert = splits.map((s) => ({
-      expense_id: expenseData.id,
-      member_id: s.member_id,
-      share_amount: s.share_amount,
-    }));
+    if (splits.length > 0) {
+      const splitsToInsert = splits.map((s) => ({
+        expense_id: savedExpenseId,
+        member_id: s.member_id,
+        share_amount: s.share_amount,
+      }));
+      const { error: splitsError } = await supabase.from('expense_splits').insert(splitsToInsert);
+      if (splitsError) throw splitsError;
+    }
 
-    const { error: splitsError } = await supabase.from('expense_splits').insert(splitsToInsert);
-
-    if (splitsError) throw splitsError;
-
-    // Log activity
+    // 5. Log activity
     const userId = await getCurrentUserId();
     await logActivity({
       trip_id: tripId.value,
       user_id: userId,
       action_type: isEdit.value ? 'expense_updated' : 'expense_added',
       entity_type: 'expense',
-      entity_id: expenseData.id,
+      entity_id: savedExpenseId,
       description: isEdit.value
         ? `Updated expense: ${expenseForm.value.description}`
-        : `Added expense: ${expenseForm.value.description} (${formatCurrency(expenseForm.value.amount!, trip.value?.currency_code || 'PHP')})`,
+        : `Added expense: ${expenseForm.value.description} (${formatCurrency(total, trip.value?.currency_code || 'PHP')})`,
       metadata: {
-        amount: expenseForm.value.amount,
+        amount: total,
         category: expenseForm.value.category,
-        split_type: expenseForm.value.split_type,
-        item_count: expenseForm.value.split_type === 'itemized' ? items.value.length : undefined,
+        split_type: splitMode.value,
+        item_count: saveItems ? items.value.length : undefined,
       },
     });
 
-    $q.notify({
-      type: 'positive',
-      message: 'Expense saved successfully!',
-      icon: 'check_circle',
-    });
-
-    // Clear draft data since expense is saved
+    $q.notify({ type: 'positive', message: 'Expense saved successfully!', icon: 'check_circle' });
     void clearDraft();
-
     router.back();
   } catch (error) {
     console.error('Error saving expense:', error);

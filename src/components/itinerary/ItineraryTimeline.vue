@@ -314,6 +314,17 @@
       </template>
     </q-banner>
 
+    <!-- Expense Form Modal -->
+    <ExpenseFormModal
+      v-model:show="showExpenseModal"
+      :is-editing="isEditing"
+      :trip-members="tripMembers || []"
+      :currency-code="currencyCode"
+      :initial-expense="initialExpenseData as any"
+      @save="handleExpenseSave"
+      @cancel="handleExpenseCancel"
+    />
+
     <!-- Add/Edit Item Modal -->
     <q-dialog v-model="showModal" persistent>
       <q-card style="min-width: 400px; max-width: 90vw">
@@ -322,87 +333,79 @@
         </q-card-section>
 
         <q-card-section class="q-pt-none">
-          <q-form @submit="saveItem" class="q-gutter-md">
-            <!-- Type Selector -->
-            <q-select
-              v-model="currentItem.type"
-              :options="itemTypeOptions"
-              label="Type"
-              outlined
-              emit-value
-              map-options
-            />
-
-            <!-- Title -->
-            <q-input v-model="currentItem.title" label="Title" outlined required />
-
-            <!-- Time -->
-            <q-input v-model="currentItem.time" label="Time (optional)" outlined type="time" />
-
-            <!-- Location -->
-            <q-input v-model="currentItem.location" label="Location (optional)" outlined />
-
-            <!-- Notes -->
-            <q-input
-              v-model="currentItem.notes"
-              label="Notes (optional)"
-              outlined
-              type="textarea"
-              rows="3"
-            />
-
-            <!-- Checklist Items -->
-            <div v-if="currentItem.type === 'checklist'">
-              <div class="text-subtitle2 q-mb-sm">Checklist Items</div>
-              <q-input
-                v-model="newChecklistItem"
-                label="Add checklist item"
+          <q-form @submit="saveItem" class="q-gutter-y-md">
+            <!-- BASIC ITEM FIELDS (for non-expense items) -->
+            <template v-if="currentItem.type !== 'expense'">
+              <!-- Type Selector -->
+              <q-select
+                v-model="currentItem.type"
+                :options="itemTypeOptions"
+                label="Type"
                 outlined
-                @keyup.enter="addChecklistItem"
-                class="q-mb-sm"
-              >
-                <template v-slot:append>
-                  <q-btn
-                    icon="add"
-                    flat
-                    round
-                    dense
-                    @click="addChecklistItem"
-                    :disable="!newChecklistItem.trim()"
-                  />
-                </template>
-              </q-input>
-              <q-list dense>
-                <q-item v-for="(check, idx) in currentItem.checklist" :key="idx" class="q-mb-xs">
-                  <q-item-section>
-                    <q-checkbox v-model="check.checked" :label="check.text" />
-                  </q-item-section>
-                  <q-item-section side>
+                emit-value
+                map-options
+              />
+
+              <!-- Title -->
+              <q-input v-model="currentItem.title" label="Title" outlined required />
+
+              <!-- Time -->
+              <q-input v-model="currentItem.time" label="Time (optional)" outlined type="time" />
+
+              <!-- Location -->
+              <q-input v-model="currentItem.location" label="Location (optional)" outlined />
+
+              <!-- Notes -->
+              <q-input
+                v-model="currentItem.notes"
+                label="Notes (optional)"
+                outlined
+                type="textarea"
+                rows="3"
+              />
+
+              <!-- Checklist Items -->
+              <div v-if="currentItem.type === 'checklist'">
+                <div class="text-subtitle2 q-mb-sm">Checklist Items</div>
+                <q-input
+                  v-model="newChecklistItem"
+                  label="Add checklist item"
+                  outlined
+                  @keyup.enter="addChecklistItem"
+                  class="q-mb-sm"
+                >
+                  <template v-slot:append>
                     <q-btn
-                      icon="delete"
+                      icon="add"
                       flat
                       round
                       dense
-                      color="negative"
-                      @click="removeChecklistItem(idx)"
+                      @click="addChecklistItem"
+                      :disable="!newChecklistItem.trim()"
                     />
-                  </q-item-section>
-                </q-item>
-              </q-list>
-            </div>
+                  </template>
+                </q-input>
+                <q-list dense>
+                  <q-item v-for="(check, idx) in currentItem.checklist" :key="idx" class="q-mb-xs">
+                    <q-item-section>
+                      <q-checkbox v-model="check.checked" :label="check.text" />
+                    </q-item-section>
+                    <q-item-section side>
+                      <q-btn
+                        icon="delete"
+                        flat
+                        round
+                        dense
+                        color="negative"
+                        @click="removeChecklistItem(idx)"
+                      />
+                    </q-item-section>
+                  </q-item>
+                </q-list>
+              </div>
+            </template>
 
-            <!-- Expense Amount -->
-            <q-input
-              v-if="currentItem.type === 'expense'"
-              v-model.number="currentItem.amount"
-              label="Amount"
-              outlined
-              type="number"
-              prefix="₱"
-              required
-            />
-
-            <!-- Attachments -->
+            <!-- Attachments (for all item types) -->
             <div>
               <div class="text-subtitle2 q-mb-sm">Attachments (optional)</div>
               <q-file
@@ -448,14 +451,43 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import { useQuasar } from 'quasar';
 import { VueDraggableNext } from 'vue-draggable-next';
-import type { ItineraryItem, ItineraryPhase, ItineraryItemType } from './itinerary.model';
-import { fetchWeather } from '../utils/weatherService';
+import type {
+  ItineraryItem,
+  ItineraryPhase,
+  ItineraryItemType,
+  ExpenseItem,
+} from './itinerary.model';
+import { fetchWeather } from '../../utils/weatherService';
+import ExpenseFormModal from './ExpenseFormModal.vue';
+import { supabase } from 'boot/supabase';
+
+// Types
+type ExpenseFormData = {
+  expenseForm: {
+    description: string;
+    amount: number | null;
+    paid_by_id: string;
+    category: string;
+    date?: string;
+    split_type: string;
+  };
+  splitMode: string;
+  involvedMembers: string[];
+  customSplits: Record<string, number>;
+  items: ExpenseItem[];
+  individualItems: ExpenseItem[];
+  sharedItems: ExpenseItem[];
+  giftedItemGifter: string;
+  receiptFile: File | null;
+};
 
 const props = defineProps<{
   modelValue?: ItineraryItem[];
+  tripMembers?: { id: string; name: string; user_id?: string }[];
+  tripId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -463,6 +495,55 @@ const emit = defineEmits<{
 }>();
 
 const $q = useQuasar();
+
+// DB helpers
+async function persistItem(item: ItineraryItem) {
+  if (!props.tripId) return;
+  const { error } = await supabase.from('itinerary_events').upsert({
+    id: item.id,
+    trip_id: props.tripId,
+    phase: item.phase,
+    title: item.title,
+    type: item.type,
+    date: item.date ?? null,
+    time: item.time ?? null,
+    location: item.location ?? null,
+    notes: item.notes ?? null,
+    checklist: item.checklist ?? null,
+    amount: item.amount ?? null,
+    paid_by_id: item.paid_by_id ?? null,
+    category: item.category ?? null,
+    split_type: item.split_type ?? null,
+    involved_members: item.involved_members ?? null,
+    custom_splits: item.custom_splits ?? null,
+    expense_items: item.expense_items ?? null,
+    receipt_url: item.receipt_url ?? null,
+  });
+  if (error) console.error('Failed to persist itinerary item:', error);
+}
+
+async function removeItemFromDB(id: string) {
+  if (!props.tripId) return;
+  const { error } = await supabase.from('itinerary_events').delete().eq('id', id);
+  if (error) console.error('Failed to delete itinerary item:', error);
+}
+
+async function fetchItems() {
+  if (!props.tripId) return;
+  const { data, error } = await supabase
+    .from('itinerary_events')
+    .select('*')
+    .eq('trip_id', props.tripId)
+    .order('created_at');
+  if (error) {
+    console.error('Failed to load itinerary items:', error);
+    return;
+  }
+  if (data) {
+    itineraryItems.value = data as ItineraryItem[];
+    updatePhaseItems();
+  }
+}
 
 // Phases
 const phases: { key: ItineraryPhase; label: string }[] = [
@@ -495,7 +576,9 @@ const collapsedPhases = ref<Record<ItineraryPhase, boolean>>({
 
 // Modal state
 const showModal = ref(false);
+const showExpenseModal = ref(false);
 const isEditing = ref(false);
+const editingExpenseItem = ref<ItineraryItem | null>(null);
 const currentItem = ref<ItineraryItem>({
   id: '',
   phase: 'before',
@@ -504,7 +587,33 @@ const currentItem = ref<ItineraryItem>({
 });
 const newChecklistItem = ref('');
 const attachmentFiles = ref<File[]>([]);
+const receiptFile = ref<File | null>(null);
 
+// Currency code (could be made dynamic based on trip)
+const currencyCode = ref('PHP');
+
+// Get trip members (assuming this comes from props or route)
+const tripMembers = ref<{ id: string; name: string; user_id?: string }[]>(props.tripMembers ?? []);
+const initialExpenseData = computed(() => {
+  if (!editingExpenseItem.value) return undefined;
+  return {
+    description: editingExpenseItem.value.title || '',
+    amount: editingExpenseItem.value.amount || null,
+    paid_by_id: editingExpenseItem.value.paid_by_id || '',
+    category: editingExpenseItem.value.category || 'Food',
+    date: editingExpenseItem.value.date,
+    split_type: editingExpenseItem.value.split_type || 'equal',
+    receipt_url: editingExpenseItem.value.receipt_url,
+    involved_members: editingExpenseItem.value.involved_members,
+    custom_splits: editingExpenseItem.value.custom_splits,
+    expense_items: editingExpenseItem.value.expense_items,
+    individual_items: editingExpenseItem.value.individual_items,
+    shared_items: editingExpenseItem.value.shared_items,
+    gifted_item_gifter: editingExpenseItem.value.gifted_item_gifter,
+  };
+});
+
+// Helper function for itemized splits
 // Inline editing
 const editingItemId = ref<string | null>(null);
 const editingTitle = ref('');
@@ -627,6 +736,17 @@ watch(
   { immediate: true },
 );
 
+// Watch for trip members changes
+watch(
+  () => props.tripMembers,
+  (newMembers) => {
+    if (newMembers) {
+      tripMembers.value = newMembers;
+    }
+  },
+  { immediate: true },
+);
+
 // Watch for local changes
 watch(
   itineraryItems,
@@ -657,6 +777,14 @@ function openAddModal(phase: ItineraryPhase) {
   };
   newChecklistItem.value = '';
   attachmentFiles.value = [];
+  receiptFile.value = null;
+
+  // For expenses, open the ExpenseFormModal instead
+  if (currentItem.value.type === 'expense') {
+    showExpenseModal.value = true;
+    return;
+  }
+
   showModal.value = true;
 }
 
@@ -665,6 +793,15 @@ function editItem(item: ItineraryItem) {
   currentItem.value = { ...item };
   newChecklistItem.value = '';
   attachmentFiles.value = [];
+  receiptFile.value = null;
+
+  // For expenses, open the ExpenseFormModal instead
+  if (item.type === 'expense') {
+    editingExpenseItem.value = item;
+    showExpenseModal.value = true;
+    return;
+  }
+
   showModal.value = true;
 }
 
@@ -678,7 +815,68 @@ function closeModal() {
   };
 }
 
+function handleExpenseSave(expenseData: ExpenseFormData) {
+  // Create or update the expense item
+  const expenseItem: ItineraryItem = {
+    id:
+      isEditing.value && editingExpenseItem.value
+        ? editingExpenseItem.value.id
+        : Date.now().toString(),
+    phase: currentItem.value.phase,
+    title: expenseData.expenseForm.description,
+    type: 'expense',
+    ...(expenseData.expenseForm.amount && { amount: expenseData.expenseForm.amount }),
+    paid_by_id: expenseData.expenseForm.paid_by_id,
+    category: expenseData.expenseForm.category,
+    ...(expenseData.expenseForm.date && { date: expenseData.expenseForm.date }),
+    split_type: expenseData.splitMode as
+      | 'equal'
+      | 'custom'
+      | 'itemized'
+      | 'gifted'
+      | 'individual_shared'
+      | 'equalized_meals',
+    involved_members: expenseData.involvedMembers,
+    custom_splits: expenseData.customSplits,
+    expense_items: expenseData.items,
+    gifted_item_gifter: expenseData.giftedItemGifter,
+    individual_items: expenseData.individualItems,
+    shared_items: expenseData.sharedItems,
+  };
+
+  if (isEditing.value && editingExpenseItem.value) {
+    // Update existing item
+    const index = itineraryItems.value.findIndex(
+      (item) => item.id === editingExpenseItem.value!.id,
+    );
+    if (index !== -1) {
+      itineraryItems.value[index] = expenseItem;
+    }
+  } else {
+    // Add new item
+    itineraryItems.value.push(expenseItem);
+  }
+
+  // Close modal and reset state
+  showExpenseModal.value = false;
+  editingExpenseItem.value = null;
+  isEditing.value = false;
+
+  // Emit update event
+  emit('update:modelValue', itineraryItems.value);
+
+  // Persist to DB
+  void persistItem(expenseItem);
+}
+
+function handleExpenseCancel() {
+  showExpenseModal.value = false;
+  editingExpenseItem.value = null;
+  isEditing.value = false;
+}
+
 function saveItem() {
+  // Validate basic fields for non-expense items
   if (!currentItem.value.title.trim()) return;
 
   if (isEditing.value) {
@@ -699,6 +897,7 @@ function saveItem() {
     }
   }
 
+  void persistItem(currentItem.value);
   closeModal();
 }
 
@@ -716,6 +915,10 @@ function deleteItem(id: string) {
   canUndo.value = true;
   if (undoTimeout.value) clearTimeout(undoTimeout.value);
   undoTimeout.value = setTimeout(() => {
+    // Undo window expired — commit deletes to DB
+    for (const item of deletedItems.value) {
+      void removeItemFromDB(item.id);
+    }
     canUndo.value = false;
     deletedItems.value = [];
   }, 5000); // 5 seconds to undo
@@ -746,6 +949,7 @@ function saveInlineEdit(item: ItineraryItem): void {
   if (editingTitle.value.trim()) {
     item.title = editingTitle.value.trim();
     itineraryItems.value = [...itineraryItems.value]; // Trigger reactivity
+    void persistItem(item);
   }
   cancelInlineEdit();
 }
@@ -769,6 +973,7 @@ function duplicateItem(item: ItineraryItem): void {
     title: `${item.title} (Copy)`,
   };
   itineraryItems.value.push(duplicatedItem);
+  void persistItem(duplicatedItem);
 }
 
 // Checklist functions
@@ -824,6 +1029,7 @@ function onDragEnd(evt: {
     if (item) {
       item.phase = toPhase;
       itineraryItems.value = [...itineraryItems.value]; // Trigger reactivity
+      void persistItem(item);
     }
   }
 }
@@ -853,7 +1059,7 @@ async function fetchWeatherForAllItems() {
 
 // Initialize
 onMounted(async () => {
-  updatePhaseItems();
+  await fetchItems();
   await fetchWeatherForAllItems();
 });
 </script>

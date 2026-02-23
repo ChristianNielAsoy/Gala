@@ -352,7 +352,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
@@ -376,6 +376,9 @@ const notifications = ref({
 const darkMode = ref(false);
 const defaultCurrency = ref('PHP');
 const appVersion = ref('1.0.0');
+
+// Auto-save notification preferences whenever a toggle changes
+watch(notifications, () => { void saveUserPreferences(); }, { deep: true });
 
 // Computed
 const defaultCurrencyName = computed(() => {
@@ -427,7 +430,13 @@ async function fetchUserProfile() {
 
   if (user) {
     userProfile.value.email = user.email ?? 'user@example.com';
-    userProfile.value.name = user.email?.split('@')[0] ?? 'User';
+    userProfile.value.name =
+      (user.user_metadata?.full_name as string | undefined) ||
+      (user.user_metadata?.display_name as string | undefined) ||
+      user.email?.split('@')[0] ||
+      'User';
+    userProfile.value.photo_url =
+      (user.user_metadata?.avatar_url as string | undefined) || '';
 
     // Load user preferences
     const { data: preferences, error } = await supabase
@@ -490,13 +499,58 @@ async function saveUserPreferences() {
   }
 }
 
-function saveProfile() {
-  $q.notify({
-    type: 'positive',
-    message: 'Profile updated successfully!',
-    position: 'top',
-  });
-  editProfileDialog.value = false;
+async function saveProfile() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  try {
+    let photoUrl = userProfile.value.photo_url;
+
+    // Upload new photo if selected
+    if (profilePhoto.value) {
+      const ext = profilePhoto.value.name.split('.').pop() ?? 'jpg';
+      const fileName = `${user.id}/avatar.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, profilePhoto.value, { upsert: true });
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('profile-photos').getPublicUrl(fileName);
+        photoUrl = urlData.publicUrl;
+      }
+    }
+
+    // Update auth user metadata
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        full_name: userProfile.value.name,
+        display_name: userProfile.value.name,
+        avatar_url: photoUrl || undefined,
+      },
+    });
+
+    if (error) throw error;
+
+    // Reflect photo change in local state
+    if (photoUrl !== userProfile.value.photo_url) {
+      userProfile.value.photo_url = photoUrl;
+    }
+    profilePhoto.value = null;
+
+    $q.notify({
+      type: 'positive',
+      message: 'Profile updated successfully!',
+      position: 'top',
+    });
+    editProfileDialog.value = false;
+  } catch (error) {
+    $q.notify({
+      type: 'negative',
+      message: error instanceof Error ? error.message : 'Failed to update profile',
+    });
+  }
 }
 
 function confirmLogout() {

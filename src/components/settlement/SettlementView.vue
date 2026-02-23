@@ -176,7 +176,7 @@
                 <q-item-section side>
                   <q-item-label
                     class="text-weight-bold"
-                    :class="getBalanceColorClass(balance.netBalance)"
+                    :class="getBalanceColor(balance.netBalance)"
                   >
                     <span v-if="balance.netBalance > 0">+</span>
                     {{ currencyCode }} {{ Math.abs(balance.netBalance).toFixed(2) }}
@@ -237,10 +237,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useQuasar } from 'quasar';
+import { supabase } from 'boot/supabase';
 import {
   calculateMemberBalances,
   simplifySettlements,
-  getBalanceColorClass,
+  getBalanceColor,
   type MemberBalance,
   type Settlement,
   type ExpenseWithSplits,
@@ -251,7 +252,12 @@ const props = defineProps<{
   members: { id: string; name: string }[];
   currentMemberId?: string;
   currencyCode: string;
+  tripId: string;
   loading?: boolean;
+}>();
+
+const emit = defineEmits<{
+  (e: 'payment-recorded'): void;
 }>();
 
 const $q = useQuasar();
@@ -261,6 +267,7 @@ const showPaymentDialog = ref(false);
 const selectedSettlement = ref<Settlement | null>(null);
 const paymentMethod = ref('Cash');
 const processingPayment = ref(false);
+const paidSettlementKeys = ref<Set<string>>(new Set());
 
 const paymentMethods = ['Cash', 'GCash', 'Bank Transfer', 'PayMaya', 'Other', 'PayPal', 'Venmo'];
 
@@ -270,7 +277,9 @@ const memberBalances = computed((): MemberBalance[] => {
 });
 
 const allSettlements = computed((): Settlement[] => {
-  return simplifySettlements(memberBalances.value);
+  return simplifySettlements(memberBalances.value).filter(
+    (s) => !paidSettlementKeys.value.has(`${s.from}->${s.to}`),
+  );
 });
 
 const yourBalance = computed((): number => {
@@ -296,21 +305,38 @@ function markAsPaid(settlement: Settlement) {
 }
 
 async function confirmPayment() {
+  if (!selectedSettlement.value) return;
   processingPayment.value = true;
 
   try {
-    // TODO: Save payment record to database
-    // For now, just show success message
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const { error } = await supabase.from('settlements').insert({
+      trip_id: props.tripId,
+      from_member_id: selectedSettlement.value.from,
+      to_member_id: selectedSettlement.value.to,
+      amount: selectedSettlement.value.amount,
+      currency_code: props.currencyCode,
+      payment_method: paymentMethod.value,
+      status: 'pending',
+      paid_at: new Date().toISOString(),
+    });
+
+    if (error) throw error;
+
+    // Hide this settlement from the list immediately
+    paidSettlementKeys.value = new Set([
+      ...paidSettlementKeys.value,
+      `${selectedSettlement.value.from}->${selectedSettlement.value.to}`,
+    ]);
 
     $q.notify({
       type: 'positive',
-      message: `Payment of ${props.currencyCode} ${selectedSettlement.value?.amount.toFixed(2)} via ${paymentMethod.value} recorded!`,
+      message: `Payment of ${props.currencyCode} ${selectedSettlement.value.amount.toFixed(2)} via ${paymentMethod.value} recorded!`,
       icon: 'check_circle',
     });
 
     showPaymentDialog.value = false;
     selectedSettlement.value = null;
+    emit('payment-recorded');
   } catch (error) {
     $q.notify({
       type: 'negative',

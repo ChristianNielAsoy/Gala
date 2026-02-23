@@ -114,7 +114,7 @@
                   color="accent"
                   text-color="white"
                   icon="attach_money"
-                  :label="formatCurrency(trip.total_expenses || 0)"
+                  :label="formatCurrency(trip.total_expenses || 0, trip.currency_code)"
                   size="sm"
                 />
               </div>
@@ -128,9 +128,8 @@
         <q-btn
           flat
           color="primary"
-          label="Load More Trips"
+          label="Show More"
           @click="loadMoreTrips"
-          :loading="loadingMore"
         />
       </div>
     </div>
@@ -144,6 +143,134 @@
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat label="Close" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- New Trip Modal -->
+    <q-dialog v-model="showNewTripModal" persistent>
+      <q-card class="new-trip-modal">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">Plan a New Trip</div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="q-gutter-y-md q-pt-md">
+          <!-- Trip Name -->
+          <q-input
+            v-model="newTrip.name"
+            label="Trip Name"
+            placeholder="e.g., Boracay Summer 2025"
+            outlined
+            dense
+            :rules="[(val: string) => !!val || 'Trip name is required']"
+          >
+            <template v-slot:prepend><q-icon name="flight_takeoff" /></template>
+          </q-input>
+
+          <!-- Date Range -->
+          <div>
+            <div class="text-caption text-grey-7 q-mb-xs">Travel Dates</div>
+            <div class="row q-gutter-sm">
+              <q-input
+                v-model="newTrip.start_date"
+                label="Start Date"
+                mask="date"
+                :rules="['date']"
+                outlined
+                dense
+                class="col"
+              >
+                <template v-slot:append>
+                  <q-icon name="event" class="cursor-pointer">
+                    <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                      <q-date v-model="newTrip.start_date" />
+                    </q-popup-proxy>
+                  </q-icon>
+                </template>
+              </q-input>
+              <q-input
+                v-model="newTrip.end_date"
+                label="End Date"
+                mask="date"
+                :rules="['date']"
+                outlined
+                dense
+                class="col"
+              >
+                <template v-slot:append>
+                  <q-icon name="event" class="cursor-pointer">
+                    <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                      <q-date v-model="newTrip.end_date" :options="(d) => d >= newTrip.start_date" />
+                    </q-popup-proxy>
+                  </q-icon>
+                </template>
+              </q-input>
+            </div>
+          </div>
+
+          <!-- Currency -->
+          <q-select
+            v-model="newTrip.currency_code"
+            :options="currencyOptions"
+            label="Currency"
+            outlined
+            dense
+            emit-value
+            map-options
+          >
+            <template v-slot:prepend><q-icon name="payments" /></template>
+          </q-select>
+
+          <!-- Add Members -->
+          <div>
+            <div class="text-caption text-grey-7 q-mb-xs">Add Barkada Members (optional)</div>
+            <div class="row q-gutter-sm">
+              <q-input
+                v-model="newMemberName"
+                label="Member name"
+                outlined
+                dense
+                class="col"
+                @keyup.enter="addMember"
+              />
+              <q-btn
+                flat
+                round
+                icon="person_add"
+                color="primary"
+                @click="addMember"
+                :disable="!newMemberName.trim()"
+              />
+            </div>
+            <div v-if="newTripMembers.length > 0" class="row q-gutter-xs q-mt-sm">
+              <q-chip
+                v-for="(name, idx) in newTripMembers"
+                :key="idx"
+                removable
+                @remove="removeMember(idx)"
+                color="primary"
+                text-color="white"
+                icon="person"
+                dense
+              >
+                {{ name }}
+              </q-chip>
+            </div>
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-pa-md">
+          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn
+            unelevated
+            color="primary"
+            label="Create Trip"
+            :loading="creating"
+            :disable="!isFormValid"
+            @click="createTrip"
+          />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -162,7 +289,6 @@ const $q = useQuasar();
 
 // State
 const loading = ref(true);
-const loadingMore = ref(false);
 const error = ref<string | null>(null);
 const trips = ref<Trip[]>([]);
 const showNewTripModal = ref(false);
@@ -230,24 +356,6 @@ const newTrip = ref({
   currency_code: 'PHP',
 });
 
-// Date range for combined picker
-const dateRange = ref<{ from: string; to: string }>({
-  from: newTrip.value.start_date,
-  to: newTrip.value.end_date,
-});
-
-// Watch for changes and sync with newTrip
-import { watch } from 'vue';
-watch(
-  dateRange,
-  (val) => {
-    if (val && val.from && val.to) {
-      newTrip.value.start_date = val.from;
-      newTrip.value.end_date = val.to;
-    }
-  },
-  { immediate: false },
-);
 
 // Currency Options
 const currencyOptions = ref<{ label: string; value: string }[]>([]);
@@ -288,13 +396,6 @@ const isFormValid = computed(() => {
   );
 });
 
-// Collapsible section trip lists
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const today = computed(() => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-});
 
 // Methods
 async function fetchTrips() {
@@ -334,7 +435,6 @@ async function fetchTrips() {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function createTrip() {
   if (!isFormValid.value) {
     $q.notify({ type: 'warning', message: 'Please fill all required fields' });
@@ -394,7 +494,6 @@ async function createTrip() {
       end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0] ?? '',
       currency_code: 'PHP',
     };
-    dateRange.value = { from: newTrip.value.start_date, to: newTrip.value.end_date };
     showNewTripModal.value = false;
     newTripMembers.value = [];
     newMemberName.value = '';
@@ -477,8 +576,8 @@ function getStatusLabel(trip: Trip): string {
   return 'Active';
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+function formatCurrency(amount: number, currency = 'PHP'): string {
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency }).format(amount);
 }
 
 function toggleMapView() {
@@ -486,11 +585,7 @@ function toggleMapView() {
 }
 
 function loadMoreTrips() {
-  loadingMore.value = true;
-  setTimeout(() => {
-    currentPage.value++;
-    loadingMore.value = false;
-  }, 500);
+  currentPage.value++;
 }
 
 // Lifecycle
@@ -534,7 +629,6 @@ onMounted(async () => {
 // Members Input Logic
 const newTripMembers = ref<string[]>([]);
 const newMemberName = ref('');
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function addMember() {
   const name = newMemberName.value.trim();
   if (name && !newTripMembers.value.includes(name)) {
@@ -542,7 +636,6 @@ function addMember() {
     newMemberName.value = '';
   }
 }
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function removeMember(idx: number) {
   newTripMembers.value.splice(idx, 1);
 }

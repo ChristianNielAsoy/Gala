@@ -8,6 +8,7 @@ export interface Trip {
   currencyCode?: string; // Add this line - TypeScript needs it explicitly
   created_at: string;
   destination?: string;
+  description?: string;
   member_count?: number;
   total_expenses?: number;
 }
