@@ -694,6 +694,7 @@ async function handleSave(): Promise<void> {
           item_amount: item.amount,
           quantity: 1,
           display_order: index,
+          is_libre: item.isLibre ?? false,
           consumers: item.isLibre ? [] : item.participants,
         })),
       );

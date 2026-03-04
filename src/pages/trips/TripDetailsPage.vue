@@ -208,6 +208,15 @@
             rows="2"
           />
 
+          <q-input
+            v-model="editForm.destination"
+            label="Destination (optional)"
+            outlined
+            dense
+          >
+            <template v-slot:prepend><q-icon name="place" /></template>
+          </q-input>
+
           <div class="row q-gutter-sm">
             <q-input
               v-model="editForm.start_date"
@@ -243,6 +252,31 @@
                 </q-icon>
               </template>
             </q-input>
+          </div>
+
+          <div class="row q-gutter-sm">
+            <q-select
+              v-model="editForm.status"
+              :options="statusOptions"
+              label="Status"
+              outlined
+              dense
+              emit-value
+              map-options
+              class="col"
+            >
+              <template v-slot:prepend><q-icon name="flag" /></template>
+            </q-select>
+
+            <q-input
+              v-model.number="editForm.budget_amount"
+              label="Budget (optional)"
+              type="number"
+              outlined
+              dense
+              class="col"
+              :prefix="trip?.currency_code ?? 'PHP'"
+            />
           </div>
         </q-card-section>
 
@@ -362,12 +396,22 @@ const itineraryItems = ref<ItineraryItem[]>([]);
 const expenses = ref<Expense[]>([]);
 const activityLog = ref<ActivityEntry[]>([]);
 
+const statusOptions = [
+  { label: 'Planning', value: 'planning' },
+  { label: 'Active', value: 'active' },
+  { label: 'Completed', value: 'completed' },
+  { label: 'Archived', value: 'archived' },
+];
+
 // Edit form for settings modal
 const editForm = ref({
   name: '',
   description: '',
+  destination: '',
   start_date: '',
   end_date: '',
+  status: 'planning' as string,
+  budget_amount: null as number | null,
 });
 
 // Expenses formatted for settlement calculator
@@ -478,20 +522,25 @@ async function fetchTripData(): Promise<void> {
     // 3. Itinerary events
     const { data: itineraryData, error: itineraryError } = await supabase
       .from('itinerary_events').select('*').eq('trip_id', id)
-      .order('event_date', { ascending: true })
-      .order('display_order', { ascending: true });
+      .order('date', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true });
 
     if (!itineraryError && itineraryData) {
-      itineraryItems.value = (itineraryData as ItineraryEvent[]).map((event) => ({
-        id: event.id,
-        phase: 'on' as const,
-        title: event.title,
-        type: 'text' as const,
-        date: event.event_date,
-        ...(event.event_time && { time: event.event_time }),
-        ...(event.location && { location: event.location }),
-        ...(event.description && { notes: event.description }),
-      }));
+      itineraryItems.value = (itineraryData as ItineraryEvent[]).map((event) => {
+        const e = event as ItineraryEvent & {
+          date?: string; time?: string; phase?: string; type?: string; notes?: string;
+        };
+        return {
+          id: e.id,
+          phase: (e.phase ?? 'on') as 'before' | 'on' | 'after',
+          title: e.title,
+          type: (e.type ?? 'text') as 'text' | 'checklist' | 'expense',
+          date: e.date ?? e.event_date,
+          ...(( e.time || e.event_time) && { time: e.time ?? e.event_time }),
+          ...(e.location && { location: e.location }),
+          ...(( e.notes || e.description) && { notes: e.notes ?? e.description }),
+        };
+      });
     }
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Error fetching trip data.';
@@ -600,8 +649,11 @@ function openSettingsModal(): void {
     editForm.value = {
       name: trip.value.name,
       description: trip.value.description || '',
+      destination: trip.value.destination || '',
       start_date: trip.value.start_date,
       end_date: trip.value.end_date,
+      status: trip.value.status ?? 'planning',
+      budget_amount: trip.value.budget_amount ?? null,
     };
   }
   showSettings.value = true;
@@ -619,8 +671,11 @@ async function saveTrip(): Promise<void> {
       .update({
         name: editForm.value.name.trim(),
         description: editForm.value.description || null,
+        destination: editForm.value.destination || null,
         start_date: editForm.value.start_date,
         end_date: editForm.value.end_date,
+        status: editForm.value.status,
+        budget_amount: editForm.value.budget_amount || null,
       })
       .eq('id', tripId.value);
     if (error) throw error;

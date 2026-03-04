@@ -69,6 +69,7 @@ export interface Expense {
   description: string;
   date: string;
   category: string;
+  split_type?: SplitType;
   receipt_url?: string;
   has_receipt: boolean;
   created_at: string;
@@ -142,13 +143,31 @@ export interface SettlementWithMembers extends Settlement {
 export interface ItineraryEvent {
   id?: string;
   trip_id: string;
-  event_date: string;
+  // Legacy columns (kept nullable after migration)
+  event_date?: string | null;
   event_time?: string;
+  // New columns (migration 06)
+  phase?: 'before' | 'on' | 'after';
+  type?: 'text' | 'checklist' | 'expense';
+  date?: string | null;
+  time?: string;
   title: string;
   location?: string;
   description?: string;
-  icon: string;
-  display_order: number;
+  notes?: string;
+  checklist?: { text: string; checked: boolean }[];
+  icon?: string;
+  display_order?: number;
+  // Expense-type item fields
+  amount?: number;
+  paid_by_id?: string;
+  category?: string;
+  split_type?: string;
+  involved_members?: string[];
+  custom_splits?: Record<string, number>;
+  expense_items?: unknown[];
+  receipt_url?: string;
+  attachments?: string[];
   created_at?: string;
   updated_at?: string;
 }

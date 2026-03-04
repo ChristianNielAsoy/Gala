@@ -520,6 +520,7 @@ async function persistItem(item: ItineraryItem) {
     custom_splits: item.custom_splits ?? null,
     expense_items: item.expense_items ?? null,
     receipt_url: item.receipt_url ?? null,
+    attachments: item.attachments?.length ? item.attachments : null,
   });
   if (error) {
     console.error('Failed to persist itinerary item:', error);
@@ -884,9 +885,26 @@ function handleExpenseCancel() {
   isEditing.value = false;
 }
 
-function saveItem() {
+async function saveItem() {
   // Validate basic fields for non-expense items
   if (!currentItem.value.title.trim()) return;
+
+  // Upload any newly selected attachment files to storage
+  if (attachmentFiles.value.length > 0 && props.tripId) {
+    const uploaded: string[] = [];
+    for (const file of attachmentFiles.value) {
+      const path = `itinerary/${props.tripId}/${Date.now()}_${file.name}`;
+      const { data, error } = await supabase.storage.from('documents').upload(path, file, { upsert: false });
+      if (!error && data) {
+        const { data: urlData } = supabase.storage.from('documents').getPublicUrl(data.path);
+        uploaded.push(urlData.publicUrl);
+      }
+    }
+    if (uploaded.length > 0) {
+      currentItem.value.attachments = [...(currentItem.value.attachments ?? []), ...uploaded];
+    }
+    attachmentFiles.value = [];
+  }
 
   if (isEditing.value) {
     const index = itineraryItems.value.findIndex((item) => item.id === currentItem.value.id);

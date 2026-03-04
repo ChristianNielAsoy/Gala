@@ -59,49 +59,61 @@
           <q-tab-panel name="all">
             <PackingListItems
               :items="filteredItems"
+              :members="members"
               @toggle="toggleItem"
               @delete="deleteItem"
               @update-category="updateItemCategory"
+              @update-assignee="updateItemAssignee"
             />
           </q-tab-panel>
           <q-tab-panel name="clothes">
             <PackingListItems
               :items="clothesItems"
+              :members="members"
               @toggle="toggleItem"
               @delete="deleteItem"
               @update-category="updateItemCategory"
+              @update-assignee="updateItemAssignee"
             />
           </q-tab-panel>
           <q-tab-panel name="toiletries">
             <PackingListItems
               :items="toiletriesItems"
+              :members="members"
               @toggle="toggleItem"
               @delete="deleteItem"
               @update-category="updateItemCategory"
+              @update-assignee="updateItemAssignee"
             />
           </q-tab-panel>
           <q-tab-panel name="electronics">
             <PackingListItems
               :items="electronicsItems"
+              :members="members"
               @toggle="toggleItem"
               @delete="deleteItem"
               @update-category="updateItemCategory"
+              @update-assignee="updateItemAssignee"
             />
           </q-tab-panel>
           <q-tab-panel name="documents">
             <PackingListItems
               :items="documentsItems"
+              :members="members"
               @toggle="toggleItem"
               @delete="deleteItem"
               @update-category="updateItemCategory"
+              @update-assignee="updateItemAssignee"
             />
           </q-tab-panel>
           <q-tab-panel name="other">
             <PackingListItems
               :items="otherItems"
+              :members="members"
               @toggle="toggleItem"
               @delete="deleteItem"
               @update-category="updateItemCategory"
+              @update-assignee="updateItemAssignee"
             />
           </q-tab-panel>
         </q-tab-panels>
@@ -129,10 +141,17 @@ interface PackingItem {
   is_packed: boolean;
   quantity: number;
   notes?: string;
+  assigned_to_member_id?: string | null;
   created_at: string;
 }
 
+interface Member {
+  id: string;
+  name: string;
+}
+
 const items = ref<PackingItem[]>([]);
+const members = ref<Member[]>([]);
 const selectedTripId = ref<string>('');
 const newItemText = ref('');
 const activeCategory = ref('all');
@@ -152,6 +171,18 @@ const electronicsItems = computed(() =>
 );
 const documentsItems = computed(() => items.value.filter((item) => item.category === 'documents'));
 const otherItems = computed(() => items.value.filter((item) => item.category === 'other'));
+
+async function fetchMembers() {
+  if (!selectedTripId.value) {
+    members.value = [];
+    return;
+  }
+  const { data } = await supabase
+    .from('members')
+    .select('id, name')
+    .eq('trip_id', selectedTripId.value);
+  members.value = (data as Member[]) || [];
+}
 
 async function fetchPackingItems() {
   if (!selectedTripId.value) {
@@ -189,6 +220,7 @@ async function addItem() {
         category: 'other',
         is_packed: false,
         quantity: 1,
+        assigned_to_member_id: null,
       })
       .select()
       .single();
@@ -253,9 +285,29 @@ async function updateItemCategory(itemId: string, category: string) {
   }
 }
 
+async function updateItemAssignee(itemId: string, memberId: string | null) {
+  const item = items.value.find((i) => i.id === itemId);
+  if (!item) return;
+
+  try {
+    const { error } = await supabase
+      .from('packing_items')
+      .update({ assigned_to_member_id: memberId })
+      .eq('id', itemId);
+
+    if (error) throw error;
+
+    item.assigned_to_member_id = memberId;
+  } catch (error) {
+    console.error('Error updating assignee:', error);
+    $q.notify({ type: 'negative', message: 'Failed to update assignee' });
+  }
+}
+
 // Watch for trip selection changes
 watch(selectedTripId, () => {
   void fetchPackingItems();
+  void fetchMembers();
 });
 
 onMounted(async () => {
@@ -265,7 +317,7 @@ onMounted(async () => {
     selectedTripId.value = tripStore.trips[0]!.id;
   }
   if (selectedTripId.value) {
-    await fetchPackingItems();
+    await Promise.all([fetchPackingItems(), fetchMembers()]);
   }
 });
 </script>

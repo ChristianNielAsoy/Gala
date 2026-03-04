@@ -217,6 +217,16 @@
             dense
             class="q-mt-md"
           />
+
+          <q-input
+            v-model="paymentNotes"
+            label="Notes (optional)"
+            outlined
+            dense
+            type="textarea"
+            rows="2"
+            class="q-mt-md"
+          />
         </q-card-section>
 
         <q-card-actions align="right">
@@ -267,6 +277,7 @@ const $q = useQuasar();
 const showPaymentDialog = ref(false);
 const selectedSettlement = ref<Settlement | null>(null);
 const paymentMethod = ref('Cash');
+const paymentNotes = ref('');
 const processingPayment = ref(false);
 const paidSettlementKeys = ref<Set<string>>(new Set());
 
@@ -302,6 +313,8 @@ const settlementsToReceive = computed((): Settlement[] => {
 // Methods
 function markAsPaid(settlement: Settlement) {
   selectedSettlement.value = settlement;
+  paymentMethod.value = 'Cash';
+  paymentNotes.value = '';
   showPaymentDialog.value = true;
 }
 
@@ -317,6 +330,7 @@ async function confirmPayment() {
       amount: selectedSettlement.value.amount,
       currency_code: props.currencyCode,
       payment_method: paymentMethod.value,
+      notes: paymentNotes.value || null,
       status: 'pending',
       paid_at: new Date().toISOString(),
     });

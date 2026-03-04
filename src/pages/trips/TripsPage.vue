@@ -137,6 +137,17 @@
             <template v-slot:prepend><q-icon name="flight_takeoff" /></template>
           </q-input>
 
+          <!-- Destination -->
+          <q-input
+            v-model="newTrip.destination"
+            label="Destination (optional)"
+            placeholder="e.g., Boracay, Aklan"
+            outlined
+            dense
+          >
+            <template v-slot:prepend><q-icon name="place" /></template>
+          </q-input>
+
           <!-- Date Range -->
           <div>
             <div class="text-caption text-grey-7 q-mb-xs">Travel Dates</div>
@@ -178,18 +189,31 @@
             </div>
           </div>
 
-          <!-- Currency -->
-          <q-select
-            v-model="newTrip.currency_code"
-            :options="tripStore.currencyOptions"
-            label="Currency"
-            outlined
-            dense
-            emit-value
-            map-options
-          >
-            <template v-slot:prepend><q-icon name="payments" /></template>
-          </q-select>
+          <!-- Currency + Budget -->
+          <div class="row q-gutter-sm">
+            <q-select
+              v-model="newTrip.currency_code"
+              :options="tripStore.currencyOptions"
+              label="Currency"
+              outlined
+              dense
+              emit-value
+              map-options
+              class="col"
+            >
+              <template v-slot:prepend><q-icon name="payments" /></template>
+            </q-select>
+
+            <q-input
+              v-model.number="newTrip.budget_amount"
+              label="Budget (optional)"
+              type="number"
+              outlined
+              dense
+              class="col"
+              :prefix="newTrip.currency_code"
+            />
+          </div>
 
           <!-- Add Members -->
           <div>
@@ -309,9 +333,11 @@ const hasMoreTrips = computed(() => {
 
 const newTrip = ref({
   name: '',
+  destination: '',
   start_date: new Date().toISOString().split('T')[0] ?? '',
   end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0] ?? '',
   currency_code: 'PHP',
+  budget_amount: null as number | null,
 });
 
 const isFormValid = computed(() => {
@@ -349,9 +375,11 @@ async function createTrip() {
       .insert({
         user_id: user.id,
         name: newTrip.value.name,
+        destination: newTrip.value.destination || null,
         start_date: newTrip.value.start_date,
         end_date: newTrip.value.end_date,
         currency_code: newTrip.value.currency_code,
+        budget_amount: newTrip.value.budget_amount || null,
       })
       .select()
       .single();
@@ -381,6 +409,7 @@ async function createTrip() {
 
     newTrip.value = {
       name: '',
+      destination: '',
       start_date: new Date().toISOString().split('T')[0] ?? '',
       end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0] ?? '',
       currency_code: 'PHP',

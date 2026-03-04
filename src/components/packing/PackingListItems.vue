@@ -20,12 +20,40 @@
             class="q-ml-sm"
           />
         </q-item-label>
-        <q-item-label caption v-if="item.notes">
-          {{ item.notes }}
+        <q-item-label caption class="row items-center q-gutter-xs q-mt-xs">
+          <span v-if="item.notes">{{ item.notes }}</span>
+          <q-chip
+            v-if="assigneeName(item.assigned_to_member_id)"
+            dense
+            icon="person"
+            size="sm"
+            color="primary"
+            text-color="white"
+            class="q-ma-none"
+          >
+            {{ assigneeName(item.assigned_to_member_id) }}
+          </q-chip>
         </q-item-label>
       </q-item-section>
 
-      <q-item-section side>
+      <q-item-section side class="q-gutter-xs" style="flex-direction: row; align-items: center">
+        <!-- Assignee picker -->
+        <q-select
+          v-if="members.length > 0"
+          :model-value="item.assigned_to_member_id ?? null"
+          :options="memberOptions"
+          outlined
+          dense
+          clearable
+          emit-value
+          map-options
+          placeholder="Assign"
+          style="min-width: 100px"
+          @update:model-value="updateAssignee(item.id, $event)"
+          @click.stop
+        />
+
+        <!-- Category picker -->
         <q-select
           :model-value="item.category"
           :options="categoryOptions"
@@ -33,16 +61,17 @@
           dense
           emit-value
           map-options
+          style="min-width: 110px"
           @update:model-value="updateCategory(item.id, $event)"
-          style="min-width: 120px"
+          @click.stop
         />
+
         <q-btn
           icon="delete"
           flat
           dense
           color="negative"
           @click.stop="deleteItem(item.id)"
-          class="q-ml-sm"
         />
       </q-item-section>
     </q-item>
@@ -55,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue';
+import { computed } from 'vue';
 
 interface PackingItem {
   id: string;
@@ -65,17 +94,25 @@ interface PackingItem {
   is_packed: boolean;
   quantity: number;
   notes?: string;
+  assigned_to_member_id?: string | null;
   created_at: string;
+}
+
+interface Member {
+  id: string;
+  name: string;
 }
 
 const props = defineProps<{
   items: PackingItem[];
+  members?: Member[];
 }>();
 
 const emit = defineEmits<{
   toggle: [itemId: string];
   delete: [itemId: string];
-  updateCategory: [itemId: string, category: string];
+  'update-category': [itemId: string, category: string];
+  'update-assignee': [itemId: string, memberId: string | null];
 }>();
 
 const categoryOptions = [
@@ -86,6 +123,17 @@ const categoryOptions = [
   { label: 'Other', value: 'other' },
 ];
 
+const members = computed(() => props.members ?? []);
+
+const memberOptions = computed(() =>
+  members.value.map((m) => ({ label: m.name, value: m.id })),
+);
+
+function assigneeName(memberId: string | null | undefined): string | null {
+  if (!memberId) return null;
+  return members.value.find((m) => m.id === memberId)?.name ?? null;
+}
+
 function toggleItem(itemId: string) {
   emit('toggle', itemId);
 }
@@ -95,7 +143,11 @@ function deleteItem(itemId: string) {
 }
 
 function updateCategory(itemId: string, category: string) {
-  emit('updateCategory', itemId, category);
+  emit('update-category', itemId, category);
+}
+
+function updateAssignee(itemId: string, memberId: string | null) {
+  emit('update-assignee', itemId, memberId);
 }
 </script>
 

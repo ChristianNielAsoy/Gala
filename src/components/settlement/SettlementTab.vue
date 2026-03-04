@@ -389,8 +389,19 @@ async function recordPayment() {
   recordingPayment.value = true;
 
   try {
-    // TODO: Store payment record in database
-    // For now, just show success message
+    const { error } = await supabase.from('settlements').insert({
+      trip_id: props.tripId,
+      from_member_id: selectedSettlement.value.from,
+      to_member_id: selectedSettlement.value.to,
+      amount: paymentAmount.value,
+      currency_code: props.trip?.currency_code ?? 'PHP',
+      payment_method: paymentMethod.value,
+      notes: paymentNotes.value || null,
+      status: 'pending',
+      paid_at: new Date().toISOString(),
+    });
+
+    if (error) throw error;
 
     $q.notify({
       type: 'positive',
@@ -399,7 +410,7 @@ async function recordPayment() {
     });
 
     showPaymentDialog.value = false;
-    await fetchData(); // Refresh data
+    await fetchData();
   } catch (error) {
     console.error('Error recording payment:', error);
     $q.notify({ type: 'negative', message: 'Failed to record payment' });
