@@ -67,12 +67,12 @@
 
     <!-- Calendar Section -->
     <div class="q-pa-md">
-      <q-card flat class="rounded-borders">
+      <q-card flat bordered>
         <q-card-section>
           <q-date
             v-model="selectedDate"
             :events="tripDates"
-            event-color="deep-orange"
+            event-color="primary"
             flat
             minimal
             class="full-width"
@@ -104,7 +104,7 @@
         <div class="col-6">
           <q-card flat bordered class="stat-card stat-card-highlighted">
             <q-card-section class="text-center">
-              <div class="text-h4 text-weight-bold text-deep-orange">{{ upcomingTrips }}</div>
+              <div class="text-h4 text-weight-bold text-accent">{{ upcomingTrips }}</div>
               <div class="text-caption text-grey-7">Upcoming Trips</div>
             </q-card-section>
           </q-card>
@@ -117,31 +117,29 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { supabase } from 'boot/supabase';
-import type { Trip } from 'src/types/trip';
+import { useTripStore } from 'src/stores/tripStore';
+import type { Trip } from 'src/types/expense';
 
 const router = useRouter();
+const tripStore = useTripStore();
 
 // State
 const selectedDate = ref((new Date().toISOString().split('T')[0] ?? '').replace(/-/g, '/'));
-const trips = ref<Trip[]>([]);
 
 // Computed
-const recentTrips = computed(() => {
-  return trips.value.slice(0, 5);
-});
+const recentTrips = computed(() => tripStore.trips.slice(0, 5));
 
-const totalTrips = computed(() => trips.value.length);
+const totalTrips = computed(() => tripStore.trips.length);
 
 const upcomingTrips = computed(() => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return trips.value.filter((trip) => new Date(trip.start_date) > today).length;
+  return tripStore.trips.filter((trip) => new Date(trip.start_date) > today).length;
 });
 
 const tripDates = computed(() => {
   const dates: string[] = [];
-  trips.value.forEach((trip) => {
+  tripStore.trips.forEach((trip) => {
     const start = new Date(trip.start_date);
     const end = new Date(trip.end_date);
 
@@ -156,25 +154,6 @@ const tripDates = computed(() => {
 });
 
 // Methods
-async function fetchTrips() {
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return;
-
-    const { data: tripData } = await supabase
-      .from('trips')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('start_date', { ascending: false });
-
-    trips.value = (tripData as Trip[]) || [];
-  } catch (err) {
-    console.error('Error fetching trips:', err);
-  }
-}
 
 function goToTrips() {
   void router.push('/trips');
@@ -211,11 +190,11 @@ function getStatusColor(trip: Trip): string {
   const status = getStatus(trip);
   switch (status) {
     case 'Active':
-      return 'green';
+      return 'positive';
     case 'Upcoming':
-      return 'cyan';
+      return 'primary';
     default:
-      return 'grey';
+      return 'grey-6';
   }
 }
 
@@ -231,13 +210,13 @@ function truncate(text: string, length: number): string {
   return text.length > length ? text.substring(0, length) + '...' : text;
 }
 
-// Lifecycle
+// Lifecycle — trips already loaded by router guard / TripsPage; this is a cache hit
 onMounted(() => {
-  void fetchTrips();
+  void tripStore.fetchTrips();
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .trip-card-small {
   min-width: 160px;
   max-width: 160px;
@@ -280,6 +259,6 @@ onMounted(() => {
 }
 
 .stat-card-highlighted {
-  border: 2px solid #ff5722;
+  border: 2px solid $accent;
 }
 </style>

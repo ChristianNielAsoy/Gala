@@ -1,32 +1,20 @@
 <template>
   <q-page class="bg-surface">
     <!-- Hero Section -->
-    <div
-      class="hero-section q-pa-lg text-center text-white"
-      :style="{ backgroundImage: `url(${heroImage})` }"
-    >
-      <div class="hero-overlay"></div>
+    <div class="hero-section">
       <div class="hero-content">
-        <h1 class="text-h3 text-weight-bold q-mb-md">Your Adventures Await</h1>
-        <p class="text-subtitle1 q-mb-lg">Plan, track, and cherish every trip</p>
+        <h1 class="text-h4 text-white text-weight-bold q-mb-sm">Your Adventures</h1>
+        <p class="text-white q-mb-lg hero-subtitle">
+          Plan, split, and cherish every trip with your barkada
+        </p>
         <q-btn
           unelevated
-          rounded
-          color="accent"
+          color="white"
+          text-color="primary"
           icon="add"
           label="Plan New Trip"
-          size="lg"
+          no-caps
           @click="openNewTripModal"
-          class="q-mr-sm"
-        />
-        <q-btn
-          outline
-          rounded
-          color="white"
-          icon="map"
-          label="Explore Destinations"
-          size="lg"
-          @click="toggleMapView"
         />
       </div>
     </div>
@@ -36,7 +24,6 @@
       <q-input
         v-model="searchQuery"
         outlined
-        rounded
         dense
         placeholder="Search trips..."
         class="q-mb-md"
@@ -56,21 +43,21 @@
 
     <!-- Trip Cards Grid -->
     <div class="q-pa-md">
-      <div v-if="loading" class="text-center q-pa-xl">
+      <div v-if="tripStore.isLoading" class="text-center q-pa-xl">
         <q-spinner color="primary" size="lg" />
         <p class="text-grey-6 q-mt-md">Loading your trips...</p>
       </div>
 
-      <div v-else-if="filteredTrips.length === 0" class="text-center q-pa-xl">
+      <div v-else-if="!tripStore.isLoading && filteredTrips.length === 0" class="text-center q-pa-xl">
         <q-icon name="flight_takeoff" size="xl" color="grey-4" class="q-mb-md" />
         <h3 class="text-h6 text-grey-7 q-mb-sm">No trips found</h3>
         <p class="text-grey-6 q-mb-lg">Start your journey by planning your first trip!</p>
         <q-btn
           unelevated
-          rounded
           color="primary"
           icon="add"
           label="Create Your First Trip"
+          no-caps
           @click="openNewTripModal"
         />
       </div>
@@ -84,7 +71,6 @@
               </div>
               <div class="trip-overlay"></div>
               <div class="trip-info">
-                <div class="text-body2 text-white text-weight-bold">{{ trip.name }}</div>
                 <div class="text-caption text-white">
                   {{ formatDateRange(trip.start_date, trip.end_date) }}
                 </div>
@@ -125,27 +111,9 @@
 
       <!-- Load More -->
       <div v-if="hasMoreTrips" class="text-center q-mt-lg">
-        <q-btn
-          flat
-          color="primary"
-          label="Show More"
-          @click="loadMoreTrips"
-        />
+        <q-btn flat no-caps color="primary" label="Show More" @click="loadMoreTrips" />
       </div>
     </div>
-
-    <!-- Map View Toggle (Placeholder) -->
-    <q-dialog v-model="showMapView">
-      <q-card>
-        <q-card-section>
-          <div class="text-h6">Map View</div>
-          <p>Interactive map of all your trips coming soon!</p>
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn flat label="Close" v-close-popup />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
 
     <!-- New Trip Modal -->
     <q-dialog v-model="showNewTripModal" persistent>
@@ -213,7 +181,7 @@
           <!-- Currency -->
           <q-select
             v-model="newTrip.currency_code"
-            :options="currencyOptions"
+            :options="tripStore.currencyOptions"
             label="Currency"
             outlined
             dense
@@ -262,9 +230,10 @@
         </q-card-section>
 
         <q-card-actions align="right" class="q-pa-md">
-          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn flat no-caps label="Cancel" v-close-popup />
           <q-btn
             unelevated
+            no-caps
             color="primary"
             label="Create Trip"
             :loading="creating"
@@ -278,37 +247,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
-import type { Trip } from 'src/types/trip';
+import { useAuthStore } from 'src/stores/authStore';
+import { useTripStore } from 'src/stores/tripStore';
+import type { Trip } from 'src/types/expense';
 
 const router = useRouter();
 const $q = useQuasar();
+const authStore = useAuthStore();
+const tripStore = useTripStore();
 
-// State
-const loading = ref(true);
-const error = ref<string | null>(null);
-const trips = ref<Trip[]>([]);
+// UI-only state (stays local)
 const showNewTripModal = ref(false);
 const activeFilter = ref('all');
 const creating = ref(false);
 const searchQuery = ref('');
-const showMapView = ref(false);
 const pageSize = ref(12);
 const currentPage = ref(1);
 
-// Computed
-const heroImage = computed(() => {
-  const latestTrip = trips.value.find((t) => t.start_date && new Date(t.start_date) > new Date());
-  return latestTrip ? getTripImage(latestTrip) : 'https://source.unsplash.com/featured/?travel';
-});
-
 const filteredTrips = computed(() => {
-  let filtered = trips.value;
+  let filtered = tripStore.trips;
 
-  // Filter by status
   if (activeFilter.value !== 'all') {
     const now = new Date().toISOString().split('T')[0] ?? '';
     filtered = filtered.filter((trip) => {
@@ -325,7 +287,6 @@ const filteredTrips = computed(() => {
     });
   }
 
-  // Filter by search
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase();
     filtered = filtered.filter(
@@ -339,16 +300,13 @@ const filteredTrips = computed(() => {
 });
 
 const paginatedTrips = computed(() => {
-  const start = 0;
-  const end = currentPage.value * pageSize.value;
-  return filteredTrips.value.slice(start, end);
+  return filteredTrips.value.slice(0, currentPage.value * pageSize.value);
 });
 
 const hasMoreTrips = computed(() => {
   return paginatedTrips.value.length < filteredTrips.value.length;
 });
 
-// New Trip Form
 const newTrip = ref({
   name: '',
   start_date: new Date().toISOString().split('T')[0] ?? '',
@@ -356,37 +314,6 @@ const newTrip = ref({
   currency_code: 'PHP',
 });
 
-
-// Currency Options
-const currencyOptions = ref<{ label: string; value: string }[]>([]);
-
-// Fetch currencies from database
-async function fetchCurrencies(): Promise<void> {
-  const { data, error } = await supabase
-    .from('currencies')
-    .select('code, name')
-    .eq('is_active', true)
-    .order('display_order');
-
-  if (error) {
-    console.warn('Failed to load currencies:', error);
-    // Fallback to hardcoded currencies
-    currencyOptions.value = [
-      { label: 'PHP - Philippine Peso', value: 'PHP' },
-      { label: 'USD - US Dollar', value: 'USD' },
-      { label: 'EUR - Euro', value: 'EUR' },
-      { label: 'JPY - Japanese Yen', value: 'JPY' },
-      { label: 'SGD - Singapore Dollar', value: 'SGD' },
-    ];
-  } else {
-    currencyOptions.value = data.map((curr) => ({
-      label: `${curr.code} - ${curr.name}`,
-      value: curr.code,
-    }));
-  }
-}
-
-// Computed
 const isFormValid = computed(() => {
   return (
     newTrip.value.name &&
@@ -396,42 +323,12 @@ const isFormValid = computed(() => {
   );
 });
 
-
-// Methods
-async function fetchTrips() {
-  loading.value = true;
-  error.value = null;
-
+async function loadTrips() {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      error.value = 'Please log in to view your trips';
-      return;
-    }
-
-    const { data: tripData, error: tripError } = await supabase
-      .from('trips')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('start_date', { ascending: false });
-
-    if (tripError) throw tripError;
-
-    trips.value = (tripData as Trip[]) || [];
+    await tripStore.fetchTrips();
   } catch (err) {
-    console.error('Error fetching trips:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Failed to load trips';
-    error.value = errorMessage;
-    $q.notify({
-      type: 'negative',
-      message: 'Could not load trips: ' + errorMessage,
-      position: 'top',
-    });
-  } finally {
-    loading.value = false;
+    const msg = err instanceof Error ? err.message : 'Failed to load trips';
+    $q.notify({ type: 'negative', message: 'Could not load trips: ' + msg, position: 'top' });
   }
 }
 
@@ -444,13 +341,8 @@ async function createTrip() {
   creating.value = true;
 
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      throw new Error('You must be logged in to create a trip');
-    }
+    const user = authStore.user;
+    if (!user) throw new Error('You must be logged in to create a trip');
 
     const { data: tripData, error: tripError } = await supabase
       .from('trips')
@@ -482,11 +374,10 @@ async function createTrip() {
     const { error: memberError } = await supabase.from('members').insert(membersToInsert);
     if (memberError) throw memberError;
 
-    $q.notify({
-      type: 'positive',
-      message: 'Trip created successfully!',
-      position: 'top',
-    });
+    // Update store cache directly — no extra DB fetch needed
+    tripStore.addTrip(tripData as Trip);
+
+    $q.notify({ type: 'positive', message: 'Trip created successfully!', position: 'top' });
 
     newTrip.value = {
       name: '',
@@ -498,10 +389,8 @@ async function createTrip() {
     newTripMembers.value = [];
     newMemberName.value = '';
 
-    await fetchTrips();
     void router.push(`/trips/${tripData.id}`);
   } catch (err) {
-    console.error('Error creating trip:', err);
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     $q.notify({
       type: 'negative',
@@ -528,45 +417,8 @@ function getTripImage(trip: Trip): string {
     'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=400&fit=crop',
     'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=400&fit=crop',
   ];
-
   const index = Math.abs(trip.name.charCodeAt(0) % images.length);
   return images[index]!;
-}
-
-function getStatus(trip: Trip): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(trip.start_date);
-  const end = new Date(trip.end_date);
-
-  if (start <= today && end >= today) return 'Active';
-  if (start > today) return 'Upcoming';
-  return 'Completed';
-}
-
-function getStatusColor(trip: Trip): string {
-  const status = getStatus(trip);
-  switch (status) {
-    case 'Active':
-      return 'green';
-    case 'Upcoming':
-      return 'cyan';
-    case 'Completed':
-      return 'grey';
-    default:
-      return 'grey';
-  }
-}
-
-function formatDateRange(start: string, end: string): string {
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-
-  const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-  const startFormatted = startDate.toLocaleDateString('en-US', options);
-  const endFormatted = endDate.toLocaleDateString('en-US', { ...options, year: 'numeric' });
-
-  return `${startFormatted} - ${endFormatted}`;
 }
 
 function getStatusLabel(trip: Trip): string {
@@ -576,59 +428,49 @@ function getStatusLabel(trip: Trip): string {
   return 'Active';
 }
 
-function formatCurrency(amount: number, currency = 'PHP'): string {
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency }).format(amount);
+function getStatusColor(trip: Trip): string {
+  const label = getStatusLabel(trip);
+  if (label === 'Active') return 'primary';
+  if (label === 'Upcoming') return 'accent';
+  return 'grey-6';
 }
 
-function toggleMapView() {
-  showMapView.value = !showMapView.value;
+function formatDateRange(start: string, end: string): string {
+  const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  const startFormatted = new Date(start).toLocaleDateString('en-US', options);
+  const endFormatted = new Date(end).toLocaleDateString('en-US', { ...options, year: 'numeric' });
+  return `${startFormatted} – ${endFormatted}`;
+}
+
+function formatCurrency(amount: number, currency = 'PHP'): string {
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency }).format(amount);
 }
 
 function loadMoreTrips() {
   currentPage.value++;
 }
 
-// Lifecycle
+// Real-time subscription — invalidates store cache on remote change
+let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
+
 onMounted(async () => {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  await Promise.all([tripStore.fetchCurrencies(), loadTrips()]);
 
-  if (!session) {
-    $q.notify({
-      type: 'warning',
-      message: 'Please log in to view your trips',
-      position: 'top',
-    });
-    void router.push('/login');
-    return;
-  }
-
-  await Promise.all([fetchCurrencies(), fetchTrips()]);
-
-  const channel = supabase
+  realtimeChannel = supabase
     .channel('trips_changes')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'trips',
-      },
-      () => {
-        void fetchTrips();
-      },
-    )
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, () => {
+      void tripStore.fetchTrips(true);
+    })
     .subscribe();
-
-  return () => {
-    void supabase.removeChannel(channel);
-  };
 });
 
-// Members Input Logic
+onUnmounted(() => {
+  if (realtimeChannel) void supabase.removeChannel(realtimeChannel);
+});
+
 const newTripMembers = ref<string[]>([]);
 const newMemberName = ref('');
+
 function addMember() {
   const name = newMemberName.value.trim();
   if (name && !newTripMembers.value.includes(name)) {
@@ -636,65 +478,75 @@ function addMember() {
     newMemberName.value = '';
   }
 }
+
 function removeMember(idx: number) {
   newTripMembers.value.splice(idx, 1);
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .hero-section {
+  background: linear-gradient(135deg, #0d9488 0%, #065f52 100%);
+  padding: 56px 32px;
+  text-align: center;
   position: relative;
-  height: 300px;
-  background-size: cover;
-  background-position: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+  overflow: hidden;
 
-.hero-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  &::before {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    top: -250px;
+    right: -100px;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.03);
+    bottom: -150px;
+    left: -60px;
+  }
 }
 
 .hero-content {
   position: relative;
   z-index: 1;
-  text-align: center;
+}
+
+.hero-subtitle {
+  font-size: 0.9375rem;
+  opacity: 0.88;
 }
 
 .trip-card {
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   overflow: hidden;
-  border-radius: 16px;
 }
 
 .trip-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-}
-
-.trip-image {
-  transition: transform 0.2s ease;
+  box-shadow: var(--gala-shadow-lg);
 }
 
 .trip-card:hover .trip-image {
   transform: scale(1.05);
 }
 
+.trip-image {
+  transition: transform 0.3s ease;
+}
+
 .trip-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.7));
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.65));
 }
 
 .trip-info {
@@ -702,21 +554,12 @@ function removeMember(idx: number) {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 12px;
+  padding: 10px 12px;
   z-index: 1;
 }
 
 .new-trip-modal {
   width: 100%;
   max-width: 500px;
-  border-radius: 24px;
-}
-
-.centered-modal {
-  margin: 0 auto;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  position: absolute;
 }
 </style>

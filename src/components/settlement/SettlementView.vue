@@ -9,7 +9,7 @@
     <!-- Settlement Content -->
     <div v-else>
       <!-- Your Balance Card -->
-      <q-card class="q-mb-md shadow-2" v-if="currentMemberId">
+      <q-card flat bordered class="q-mb-md" v-if="currentMemberId">
         <q-card-section class="bg-primary text-white">
           <div class="text-subtitle2">Your Balance</div>
           <div class="text-h4 text-weight-bold q-mt-sm">
@@ -25,7 +25,7 @@
       </q-card>
 
       <!-- Settlements to Make (You Owe) -->
-      <q-card v-if="settlementsToPay.length > 0" class="q-mb-md shadow-2">
+      <q-card v-if="settlementsToPay.length > 0" flat bordered class="q-mb-md">
         <q-card-section>
           <div class="text-h6 text-negative q-mb-md">
             <q-icon name="arrow_upward" /> You Need to Pay
@@ -64,7 +64,7 @@
       </q-card>
 
       <!-- Settlements to Receive (You Are Owed) -->
-      <q-card v-if="settlementsToReceive.length > 0" class="q-mb-md shadow-2">
+      <q-card v-if="settlementsToReceive.length > 0" flat bordered class="q-mb-md">
         <q-card-section>
           <div class="text-h6 text-positive q-mb-md">
             <q-icon name="arrow_downward" /> You Will Receive
@@ -100,7 +100,7 @@
       </q-card>
 
       <!-- All Trip Settlements -->
-      <q-card v-if="allSettlements.length > 0" class="shadow-2">
+      <q-card v-if="allSettlements.length > 0" flat bordered>
         <q-card-section>
           <div class="text-h6 q-mb-md">All Trip Settlements</div>
 
@@ -133,7 +133,7 @@
       </q-card>
 
       <!-- All Settled State -->
-      <q-card v-if="allSettlements.length === 0" class="shadow-2">
+      <q-card v-if="allSettlements.length === 0" flat bordered>
         <q-card-section class="text-center q-py-xl">
           <q-icon name="check_circle" size="xl" color="positive" />
           <div class="text-h6 q-mt-md">All Settled!</div>
@@ -220,9 +220,10 @@
         </q-card-section>
 
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="grey-7" v-close-popup />
+          <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
           <q-btn
             flat
+            no-caps
             label="Confirm Payment"
             color="primary"
             @click="confirmPayment"

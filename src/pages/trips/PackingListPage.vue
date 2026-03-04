@@ -1,12 +1,14 @@
 <template>
-  <q-page class="q-pa-md bg-surface">
+  <q-page class="bg-surface">
+    <!-- Header -->
+    <div class="q-pa-md bg-surface">
+      <div class="text-h5 text-weight-bold">Packing List</div>
+      <div class="text-body2 text-grey-6 q-mt-xs">Create and manage your travel packing lists</div>
+    </div>
+
+    <div class="q-pa-md q-pt-none">
     <q-card flat bordered>
       <q-card-section>
-        <div class="text-h6">Packing List</div>
-        <div class="text-caption text-grey-7 q-mb-md">
-          Create and manage your travel packing lists
-        </div>
-
         <!-- Trip Selector -->
         <q-select
           v-model="selectedTripId"
@@ -105,17 +107,19 @@
         </q-tab-panels>
       </q-card-section>
     </q-card>
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
-import type { Trip } from 'src/types/trip';
+import { useTripStore } from 'src/stores/tripStore';
 import PackingListItems from 'src/components/packing/PackingListItems.vue';
 
 const $q = useQuasar();
+const tripStore = useTripStore();
 
 interface PackingItem {
   id: string;
@@ -129,13 +133,14 @@ interface PackingItem {
 }
 
 const items = ref<PackingItem[]>([]);
-const trips = ref<Trip[]>([]);
 const selectedTripId = ref<string>('');
 const newItemText = ref('');
 const activeCategory = ref('all');
 const loading = ref(false);
 
-const tripOptions = ref<{ label: string; value: string }[]>([]);
+const tripOptions = computed(() =>
+  tripStore.trips.map((t) => ({ label: t.name, value: t.id })),
+);
 
 const filteredItems = computed(() => items.value);
 const clothesItems = computed(() => items.value.filter((item) => item.category === 'clothes'));
@@ -147,43 +152,6 @@ const electronicsItems = computed(() =>
 );
 const documentsItems = computed(() => items.value.filter((item) => item.category === 'documents'));
 const otherItems = computed(() => items.value.filter((item) => item.category === 'other'));
-
-async function fetchTrips() {
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: memberData } = await supabase
-      .from('members')
-      .select('trip_id')
-      .eq('user_id', user.id);
-
-    const tripIds = memberData?.map((m) => m.trip_id) || [];
-
-    if (tripIds.length > 0) {
-      const { data: tripsData } = await supabase
-        .from('trips')
-        .select('*')
-        .in('id', tripIds)
-        .order('start_date', { ascending: false });
-
-      trips.value = (tripsData as Trip[]) || [];
-      tripOptions.value = trips.value.map((t) => ({
-        label: t.name,
-        value: t.id,
-      }));
-
-      // Auto-select first trip if available
-      if (trips.value.length > 0 && !selectedTripId.value) {
-        selectedTripId.value = trips.value[0]!.id;
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching trips:', error);
-  }
-}
 
 async function fetchPackingItems() {
   if (!selectedTripId.value) {
@@ -286,13 +254,16 @@ async function updateItemCategory(itemId: string, category: string) {
 }
 
 // Watch for trip selection changes
-import { watch } from 'vue';
 watch(selectedTripId, () => {
   void fetchPackingItems();
 });
 
 onMounted(async () => {
-  await fetchTrips();
+  await tripStore.fetchTrips();
+  // Auto-select first trip if available
+  if (!selectedTripId.value && tripStore.trips.length > 0) {
+    selectedTripId.value = tripStore.trips[0]!.id;
+  }
   if (selectedTripId.value) {
     await fetchPackingItems();
   }

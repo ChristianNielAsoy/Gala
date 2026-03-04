@@ -1,5 +1,11 @@
 <template>
-  <q-page class="q-pa-md bg-surface">
+  <q-page class="bg-surface">
+    <!-- Header -->
+    <div class="q-pa-md bg-surface">
+      <div class="text-h5 text-weight-bold">My Profile</div>
+    </div>
+
+    <div class="q-pa-md q-pt-none">
     <q-card flat bordered>
       <q-card-section>
         <div class="row items-center q-gutter-md">
@@ -51,15 +57,19 @@
         <div v-if="userProfile.badges.length === 0" class="text-grey-6">No achievements yet.</div>
       </q-card-section>
     </q-card>
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { supabase } from 'boot/supabase';
+import { useAuthStore } from 'src/stores/authStore';
+import { useTripStore } from 'src/stores/tripStore';
 
 const router = useRouter();
+const authStore = useAuthStore();
+const tripStore = useTripStore();
 
 interface TripSummary {
   id: string;
@@ -86,9 +96,7 @@ const userProfile = ref<UserProfile>({
 });
 
 async function fetchUserProfile() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = authStore.user;
   if (!user) return;
   const email = user.email ?? '';
   userProfile.value.name = user.user_metadata?.full_name || (email ? email.split('@')[0] : '');
@@ -99,33 +107,15 @@ async function fetchUserProfile() {
     .join('')
     .toUpperCase();
 
-  // Fetch trips
-  const { data: memberData } = await supabase
-    .from('members')
-    .select('trip_id, trips(name, start_date, end_date)')
-    .eq('user_id', user.id);
-  type MemberTrip = {
-    trip_id: string;
-    trips?:
-      | { name?: string; start_date?: string; end_date?: string }
-      | { name?: string; start_date?: string; end_date?: string }[];
-  };
-  const trips = (memberData || []).map((m: MemberTrip) => {
-    let tripObj: { name?: string; start_date?: string; end_date?: string } | undefined;
-    if (Array.isArray(m.trips)) {
-      tripObj = m.trips[0];
-    } else {
-      tripObj = m.trips;
-    }
-    return {
-      id: m.trip_id,
-      name: tripObj?.name || 'Trip',
-      dateRange: tripObj ? `${tripObj.start_date ?? ''} - ${tripObj.end_date ?? ''}` : '',
-      start_date: tripObj?.start_date,
-      end_date: tripObj?.end_date,
-    };
-  });
-  userProfile.value.trips = trips as TripSummary[];
+  await tripStore.fetchTrips();
+  const trips: TripSummary[] = tripStore.trips.map((t) => ({
+    id: t.id,
+    name: t.name,
+    dateRange: `${t.start_date ?? ''} - ${t.end_date ?? ''}`,
+    start_date: t.start_date,
+    end_date: t.end_date,
+  }));
+  userProfile.value.trips = trips;
 
   // Example badges (could be dynamic)
   userProfile.value.badges = [];

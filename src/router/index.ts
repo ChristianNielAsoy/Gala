@@ -1,7 +1,7 @@
 import { route } from 'quasar/wrappers';
 import { createRouter, createWebHistory } from 'vue-router';
 import type { NavigationGuardWithThis } from 'vue-router';
-import { supabase } from 'boot/supabase';
+import { useAuthStore } from 'src/stores/authStore';
 import routes from './routes';
 
 export default route(function (/* { store, ssrContext } */) {
@@ -13,22 +13,20 @@ export default route(function (/* { store, ssrContext } */) {
     history: createHistory(process.env.VUE_ROUTER_BASE),
   });
 
-  // Navigation Guard (Middleware for Authentication)
-  const authGuard: NavigationGuardWithThis<undefined> = async (to, from, next) => {
-    // Check if the destination route requires authentication
-    const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const authGuard: NavigationGuardWithThis<undefined> = async (to, _from, next) => {
+    const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+    const authStore = useAuthStore();
 
-    // Get the current user session (UPDATED API)
-    const { data: { session } } = await supabase.auth.getSession();
+    // Initialize once — subsequent calls are no-ops (cached session)
+    if (!authStore.isInitialized) {
+      await authStore.initialize();
+    }
 
-    if (requiresAuth && !session) {
-      // If auth is required and no session exists, redirect to login
+    if (requiresAuth && !authStore.isAuthenticated) {
       next('/login');
-    } else if (!requiresAuth && session && (to.path === '/login' || to.path === '/')) {
-      // If user is logged in and tries to access login or root, redirect to dashboard
+    } else if (!requiresAuth && authStore.isAuthenticated && (to.path === '/login' || to.path === '/')) {
       next('/dashboard');
     } else {
-      // Proceed to the route
       next();
     }
   };

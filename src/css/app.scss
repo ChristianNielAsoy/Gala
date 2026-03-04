@@ -1,17 +1,34 @@
-// app global css in SCSS form
+// Gala — Design System
+// Font: Plus Jakarta Sans (modern, SEA tech aesthetic)
+@import '@fontsource/plus-jakarta-sans/latin-400.css';
+@import '@fontsource/plus-jakarta-sans/latin-500.css';
+@import '@fontsource/plus-jakarta-sans/latin-600.css';
+@import '@fontsource/plus-jakarta-sans/latin-700.css';
 
-// Global styles for UI/UX design standards
+// ─── Design Tokens ───────────────────────────────────────────────────────────
+:root {
+  --gala-radius-sm:  8px;
+  --gala-radius-md: 12px;
+  --gala-radius-lg: 16px;
+  --gala-radius-xl: 24px;
 
+  --gala-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --gala-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --gala-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.10);
+  --gala-shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.12);
+}
+
+// ─── Base ────────────────────────────────────────────────────────────────────
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: 'Roboto', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   background-color: $background;
   color: $on-background;
-  line-height: 1.5;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -20,8 +37,33 @@ body {
   min-height: 100vh;
 }
 
+// ─── Typography ──────────────────────────────────────────────────────────────
+.text-h1,
+.text-h2,
+.text-h3,
+.text-h4 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.text-h5,
+.text-h6 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.text-subtitle1,
+.text-subtitle2 {
+  font-weight: 500;
+}
+
+.text-weight-bold {
+  font-weight: 700;
+}
+
+// ─── Header ──────────────────────────────────────────────────────────────────
 .q-header {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 0 $border;
 }
 
 .q-toolbar {
@@ -29,56 +71,118 @@ body {
 }
 
 .q-toolbar-title {
-  font-weight: 500;
-  font-size: 1.25rem;
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
 }
 
+// ─── Drawer / Sidebar ────────────────────────────────────────────────────────
 .q-drawer {
-  border-right: 1px solid rgba(0, 0, 0, 0.12);
+  border-right: 1px solid $border;
+  box-shadow: none;
 }
 
 .q-list .q-item {
-  border-radius: 8px;
-  margin: 4px 8px;
-  transition: background-color 0.2s ease;
+  border-radius: 10px;
+  margin: 2px 8px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .q-list .q-item:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+  background-color: rgba($primary, 0.08);
+  color: $primary;
 }
 
-.q-btn {
-  border-radius: 8px;
-  text-transform: none;
-  font-weight: 500;
+// Active nav item highlight
+.q-list .q-item.q-router-link--active,
+.q-list .q-item--active {
+  background-color: rgba($primary, 0.1);
+  color: $primary;
+  font-weight: 600;
+
+  .q-icon {
+    color: $primary;
+  }
 }
 
+// ─── Cards ───────────────────────────────────────────────────────────────────
 .q-card {
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: var(--gala-radius-lg);
+  box-shadow: var(--gala-shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.q-input {
-  border-radius: 8px;
+// flat + bordered (the combo used everywhere in the app)
+.q-card.q-card--flat.q-card--bordered {
+  box-shadow: none;
+  border: 1px solid $border;
+  border-radius: var(--gala-radius-lg);
 }
 
-.q-field__control {
-  border-radius: 8px;
+// ─── Buttons ─────────────────────────────────────────────────────────────────
+.q-btn {
+  border-radius: var(--gala-radius-md);
+  text-transform: none;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-size: 0.875rem;
 }
 
-// Logo styles
-.logo {
-  height: 40px;
-  width: 40px;
+.q-btn--round {
   border-radius: 50%;
-  margin-right: 12px;
 }
 
-// Hide scrollbar in sidebar
+// ─── Inputs ──────────────────────────────────────────────────────────────────
+.q-field--outlined .q-field__control {
+  border-radius: var(--gala-radius-md);
+}
+
+.q-field--outlined .q-field__control::before {
+  border-color: $border;
+  transition: border-color 0.15s ease;
+}
+
+.q-field--outlined:hover .q-field__control::before {
+  border-color: $primary;
+}
+
+// ─── Chips ───────────────────────────────────────────────────────────────────
+.q-chip {
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
+
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+.q-tab {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+// ─── Separator ───────────────────────────────────────────────────────────────
+.q-separator {
+  background: $border;
+  opacity: 1;
+}
+
+// ─── Utility ─────────────────────────────────────────────────────────────────
+.logo {
+  height: 36px;
+  width: 36px;
+  border-radius: 10px;
+  margin-right: 10px;
+}
+
 .sidebar-list {
   height: calc(100vh - 64px);
   overflow-y: auto;
   scrollbar-width: none;
+
   &::-webkit-scrollbar {
     display: none;
   }

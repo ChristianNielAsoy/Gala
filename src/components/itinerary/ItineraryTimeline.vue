@@ -270,6 +270,7 @@
               label="Add first item"
               :color="getPhaseColor(phase.key)"
               flat
+              no-caps
               @click="openAddModal(phase.key)"
               class="q-mt-sm"
             />
@@ -310,7 +311,7 @@
       </template>
       Item deleted
       <template v-slot:action>
-        <q-btn flat dense label="Undo" @click="undoDelete" />
+        <q-btn flat dense no-caps label="Undo" @click="undoDelete" />
       </template>
     </q-banner>
 
@@ -436,9 +437,10 @@
         </q-card-section>
 
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" color="grey-7" v-close-popup @click="closeModal" />
+          <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup @click="closeModal" />
           <q-btn
             flat
+            no-caps
             :label="isEditing ? 'Update' : 'Add'"
             color="primary"
             @click="saveItem"
@@ -519,13 +521,19 @@ async function persistItem(item: ItineraryItem) {
     expense_items: item.expense_items ?? null,
     receipt_url: item.receipt_url ?? null,
   });
-  if (error) console.error('Failed to persist itinerary item:', error);
+  if (error) {
+    console.error('Failed to persist itinerary item:', error);
+    $q.notify({ type: 'negative', message: 'Failed to save itinerary item' });
+  }
 }
 
 async function removeItemFromDB(id: string) {
   if (!props.tripId) return;
   const { error } = await supabase.from('itinerary_events').delete().eq('id', id);
-  if (error) console.error('Failed to delete itinerary item:', error);
+  if (error) {
+    console.error('Failed to delete itinerary item:', error);
+    $q.notify({ type: 'negative', message: 'Failed to delete itinerary item' });
+  }
 }
 
 async function fetchItems() {
@@ -537,6 +545,7 @@ async function fetchItems() {
     .order('created_at');
   if (error) {
     console.error('Failed to load itinerary items:', error);
+    $q.notify({ type: 'negative', message: 'Failed to load itinerary' });
     return;
   }
   if (data) {
@@ -1116,15 +1125,15 @@ onMounted(async () => {
 }
 
 .item-expense {
-  border-left-color: #4caf50;
+  border-left-color: var(--q-positive);
 }
 
 .item-checklist {
-  border-left-color: #2196f3;
+  border-left-color: var(--q-info);
 }
 
 .item-text {
-  border-left-color: #9c27b0;
+  border-left-color: var(--q-accent);
 }
 
 .item-editing {

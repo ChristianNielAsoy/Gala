@@ -1,8 +1,13 @@
 <template>
-  <q-page class="q-pa-md bg-surface">
+  <q-page class="bg-surface">
+    <!-- Header -->
+    <div class="q-pa-md bg-surface">
+      <div class="text-h5 text-weight-bold">Expense Analytics</div>
+    </div>
+
+    <div class="q-pa-md q-pt-none">
     <q-card flat bordered>
       <q-card-section>
-        <div class="text-h6">Expense Analytics</div>
         <q-select
           v-model="selectedTripId"
           :options="tripOptions"
@@ -41,22 +46,23 @@
         </div>
       </q-card-section>
     </q-card>
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
+import { useTripStore } from 'src/stores/tripStore';
 import Chart from 'chart.js/auto';
 import type { Chart as ChartType } from 'chart.js';
-import type { Trip } from 'src/types/trip';
 import type { Expense, TripMember } from 'src/types/expense';
 
 const $q = useQuasar();
+const tripStore = useTripStore();
+
 const loading = ref(false);
-const trips = ref<Trip[]>([]);
-const tripOptions = ref<{ label: string; value: string }[]>([]);
 const selectedTripId = ref<string | null>(null);
 const expenses = ref<Expense[]>([]);
 const members = ref<TripMember[]>([]);
@@ -66,45 +72,7 @@ const memberChart = ref<HTMLCanvasElement | null>(null);
 let categoryChartInstance: ChartType | null = null;
 let memberChartInstance: ChartType | null = null;
 
-async function fetchTrips() {
-  loading.value = true;
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: memberData } = await supabase
-      .from('members')
-      .select('trip_id')
-      .eq('user_id', user.id);
-
-    const tripIds = memberData?.map((m) => m.trip_id) || [];
-
-    if (tripIds.length > 0) {
-      const { data: tripsData } = await supabase
-        .from('trips')
-        .select('*')
-        .in('id', tripIds)
-        .order('start_date', { ascending: false });
-
-      trips.value = (tripsData as Trip[]) || [];
-      tripOptions.value = trips.value.map((t) => ({ label: t.name, value: t.id }));
-
-      // Auto-select first trip if available
-      if (trips.value.length > 0 && !selectedTripId.value) {
-        selectedTripId.value = trips.value[0]!.id;
-      }
-    } else {
-      trips.value = [];
-      tripOptions.value = [];
-    }
-  } catch {
-    $q.notify({ type: 'negative', message: 'Failed to load trips.' });
-  } finally {
-    loading.value = false;
-  }
-}
+const tripOptions = computed(() => tripStore.trips.map((t) => ({ label: t.name, value: t.id })));
 
 async function fetchTripData(tripId: string) {
   loading.value = true;
@@ -175,7 +143,7 @@ function renderCharts() {
       type: 'bar',
       data: {
         labels: memberLabels,
-        datasets: [{ data: memberData, backgroundColor: '#42A5F5' }],
+        datasets: [{ data: memberData, backgroundColor: '#0D9488' }],
       },
       options: { responsive: true, plugins: { legend: { display: false } } },
     });
@@ -186,7 +154,15 @@ watch(selectedTripId, (tripId) => {
   if (tripId) void fetchTripData(tripId);
 });
 
-onMounted(() => {
-  void fetchTrips();
+onMounted(async () => {
+  try {
+    await tripStore.fetchTrips();
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to load trips.' });
+  }
+  // Auto-select first trip
+  if (tripStore.trips.length > 0 && !selectedTripId.value) {
+    selectedTripId.value = tripStore.trips[0]!.id;
+  }
 });
 </script>

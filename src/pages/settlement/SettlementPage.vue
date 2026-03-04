@@ -1,6 +1,6 @@
 <template>
   <q-page class="q-pb-xl bg-surface">
-    <q-header elevated class="bg-primary text-white">
+    <q-header class="bg-primary text-white">
       <q-toolbar>
         <q-btn flat round icon="arrow_back" @click="router.back()" aria-label="Go Back" />
         <q-toolbar-title>Settlement</q-toolbar-title>
@@ -15,15 +15,15 @@
     <!-- Content -->
     <div v-else class="q-pa-md">
       <!-- User's Balance Summary Card -->
-      <q-card class="q-mb-lg shadow-4 text-center">
+      <q-card flat class="q-mb-lg text-center balance-card">
         <q-card-section class="bg-gradient-primary text-white q-py-xl">
-          <q-avatar size="80px" class="q-mb-md">
+          <q-avatar size="72px" color="white" text-color="primary" class="q-mb-md">
             <img
               v-if="currentMember?.avatar_url"
               :src="currentMember.avatar_url"
               alt="User avatar"
             />
-            <q-icon v-else name="person" size="40px" />
+            <span v-else class="text-h5 text-weight-bold">{{ getMemberInitial(currentMember?.name ?? '') }}</span>
           </q-avatar>
 
           <div v-if="userBalance">
@@ -58,13 +58,18 @@
         >
           <q-card-section>
             <div class="row items-center q-mb-md">
-              <q-avatar size="50px" class="q-mr-md">
+              <q-avatar
+                size="48px"
+                class="q-mr-md"
+                :color="getMemberColor(getMemberName(suggestion.to_member_id))"
+                text-color="white"
+              >
                 <img
                   v-if="getMemberAvatar(suggestion.to_member_id)"
                   :src="getMemberAvatar(suggestion.to_member_id) || ''"
                   alt="Member avatar"
                 />
-                <q-icon v-else name="person" size="24px" />
+                <span v-else class="text-weight-bold">{{ getMemberInitial(getMemberName(suggestion.to_member_id)) }}</span>
               </q-avatar>
               <div class="col">
                 <div class="text-subtitle1 text-weight-medium">
@@ -165,13 +170,18 @@
         >
           <q-card-section>
             <div class="row items-center">
-              <q-avatar size="50px" class="q-mr-md">
+              <q-avatar
+                size="48px"
+                class="q-mr-md"
+                :color="getMemberColor(getMemberName(suggestion.from_member_id))"
+                text-color="white"
+              >
                 <img
                   v-if="getMemberAvatar(suggestion.from_member_id)"
                   :src="getMemberAvatar(suggestion.from_member_id) || ''"
                   alt="Member avatar"
                 />
-                <q-icon v-else name="person" size="24px" />
+                <span v-else class="text-weight-bold">{{ getMemberInitial(getMemberName(suggestion.from_member_id)) }}</span>
               </q-avatar>
               <div class="col">
                 <div class="text-subtitle1 text-weight-medium">
@@ -198,13 +208,17 @@
             :key="`${suggestion.from_member_id}-${suggestion.to_member_id}`"
           >
             <q-item-section avatar>
-              <q-avatar>
+              <q-avatar
+                :color="getMemberColor(getMemberName(suggestion.from_member_id))"
+                text-color="white"
+                size="md"
+              >
                 <img
                   v-if="getMemberAvatar(suggestion.from_member_id)"
                   :src="getMemberAvatar(suggestion.from_member_id) || ''"
                   alt="Member avatar"
                 />
-                <q-icon v-else name="person" />
+                <span v-else class="text-caption text-weight-bold">{{ getMemberInitial(getMemberName(suggestion.from_member_id)) }}</span>
               </q-avatar>
             </q-item-section>
 
@@ -244,6 +258,7 @@
             label="Notes"
             type="textarea"
             outlined
+            dense
             rows="3"
             class="q-mb-md"
           />
@@ -263,9 +278,10 @@
         </q-card-section>
 
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn flat no-caps label="Cancel" v-close-popup />
           <q-btn
             flat
+            no-caps
             label="Confirm Payment"
             color="primary"
             @click="confirmPayment"
@@ -281,9 +297,10 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
-import { logActivity, getCurrentUserId } from 'src/utils/activityLogger';
+import { logActivity } from 'src/utils/activityLogger';
 import { supabase } from 'boot/supabase';
-import type { Trip } from 'src/types/trip';
+import { useAuthStore } from 'src/stores/authStore';
+import type { Trip } from 'src/types/expense';
 import type { Expense, ExpenseSplit, TripMember } from 'src/types/expense';
 import {
   calculateMemberBalances,
@@ -319,6 +336,7 @@ type PaymentMethod = 'cash' | 'gcash' | 'card';
 const route = useRoute();
 const router = useRouter();
 const $q = useQuasar();
+const authStore = useAuthStore();
 
 // State
 const loading = ref(true);
@@ -427,6 +445,15 @@ function getMemberAvatar(memberId: string): string | undefined {
   return members.value.find((m) => m.id === memberId)?.avatar_url;
 }
 
+function getMemberInitial(name: string): string {
+  return name ? name.charAt(0).toUpperCase() : '?';
+}
+
+function getMemberColor(name: string): string {
+  const colors = ['secondary', 'accent', 'info', 'warning', 'positive'];
+  return colors[name.charCodeAt(0) % colors.length] ?? 'secondary';
+}
+
 function selectPaymentMethod(toMemberId: string, method: PaymentMethod) {
   selectedPaymentMethod.value[toMemberId] = method;
 }
@@ -485,7 +512,7 @@ async function confirmPayment() {
     if (error) throw error;
 
     // Log activity
-    const userId = await getCurrentUserId();
+    const userId = authStore.user?.id;
     await logActivity({
       trip_id: tripId.value,
       user_id: userId,
@@ -601,20 +628,19 @@ async function fetchData() {
   }
 }
 
-// Get current user ID on mount
-async function initializeUser() {
-  const { data } = await supabase.auth.getUser();
-  currentUserId.value = data.user?.id;
-}
-
 onMounted(async () => {
-  await initializeUser();
+  currentUserId.value = authStore.user?.id;
   await fetchData();
 });
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .bg-gradient-primary {
-  background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+  background: linear-gradient(135deg, #0d9488 0%, #065f52 100%);
+  border-radius: var(--gala-radius-lg) var(--gala-radius-lg) 0 0;
+}
+
+.balance-card {
+  overflow: hidden;
 }
 </style>

@@ -257,7 +257,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
-import type { Trip } from 'src/types/trip';
+import { useAuthStore } from 'src/stores/authStore';
+import type { Trip } from 'src/types/expense';
 import type { Expense, TripMember, ExpenseSplit } from 'src/types/expense';
 import {
   calculateBalanceBreakdown,
@@ -276,6 +277,7 @@ interface Props {
 
 const props = defineProps<Props>();
 const $q = useQuasar();
+const authStore = useAuthStore();
 
 // State
 const loading = ref(true);
@@ -321,9 +323,7 @@ async function fetchData() {
 
   try {
     // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = authStore.user;
     if (user) currentUserId.value = user.id;
 
     // Fetch members

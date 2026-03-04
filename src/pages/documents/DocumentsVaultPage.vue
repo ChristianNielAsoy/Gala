@@ -1,12 +1,14 @@
 <template>
-  <q-page class="q-pa-md bg-surface">
+  <q-page class="bg-surface">
+    <!-- Header -->
+    <div class="q-pa-md bg-surface">
+      <div class="text-h5 text-weight-bold">Documents Vault</div>
+      <div class="text-body2 text-grey-6 q-mt-xs">Upload and organize your travel documents</div>
+    </div>
+
+    <div class="q-pa-md q-pt-none">
     <q-card flat bordered>
       <q-card-section>
-        <div class="text-h6">Documents Vault</div>
-        <div class="text-caption text-grey-7 q-mb-md">
-          Upload and organize your travel documents
-        </div>
-
         <!-- Trip Selector -->
         <q-select
           v-model="selectedTripId"
@@ -90,16 +92,20 @@
         </div>
       </q-list>
     </q-card>
+    </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
-import type { Trip } from 'src/types/trip';
+import { useAuthStore } from 'src/stores/authStore';
+import { useTripStore } from 'src/stores/tripStore';
 
 const $q = useQuasar();
+const authStore = useAuthStore();
+const tripStore = useTripStore();
 const uploaderRef = ref();
 
 interface DocumentItem {
@@ -115,12 +121,13 @@ interface DocumentItem {
 }
 
 const documents = ref<DocumentItem[]>([]);
-const trips = ref<Trip[]>([]);
 const loading = ref(false);
 const selectedTripId = ref<string | null>(null);
 const selectedCategory = ref('general');
 
-const tripOptions = ref<{ label: string; value: string }[]>([]);
+const tripOptions = computed(() =>
+  tripStore.trips.map((t) => ({ label: t.name, value: t.id })),
+);
 const categoryOptions = [
   { label: 'Passport', value: 'passport' },
   { label: 'Visa', value: 'visa' },
@@ -130,44 +137,10 @@ const categoryOptions = [
   { label: 'General', value: 'general' },
 ];
 
-async function fetchTrips() {
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: memberData } = await supabase
-      .from('members')
-      .select('trip_id')
-      .eq('user_id', user.id);
-
-    const tripIds = memberData?.map((m) => m.trip_id) || [];
-
-    if (tripIds.length > 0) {
-      const { data: tripsData } = await supabase
-        .from('trips')
-        .select('*')
-        .in('id', tripIds)
-        .order('start_date', { ascending: false });
-
-      trips.value = (tripsData as Trip[]) || [];
-      tripOptions.value = trips.value.map((t) => ({
-        label: t.name,
-        value: t.id,
-      }));
-    }
-  } catch (error) {
-    console.error('Error fetching trips:', error);
-  }
-}
-
 async function fetchDocuments() {
   loading.value = true;
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = authStore.user;
     if (!user) return;
 
     const { data, error } = await supabase
@@ -189,9 +162,7 @@ async function fetchDocuments() {
 async function onFilesAdded(files: readonly File[]) {
   if (files.length === 0) return;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = authStore.user;
   if (!user) {
     $q.notify({ type: 'negative', message: 'Please log in to upload documents' });
     return;
@@ -329,11 +300,11 @@ function formatDate(dateStr: string): string {
 }
 
 function getTripName(tripId: string): string {
-  const trip = trips.value.find((t) => t.id === tripId);
+  const trip = tripStore.trips.find((t) => t.id === tripId);
   return trip?.name || 'Unknown Trip';
 }
 
 onMounted(async () => {
-  await Promise.all([fetchTrips(), fetchDocuments()]);
+  await Promise.all([tripStore.fetchTrips(), fetchDocuments()]);
 });
 </script>

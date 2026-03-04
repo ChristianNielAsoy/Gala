@@ -13,11 +13,15 @@ export interface Trip {
   start_date: string;
   end_date: string;
   currency_code: string;
-  status: TripStatus;
+  currencyCode?: string;
+  status?: TripStatus;
   location?: string;
+  destination?: string;
   description?: string;
   cover_image_url?: string;
   budget_amount?: number;
+  member_count?: number;
+  total_expenses?: number;
   created_at: string;
   updated_at?: string;
 }

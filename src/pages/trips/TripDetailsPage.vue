@@ -1,7 +1,7 @@
 <template>
   <q-page class="q-pb-xl bg-surface">
     <!-- Header with Tabs -->
-    <q-header elevated class="bg-primary text-white">
+    <q-header class="bg-primary text-white">
       <q-toolbar>
         <q-btn flat round icon="arrow_back" @click="handleBack" aria-label="Go Back" />
         <q-toolbar-title>
@@ -55,7 +55,7 @@
           <q-btn flat color="primary" label="Add the first one" @click="goToAddExpense" />
         </div>
 
-        <q-list v-else bordered separator rounded>
+        <q-list v-else bordered separator>
           <q-item
             v-for="expense in expenses"
             :key="expense.id"
@@ -63,27 +63,32 @@
             @click="goToEditExpense(expense.id)"
           >
             <q-item-section avatar>
-              <q-avatar color="primary" text-color="white" size="md">
+              <q-avatar :color="getCategoryColor(expense.category)" text-color="white" size="md">
                 <q-icon :name="getCategoryIcon(expense.category)" size="sm" />
               </q-avatar>
             </q-item-section>
             <q-item-section>
               <q-item-label class="text-weight-medium">{{ expense.description }}</q-item-label>
               <q-item-label caption>
-                {{ expense.category }} · {{ formatDate(expense.date) }} · paid by {{ getMemberName(expense.paid_by_id) }}
+                {{ expense.category }} · {{ formatDate(expense.date) }}
               </q-item-label>
             </q-item-section>
-            <q-item-section side>
-              <q-item-label class="text-weight-bold text-primary">
+            <q-item-section side class="text-right">
+              <div class="text-subtitle2 text-weight-bold text-primary">
                 {{ formatAmount(expense.amount, trip?.currency_code) }}
-              </q-item-label>
-              <q-item-label caption>{{ expense.split_type || 'equal' }}</q-item-label>
+              </div>
+              <div class="text-caption text-grey-5">by {{ getMemberName(expense.paid_by_id) }}</div>
             </q-item-section>
           </q-item>
         </q-list>
 
-        <div v-if="expenses.length > 0" class="q-mt-md text-right text-caption text-grey-7">
-          Total: <span class="text-weight-bold text-body2">{{ formatAmount(totalExpenses, trip?.currency_code) }}</span>
+        <div v-if="expenses.length > 0" class="expense-total q-mt-sm">
+          <div class="row items-center justify-between">
+            <span class="text-body2 text-grey-6">Total expenses</span>
+            <span class="text-subtitle1 text-weight-bold text-primary">
+              {{ formatAmount(totalExpenses, trip?.currency_code) }}
+            </span>
+          </div>
         </div>
       </q-tab-panel>
 
@@ -109,7 +114,7 @@
         <q-list bordered separator rounded>
           <q-item v-for="member in members" :key="member.id">
             <q-item-section avatar>
-              <q-avatar :color="member.is_owner ? 'primary' : 'grey-5'" text-color="white">
+              <q-avatar :color="member.is_owner ? 'primary' : getMemberColor(member.name)" text-color="white">
                 {{ member.name.charAt(0).toUpperCase() }}
               </q-avatar>
             </q-item-section>
@@ -242,9 +247,10 @@
         </q-card-section>
 
         <q-card-actions align="right" class="q-pa-md">
-          <q-btn flat label="Cancel" v-close-popup />
+          <q-btn flat no-caps label="Cancel" v-close-popup />
           <q-btn
             unelevated
+            no-caps
             color="primary"
             label="Save Changes"
             :loading="savingTrip"
@@ -277,13 +283,14 @@
             v-model="newMemberName"
             label="Member Name"
             outlined
+            dense
             autofocus
             @keyup.enter="addMember"
           />
         </q-card-section>
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" v-close-popup />
-          <q-btn flat label="Add" color="primary" @click="addMember" :disable="!newMemberName" />
+          <q-btn flat no-caps label="Cancel" v-close-popup />
+          <q-btn flat no-caps label="Add" color="primary" @click="addMember" :disable="!newMemberName" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -295,7 +302,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
-import type { Trip } from 'src/types/trip';
+import { useAuthStore } from 'src/stores/authStore';
+import type { Trip } from 'src/types/expense';
 import type { TripMember } from 'src/types/expense';
 import SettlementView from 'src/components/settlement/SettlementView.vue';
 import ItineraryTab from 'src/components/itinerary/ItineraryTab.vue';
@@ -304,6 +312,7 @@ import type { ItineraryItem } from 'src/components/itinerary/itinerary.model';
 const route = useRoute();
 const router = useRouter();
 const $q = useQuasar();
+const authStore = useAuthStore();
 
 // State
 const tab = ref('itinerary');
@@ -401,6 +410,23 @@ function getCategoryIcon(category: string): string {
   return icons[category] || 'receipt';
 }
 
+function getCategoryColor(category: string): string {
+  const colors: Record<string, string> = {
+    'Food & Drinks': 'orange-8',
+    Accommodation: 'blue-8',
+    Transportation: 'teal',
+    Activities: 'purple-8',
+    Groceries: 'green-8',
+    Other: 'grey-7',
+  };
+  return colors[category] || 'primary';
+}
+
+function getMemberColor(name: string): string {
+  const colors = ['secondary', 'accent', 'info', 'warning', 'positive'];
+  return colors[name.charCodeAt(0) % colors.length] ?? 'secondary';
+}
+
 function getActivityIcon(actionType: string): string {
   const icons: Record<string, string> = {
     expense_added: 'add_circle',
@@ -434,9 +460,8 @@ async function fetchTripData(): Promise<void> {
   if (!id) { loading.value = false; return; }
 
   try {
-    // 0. Current user
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    currentUserId.value = authUser?.id;
+    // 0. Current user (from cached store — no extra network call)
+    currentUserId.value = authStore.user?.id;
 
     // 1. Trip
     const { data: tripData, error: tripError } = await supabase
@@ -501,6 +526,7 @@ async function fetchExpenses(): Promise<void> {
     }));
   } catch (error) {
     console.error('Error fetching expenses:', error);
+    $q.notify({ type: 'negative', message: 'Failed to load expenses' });
   } finally {
     loadingExpenses.value = false;
   }
@@ -516,9 +542,11 @@ async function fetchActivity(): Promise<void> {
       .order('created_at', { ascending: false })
       .limit(30);
 
-    if (!error && data) activityLog.value = data as ActivityEntry[];
+    if (error) throw error;
+    activityLog.value = (data || []) as ActivityEntry[];
   } catch (error) {
     console.error('Error fetching activity:', error);
+    $q.notify({ type: 'negative', message: 'Failed to load activity log' });
   } finally {
     loadingActivity.value = false;
   }
@@ -642,8 +670,11 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
-.q-page {
-  min-height: 100vh;
+<style scoped lang="scss">
+.expense-total {
+  padding: 12px 16px;
+  background: rgba($primary, 0.04);
+  border: 1px solid rgba($primary, 0.12);
+  border-radius: var(--gala-radius-md);
 }
 </style>

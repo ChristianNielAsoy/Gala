@@ -1,88 +1,55 @@
 <template>
   <q-layout view="lHh lpr lFf">
-    <q-header elevated class="bg-white text-dark shadow-2" height-hint="64">
+    <q-header class="bg-white text-dark" height-hint="64">
       <q-toolbar class="q-px-md">
-        <!-- Mobile Menu Button -->
+        <!-- Hamburger — always visible (closes/opens sidebar) -->
         <q-btn
-          v-if="!sidebarVisible && $q.screen.gt.sm"
           flat
           round
+          dense
           icon="menu"
-          @click="sidebarVisible = true"
-          aria-label="Open Sidebar"
-          class="q-mr-sm"
+          @click="toggleSidebar"
+          aria-label="Toggle Sidebar"
+          class="q-mr-sm text-grey-7"
         />
 
-        <!-- App Logo and Branding -->
-        <q-avatar size="40px" class="q-mr-sm">
+        <!-- App Brand -->
+        <q-avatar size="34px" class="q-mr-xs">
           <img src="/logo.png" alt="Gala Logo" />
         </q-avatar>
-        <q-toolbar-title class="text-h6 text-weight-bold text-primary q-mr-md">
-          Gala
-        </q-toolbar-title>
+        <span class="header-brand text-weight-bold text-primary q-mr-md">Gala</span>
 
         <!-- Page Title -->
-        <div class="page-title text-subtitle1 text-grey-8 q-mr-auto">
-          {{ getPageTitle() }}
-        </div>
+        <span class="page-title text-body2 text-grey-6 gt-xs">{{ getPageTitle() }}</span>
 
-        <!-- Search Button (for larger screens) -->
-        <q-btn
-          v-if="$q.screen.gt.md"
-          flat
-          round
-          icon="search"
-          @click="showSearch = true"
-          aria-label="Search"
-          class="q-mr-sm"
-        >
-          <q-tooltip>Search trips and activities</q-tooltip>
-        </q-btn>
+        <q-space />
 
-        <!-- Notifications -->
-        <q-btn
-          flat
-          round
-          icon="notifications"
-          @click="showNotifications = true"
-          aria-label="Notifications"
-          class="q-mr-sm"
-        >
-          <q-badge
-            v-if="notificationCount > 0"
-            :label="notificationCount"
-            color="negative"
-            floating
-          />
-          <q-tooltip>Notifications</q-tooltip>
-        </q-btn>
-
-        <!-- User Menu -->
-        <q-btn flat round aria-label="User Menu" class="q-ml-sm">
-          <q-avatar size="32px">
-            <img v-if="userAvatar" :src="userAvatar" alt="User Avatar" />
-            <q-icon v-else name="person" />
+        <!-- User Avatar + Menu -->
+        <q-btn flat round dense aria-label="User Menu" class="q-ml-sm">
+          <q-avatar size="32px" color="primary" text-color="white">
+            <img v-if="authStore.userAvatar" :src="authStore.userAvatar" alt="User Avatar" />
+            <span v-else class="text-caption text-weight-bold">{{ authStore.userInitials }}</span>
           </q-avatar>
-          <q-menu>
+          <q-menu anchor="bottom right" self="top right" style="min-width: 160px">
             <q-list dense>
-              <q-item clickable @click="navigateTo('/user-profile')">
+              <q-item clickable :to="'/user-profile'" v-close-popup>
                 <q-item-section avatar>
-                  <q-icon name="person" />
+                  <q-icon name="person" size="18px" />
                 </q-item-section>
                 <q-item-section>Profile</q-item-section>
               </q-item>
-              <q-item clickable @click="navigateTo('/settings')">
+              <q-item clickable :to="'/settings'" v-close-popup>
                 <q-item-section avatar>
-                  <q-icon name="settings" />
+                  <q-icon name="settings" size="18px" />
                 </q-item-section>
                 <q-item-section>Settings</q-item-section>
               </q-item>
               <q-separator />
-              <q-item clickable @click="handleLogout">
+              <q-item clickable @click="handleLogout" v-close-popup>
                 <q-item-section avatar>
-                  <q-icon name="logout" />
+                  <q-icon name="logout" size="18px" color="negative" />
                 </q-item-section>
-                <q-item-section>Logout</q-item-section>
+                <q-item-section class="text-negative">Logout</q-item-section>
               </q-item>
             </q-list>
           </q-menu>
@@ -96,17 +63,27 @@
       :width="250"
       :breakpoint="500"
       :overlay="!$q.screen.gt.sm"
-      elevated
       class="bg-white"
     >
-      <q-toolbar class="bg-primary text-white">
-        <q-btn flat round icon="menu" @click="toggleSidebar" aria-label="Toggle Sidebar" />
-        <q-img src="/logo.png" class="logo" />
-        <q-toolbar-title class="text-weight-bold">Gala</q-toolbar-title>
-      </q-toolbar>
-      <div class="sidebar-list">
+      <!-- Sidebar brand header -->
+      <div class="sidebar-header">
+        <q-icon name="flight_takeoff" size="20px" color="white" />
+        <span class="text-subtitle1 text-white text-weight-bold q-ml-sm">Gala</span>
+        <q-space />
+        <q-btn
+          flat round dense
+          icon="chevron_left"
+          color="white"
+          size="sm"
+          @click="sidebarVisible = false"
+          aria-label="Close Sidebar"
+        />
+      </div>
+
+      <!-- Navigation -->
+      <div class="sidebar-list q-pt-sm">
         <q-list padding>
-          <q-item clickable v-ripple @click="navigateTo('/dashboard')">
+          <q-item clickable v-ripple :to="'/dashboard'" exact>
             <q-item-section avatar>
               <q-icon name="dashboard" />
             </q-item-section>
@@ -115,7 +92,7 @@
             </q-item-section>
           </q-item>
 
-          <q-item clickable v-ripple @click="navigateTo('/trips')">
+          <q-item clickable v-ripple :to="'/trips'">
             <q-item-section avatar>
               <q-icon name="luggage" />
             </q-item-section>
@@ -124,9 +101,9 @@
             </q-item-section>
           </q-item>
 
-          <q-separator />
+          <q-separator class="q-my-sm" />
 
-          <q-item clickable v-ripple @click="navigateTo('/expense-analytics')">
+          <q-item clickable v-ripple :to="'/expense-analytics'">
             <q-item-section avatar>
               <q-icon name="analytics" />
             </q-item-section>
@@ -135,7 +112,7 @@
             </q-item-section>
           </q-item>
 
-          <q-item clickable v-ripple @click="navigateTo('/documents-vault')">
+          <q-item clickable v-ripple :to="'/documents-vault'">
             <q-item-section avatar>
               <q-icon name="description" />
             </q-item-section>
@@ -144,7 +121,7 @@
             </q-item-section>
           </q-item>
 
-          <q-item clickable v-ripple @click="navigateTo('/packing-list')">
+          <q-item clickable v-ripple :to="'/packing-list'">
             <q-item-section avatar>
               <q-icon name="checklist" />
             </q-item-section>
@@ -153,18 +130,9 @@
             </q-item-section>
           </q-item>
 
-          <q-item clickable v-ripple @click="navigateTo('/itinerary-templates')">
-            <q-item-section avatar>
-              <q-icon name="event_note" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>Itinerary Templates</q-item-label>
-            </q-item-section>
-          </q-item>
+          <q-separator class="q-my-sm" />
 
-          <q-separator />
-
-          <q-item clickable v-ripple @click="navigateTo('/user-profile')">
+          <q-item clickable v-ripple :to="'/user-profile'">
             <q-item-section avatar>
               <q-icon name="person" />
             </q-item-section>
@@ -173,7 +141,7 @@
             </q-item-section>
           </q-item>
 
-          <q-item clickable v-ripple @click="navigateTo('/settings')">
+          <q-item clickable v-ripple :to="'/settings'">
             <q-item-section avatar>
               <q-icon name="settings" />
             </q-item-section>
@@ -192,19 +160,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
-import { supabase } from 'boot/supabase';
+import { useAuthStore } from 'src/stores/authStore';
+import { useTripStore } from 'src/stores/tripStore';
 
 const $q = useQuasar();
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
+const tripStore = useTripStore();
+
 const sidebarVisible = ref(true);
-const showSearch = ref(false);
-const showNotifications = ref(false);
-const notificationCount = ref(0);
-const userAvatar = ref<string | null>(null);
 
 watch(
   () => route.path,
@@ -215,95 +183,46 @@ watch(
   },
 );
 
-onMounted(async () => {
-  // Fetch user avatar
-  try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user?.user_metadata?.avatar_url) {
-      userAvatar.value = user.user_metadata.avatar_url;
-    }
-  } catch (error) {
-    console.error('Error fetching user:', error);
-  }
-});
-
 function toggleSidebar() {
   sidebarVisible.value = !sidebarVisible.value;
 }
 
-function navigateTo(path: string) {
-  void router.push(path);
-  if (!$q.screen.gt.sm) {
-    sidebarVisible.value = false;
-  }
-}
-
 function getPageTitle(): string {
-  const path = route.path;
-  if (path === '/dashboard') return 'Dashboard';
-  if (path === '/trips') return 'My Trips';
-  if (path === '/expense-analytics') return 'Expense Analytics';
-  if (path === '/documents-vault') return 'Documents Vault';
-  if (path === '/packing-list') return 'Packing List';
-  if (path === '/itinerary-templates') return 'Itinerary Templates';
-  if (path === '/user-profile') return 'User Profile';
-  if (path === '/settings') return 'Settings';
-  return 'Gala';
+  return (route.meta.title as string) || '';
 }
 
 async function handleLogout() {
   try {
-    await supabase.auth.signOut();
+    tripStore.reset();
+    await authStore.signOut();
     await router.push('/login');
-  } catch (error) {
-    console.error('Error logging out:', error);
-    $q.notify({
-      type: 'negative',
-      message: 'Error logging out',
-    });
+  } catch {
+    $q.notify({ type: 'negative', message: 'Error logging out' });
   }
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+.q-header {
+  border-bottom: 1px solid $border;
+  box-shadow: none;
+}
+
+.header-brand {
+  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
+}
+
 .page-title {
   font-weight: 500;
-  opacity: 0.8;
 }
 
-.logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-}
-
-/* Header shadow and styling */
-.q-header {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-/* Responsive adjustments */
-@media (max-width: 599px) {
-  .page-title {
-    display: none;
-  }
-}
-
-/* Notification badge positioning */
-.q-btn .q-badge {
-  top: 8px;
-  right: 8px;
-}
-
-/* User avatar styling */
-.q-avatar img {
-  object-fit: cover;
-}
-
-/* Toolbar spacing */
-.q-toolbar {
-  min-height: 64px;
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  height: 64px;
+  padding: 0 16px;
+  background: linear-gradient(135deg, #0d9488 0%, #065f52 100%);
+  flex-shrink: 0;
 }
 </style>

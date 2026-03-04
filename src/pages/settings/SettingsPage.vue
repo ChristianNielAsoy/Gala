@@ -8,13 +8,13 @@
     <!-- Profile & Team Section -->
     <div class="q-pa-md">
       <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">PROFILE & TEAM</div>
-      <q-card flat class="rounded-borders">
+      <q-card flat bordered>
         <!-- User Profile -->
         <q-item clickable @click="editProfileDialog = true">
           <q-item-section avatar>
-            <q-avatar color="deep-orange" text-color="white" size="56px">
-              <q-icon name="person" size="32px" v-if="!userProfile.photo_url" />
-              <img :src="userProfile.photo_url" v-else />
+            <q-avatar color="primary" text-color="white" size="56px">
+              <img :src="userProfile.photo_url" v-if="userProfile.photo_url" />
+              <span v-else>{{ userInitials }}</span>
             </q-avatar>
           </q-item-section>
           <q-item-section>
@@ -61,7 +61,7 @@
     <!-- Notifications Section -->
     <div class="q-pa-md">
       <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">NOTIFICATIONS</div>
-      <q-card flat class="rounded-borders">
+      <q-card flat bordered>
         <q-item>
           <q-item-section avatar>
             <q-icon name="notifications" color="grey-7" />
@@ -71,7 +71,7 @@
             <q-item-label caption>Get notified when expenses are added</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="notifications.expenses" color="deep-orange" />
+            <q-toggle v-model="notifications.expenses" color="primary" />
           </q-item-section>
         </q-item>
 
@@ -86,7 +86,7 @@
             <q-item-label caption>Upcoming trip notifications</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="notifications.trips" color="deep-orange" />
+            <q-toggle v-model="notifications.trips" color="primary" />
           </q-item-section>
         </q-item>
 
@@ -101,7 +101,7 @@
             <q-item-label caption>When payments are due or received</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="notifications.settlements" color="deep-orange" />
+            <q-toggle v-model="notifications.settlements" color="primary" />
           </q-item-section>
         </q-item>
       </q-card>
@@ -110,7 +110,7 @@
     <!-- App Preferences Section -->
     <div class="q-pa-md">
       <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">APP PREFERENCES</div>
-      <q-card flat class="rounded-borders">
+      <q-card flat bordered>
         <q-item>
           <q-item-section avatar>
             <q-icon name="dark_mode" color="grey-7" />
@@ -120,7 +120,7 @@
             <q-item-label caption>Enable dark theme</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="darkMode" color="deep-orange" @update:model-value="toggleDarkMode" />
+            <q-toggle v-model="darkMode" color="primary" @update:model-value="toggleDarkMode" />
           </q-item-section>
         </q-item>
 
@@ -159,7 +159,7 @@
     <!-- Data & Storage Section -->
     <div class="q-pa-md">
       <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">DATA & STORAGE</div>
-      <q-card flat class="rounded-borders">
+      <q-card flat bordered>
         <q-item clickable @click="confirmExportData">
           <q-item-section avatar>
             <q-icon name="download" color="grey-7" />
@@ -193,7 +193,7 @@
     <!-- Legal & About Section -->
     <div class="q-pa-md">
       <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">LEGAL & ABOUT</div>
-      <q-card flat class="rounded-borders">
+      <q-card flat bordered>
         <q-item clickable @click="openUrl('https://gala-app.com/terms')">
           <q-item-section avatar>
             <q-icon name="description" color="grey-7" />
@@ -255,7 +255,7 @@
     <div class="q-pa-md q-pb-xl">
       <q-btn
         unelevated
-        rounded
+        no-caps
         color="negative"
         text-color="white"
         label="Logout"
@@ -273,16 +273,17 @@
         </q-card-section>
 
         <q-card-section class="q-pt-none">
-          <q-input v-model="userProfile.name" label="Display Name" outlined class="q-mb-md" />
+          <q-input v-model="userProfile.name" label="Display Name" outlined dense class="q-mb-md" />
           <q-input
             v-model="userProfile.email"
             label="Email"
             type="email"
             outlined
+            dense
             readonly
             class="q-mb-md"
           />
-          <q-file v-model="profilePhoto" label="Profile Photo" outlined accept="image/*">
+          <q-file v-model="profilePhoto" label="Profile Photo" outlined dense accept="image/*">
             <template v-slot:prepend>
               <q-icon name="photo_camera" />
             </template>
@@ -290,8 +291,8 @@
         </q-card-section>
 
         <q-card-actions align="right">
-          <q-btn flat label="Cancel" v-close-popup />
-          <q-btn flat label="Save" color="primary" @click="saveProfile" />
+          <q-btn flat no-caps label="Cancel" v-close-popup />
+          <q-btn flat no-caps label="Save" color="primary" @click="saveProfile" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -356,9 +357,11 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
+import { useAuthStore } from 'src/stores/authStore';
 
 const router = useRouter();
 const $q = useQuasar();
+const authStore = useAuthStore();
 
 // State
 const userProfile = ref({
@@ -381,6 +384,12 @@ const appVersion = ref('1.0.0');
 watch(notifications, () => { void saveUserPreferences(); }, { deep: true });
 
 // Computed
+const userInitials = computed(() => {
+  const name = userProfile.value.name;
+  if (!name || name === 'Team Gala Member') return '?';
+  return name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+});
+
 const defaultCurrencyName = computed(() => {
   const currency = currencies.value.find((c) => c.code === defaultCurrency.value);
   return currency ? currency.name : defaultCurrency.value;
@@ -424,9 +433,7 @@ async function fetchCurrencies(): Promise<void> {
 }
 
 async function fetchUserProfile() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = authStore.user;
 
   if (user) {
     userProfile.value.email = user.email ?? 'user@example.com';
@@ -479,9 +486,7 @@ async function selectCurrency(currency: { code: string; name: string }) {
 }
 
 async function saveUserPreferences() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = authStore.user;
   if (!user) return;
 
   const { error } = await supabase.from('user_preferences').upsert({
@@ -500,9 +505,7 @@ async function saveUserPreferences() {
 }
 
 async function saveProfile() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = authStore.user;
   if (!user) return;
 
   try {
@@ -624,8 +627,5 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
-.rounded-borders {
-  border-radius: 12px;
-}
+<style scoped lang="scss">
 </style>

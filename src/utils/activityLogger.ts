@@ -37,16 +37,3 @@ export async function logActivity(activity: ActivityLogData): Promise<void> {
     console.error('Error logging activity:', error);
   }
 }
-
-/**
- * Get current user ID for activity logging
- */
-export async function getCurrentUserId(): Promise<string | undefined> {
-  try {
-    const { data } = await supabase.auth.getUser();
-    return data.user?.id;
-  } catch (error) {
-    console.error('Error getting current user:', error);
-    return undefined;
-  }
-}

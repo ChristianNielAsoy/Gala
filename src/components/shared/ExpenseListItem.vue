@@ -34,23 +34,25 @@ const props = defineProps<{
 const categoryIcon = computed(() => {
   const icons: Record<string, string> = {
     'Food & Drinks': 'restaurant',
-    Transport: 'commute',
-    Lodging: 'hotel',
-    Activity: 'attractions',
+    Transportation: 'commute',
+    Accommodation: 'hotel',
+    Activities: 'local_activity',
     Groceries: 'shopping_cart',
+    Other: 'receipt_long',
   };
   return icons[props.expense.category] || 'receipt';
 });
 
 const categoryColor = computed(() => {
   const colors: Record<string, string> = {
-    'Food & Drinks': 'orange',
-    Transport: 'blue',
-    Lodging: 'purple',
-    Activity: 'green',
+    'Food & Drinks': 'orange-8',
+    Transportation: 'blue-8',
+    Accommodation: 'purple-8',
+    Activities: 'green-8',
     Groceries: 'teal',
+    Other: 'grey-7',
   };
-  return colors[props.expense.category] || 'grey';
+  return colors[props.expense.category] || 'grey-7';
 });
 
 const isPaidByMe = computed(() => {

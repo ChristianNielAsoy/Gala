@@ -5,12 +5,11 @@ import { defineConfig } from '#q-app/wrappers';
 
 export default defineConfig((/* ctx */) => {
   return {
-    boot: ['supabase'], // Add supabase boot file
+    boot: ['pinia', 'supabase'],
 
     css: ['app.scss'],
 
     extras: [
-      'roboto-font',
       'material-icons',
     ],
 

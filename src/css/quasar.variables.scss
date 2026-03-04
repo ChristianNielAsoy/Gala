@@ -1,34 +1,28 @@
-// Quasar SCSS (& Sass) Variables
-// --------------------------------------------------
-// To customize the look and feel of this app, you can override
-// the Sass/SCSS variables found in Quasar's source Sass/SCSS files.
+// Gala Design System — Philippines Barkada Travel App
+// Aesthetic: Deep Teal + Coral Orange (ocean warmth + social energy)
 
-// Check documentation for full list of Quasar variables
+$primary:   #0D9488;  // Deep Teal — brand, nav, primary actions
+$secondary: #64748B;  // Slate — neutral supporting elements
+$accent:    #F97316;  // Coral Orange — CTAs, highlights, energy
 
-// Your own variables (that are declared here) and Quasar's own
-// ones will be available out of the box in your .vue/.scss/.sass files
+$dark:      #0F172A;  // Slate-900
+$dark-page: #0F172A;
 
-// It's highly recommended to change the default colors
-// to match your app's branding.
-// Tip: Use the "Theme Builder" on Quasar's documentation website.
+$positive:  #16A34A;  // Green-600 — settled/received payments
+$negative:  #DC2626;  // Red-600 — owed/debt
+$info:      #0EA5E9;  // Sky-500
+$warning:   #D97706;  // Amber-600
 
-$primary: #4caf50;
-$secondary: #66bb6a;
-$accent: #ffc107;
-$tertiary: #81c784;
+$surface:       #F8FAFC;  // Slate-50 — page backgrounds (cool off-white)
+$background:    #FFFFFF;
+$on-surface:    #334155;  // Slate-700
+$on-background: #1E293B;  // Slate-800
 
-$dark: #1b5e20;
-$dark-page: #000000;
+// Extended palette (used in app.scss component overrides)
+$border:   #E2E8F0;  // Slate-200 — card borders, dividers
+$muted:    #94A3B8;  // Slate-400 — placeholder, secondary text
+$tertiary: #14B8A6;  // Teal-500 — light teal variant
 
-$surface: #f5f5f5;
-$on-surface: #424242;
-$background: #ffffff;
-$on-background: #212121;
-
-$positive: #4caf50;
-$negative: #f44336;
-$info: #2196f3;
-$warning: #ff9800;
-
-$success: #4caf50;
-$error: #f44336;
+// Legacy aliases (kept for any remaining usages)
+$success: $positive;
+$error:   $negative;
