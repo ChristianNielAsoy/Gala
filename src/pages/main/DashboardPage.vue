@@ -8,6 +8,76 @@
       <div class="text-body2 text-grey-6 q-mt-xs">Here's an overview of your trips</div>
     </div>
 
+    <!-- Active Trip Hero Card -->
+    <div class="q-px-md q-pb-sm" v-if="nearestTrip">
+      <q-card flat bordered class="active-trip-card">
+        <q-card-section class="q-pb-sm">
+          <div class="row items-center justify-between q-mb-xs">
+            <div class="text-subtitle1 text-weight-bold" style="color: #1e293b">
+              {{ nearestTrip.name }}
+            </div>
+            <q-badge
+              :color="nearestTrip.status === 'active' ? 'positive' : 'info'"
+              :label="nearestTrip.status === 'active' ? 'Active' : 'Upcoming'"
+              rounded
+            />
+          </div>
+          <div class="row items-center q-gutter-xs q-mb-md">
+            <q-chip dense icon="event" size="sm" color="grey-2" text-color="grey-8" class="q-ma-none">
+              {{ formatDateRange(nearestTrip.start_date, nearestTrip.end_date) }}
+            </q-chip>
+            <q-chip
+              v-if="nearestTrip.member_count"
+              dense icon="group" size="sm" color="grey-2" text-color="grey-8" class="q-ma-none"
+            >
+              {{ nearestTrip.member_count }} members
+            </q-chip>
+            <q-chip
+              v-if="nearestTrip.destination || nearestTrip.location"
+              dense icon="place" size="sm" color="grey-2" text-color="grey-8" class="q-ma-none"
+            >
+              {{ nearestTrip.destination || nearestTrip.location }}
+            </q-chip>
+          </div>
+          <!-- Budget Gauge -->
+          <div v-if="activeTripLoading">
+            <q-skeleton type="rect" height="10px" class="q-mb-xs" />
+            <q-skeleton type="text" width="45%" />
+          </div>
+          <div v-else>
+            <q-linear-progress
+              :value="budgetPercent"
+              :color="budgetBarColor"
+              track-color="grey-3"
+              rounded
+              size="10px"
+              class="q-mb-xs"
+            />
+            <div class="row justify-between items-center">
+              <div class="text-caption text-grey-7">
+                <span class="text-weight-medium" :class="`text-${budgetBarColor}`">
+                  {{ formatAmount(activeTripSpent, nearestTrip.currency_code) }}
+                </span>
+                {{
+                  nearestTrip.budget_amount
+                    ? ` spent of ${formatAmount(nearestTrip.budget_amount, nearestTrip.currency_code)} budget`
+                    : ' spent (no budget set)'
+                }}
+              </div>
+              <div v-if="nearestTrip.budget_amount" class="text-caption text-weight-medium" :class="`text-${budgetBarColor}`">
+                {{ Math.round(budgetPercent * 100) }}%
+              </div>
+            </div>
+          </div>
+        </q-card-section>
+        <q-separator />
+        <q-card-actions>
+          <q-space />
+          <q-btn flat dense no-caps color="primary" label="View Trip" icon-right="arrow_forward" @click="goToActiveTrip" />
+        </q-card-actions>
+      </q-card>
+    </div>
+
     <!-- Stats -->
     <div class="q-pa-md q-pt-sm">
       <div class="row q-col-gutter-md">
@@ -200,6 +270,44 @@
         </div>
       </div>
     </div>
+
+    <!-- Quick-add Expense FAB -->
+    <q-page-sticky position="bottom-right" :offset="[18, 18]">
+      <q-btn fab color="accent" icon="add" label="Log Expense" no-caps @click="handleQuickAddExpense" />
+    </q-page-sticky>
+
+    <!-- Trip Picker Dialog (shown when 2+ active trips) -->
+    <q-dialog v-model="showTripPicker">
+      <q-card style="min-width: 300px">
+        <q-card-section>
+          <div class="text-h6">Which trip?</div>
+          <div class="text-caption text-grey-6">Select a trip to log this expense under</div>
+        </q-card-section>
+        <q-list separator>
+          <q-item
+            v-for="trip in activeTrips"
+            :key="trip.id"
+            clickable
+            v-ripple
+            @click="pickTripForExpense(trip.id)"
+          >
+            <q-item-section avatar>
+              <q-icon name="luggage" color="primary" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>{{ trip.name }}</q-item-label>
+              <q-item-label caption>{{ formatDateRange(trip.start_date, trip.end_date) }}</q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-icon name="chevron_right" color="grey-5" />
+            </q-item-section>
+          </q-item>
+        </q-list>
+        <q-card-actions align="right">
+          <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -210,7 +318,7 @@ import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import { useAuthStore } from 'src/stores/authStore';
 import { useTripStore } from 'src/stores/tripStore';
-import type { ActivityActionType } from 'src/types/expense';
+import type { ActivityActionType, Trip } from 'src/types/expense';
 
 interface ActivityItem {
   id: string;
@@ -228,6 +336,9 @@ const tripStore = useTripStore();
 
 const loadingActivity = ref(false);
 const recentActivities = ref<ActivityItem[]>([]);
+const activeTripSpent = ref(0);
+const activeTripLoading = ref(false);
+const showTripPicker = ref(false);
 
 // Derived from store — no local trip state needed
 const displayName = computed(() => {
@@ -246,6 +357,80 @@ const stats = computed(() => {
     pastTrips: tripStore.trips.filter((t) => t.end_date && t.end_date < now).length,
   };
 });
+
+const nearestTrip = computed<Trip | null>(() => {
+  const active = tripStore.trips.find((t) => t.status === 'active');
+  if (active) return active;
+  const today = new Date().toISOString().split('T')[0] ?? '';
+  return (
+    tripStore.trips.find((t) => t.status === 'planning' && !!t.start_date && t.start_date >= today) ?? null
+  );
+});
+
+const activeTrips = computed(() => tripStore.trips.filter((t) => t.status === 'active'));
+
+const budgetPercent = computed(() => {
+  const trip = nearestTrip.value;
+  if (!trip?.budget_amount) return 0;
+  return Math.min(activeTripSpent.value / trip.budget_amount, 1);
+});
+
+const budgetBarColor = computed(() => {
+  const pct = budgetPercent.value;
+  if (pct >= 1) return 'negative';
+  if (pct >= 0.75) return 'warning';
+  return 'positive';
+});
+
+function formatDateRange(start: string, end: string): string {
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  const endOpts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+  const s = new Date(start + 'T00:00:00').toLocaleDateString('en-PH', opts);
+  const e = new Date(end + 'T00:00:00').toLocaleDateString('en-PH', endOpts);
+  return `${s} – ${e}`;
+}
+
+function formatAmount(amount: number, currencyCode: string): string {
+  const symbols: Record<string, string> = {
+    PHP: '₱', USD: '$', EUR: '€', JPY: '¥', GBP: '£',
+    AUD: 'A$', CAD: 'C$', SGD: 'S$', THB: '฿',
+  };
+  const symbol = symbols[currencyCode] ?? currencyCode + ' ';
+  return `${symbol}${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+async function fetchActiveTripSpent(tripId: string): Promise<void> {
+  activeTripLoading.value = true;
+  try {
+    const { data } = await supabase.from('expenses').select('amount').eq('trip_id', tripId);
+    activeTripSpent.value = (data ?? []).reduce((sum, e) => sum + ((e.amount as number) ?? 0), 0);
+  } finally {
+    activeTripLoading.value = false;
+  }
+}
+
+function goToActiveTrip(): void {
+  if (nearestTrip.value) void router.push(`/trips/${nearestTrip.value.id}`);
+}
+
+function handleQuickAddExpense(): void {
+  const trips = activeTrips.value;
+  if (trips.length === 0) {
+    $q.notify({ type: 'warning', message: 'No active trips — start one from Trips page', position: 'top' });
+    void router.push('/trips');
+    return;
+  }
+  if (trips.length === 1 && trips[0]) {
+    void router.push(`/trips/${trips[0].id}/expenses/new`);
+    return;
+  }
+  showTripPicker.value = true;
+}
+
+function pickTripForExpense(tripId: string): void {
+  showTripPicker.value = false;
+  void router.push(`/trips/${tripId}/expenses/new`);
+}
 
 function getActivityIcon(actionType: ActivityActionType): string {
   if (actionType.startsWith('expense')) return 'receipt';
@@ -315,6 +500,9 @@ function goToUserProfile() { void router.push('/user-profile'); }
 onMounted(async () => {
   try {
     await tripStore.fetchTrips();
+    if (nearestTrip.value) {
+      await fetchActiveTripSpent(nearestTrip.value.id);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to load dashboard data';
     $q.notify({ type: 'negative', message: msg, position: 'top' });
@@ -364,5 +552,14 @@ onMounted(async () => {
 
 .insight-card {
   border-left: 3px solid $primary;
+}
+
+.active-trip-card {
+  border-left: 3px solid $primary;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: var(--gala-shadow-md);
+  }
 }
 </style>

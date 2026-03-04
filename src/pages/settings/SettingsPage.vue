@@ -454,6 +454,7 @@ async function fetchUserProfile() {
 
     if (!error && preferences) {
       darkMode.value = preferences.dark_mode ?? false;
+      $q.dark.set(preferences.dark_mode ?? false);
       defaultCurrency.value = preferences.default_currency ?? 'PHP';
       notifications.value = {
         expenses: preferences.expense_updates ?? true,

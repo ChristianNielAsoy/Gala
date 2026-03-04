@@ -160,9 +160,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { supabase } from 'boot/supabase';
 import { useAuthStore } from 'src/stores/authStore';
 import { useTripStore } from 'src/stores/tripStore';
 
@@ -200,6 +201,19 @@ async function handleLogout() {
     $q.notify({ type: 'negative', message: 'Error logging out' });
   }
 }
+
+onMounted(async () => {
+  const user = authStore.user;
+  if (!user) return;
+  const { data } = await supabase
+    .from('user_preferences')
+    .select('dark_mode')
+    .eq('user_id', user.id)
+    .single();
+  if (data?.dark_mode != null) {
+    $q.dark.set(data.dark_mode as boolean);
+  }
+});
 </script>
 
 <style scoped lang="scss">

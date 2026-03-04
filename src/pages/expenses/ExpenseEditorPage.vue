@@ -38,16 +38,18 @@
             />
 
             <q-input
-              v-model.number="expenseForm.amount"
+              v-model="amountExpression"
               label="Total Amount"
-              type="number"
-              step="0.01"
               :prefix="trip?.currency_code || 'PHP'"
-              :rules="[(val: number) => val > 0 || 'Amount must be greater than zero']"
+              :hint="amountExpressionResult !== null ? `= ${(trip?.currency_code || 'PHP')} ${amountExpressionResult.toFixed(2)}` : 'Tip: type 120+45+30 to calculate'"
+              :rules="[(val: string) => { const n = parseAmountExpression(val); return (n !== null && n > 0) || 'Enter a valid amount greater than zero'; }]"
               outlined
               dense
+              inputmode="decimal"
               input-class="text-right text-h6 text-primary"
               class="q-mb-md"
+              @blur="onAmountBlur"
+              @keyup.enter="onAmountBlur"
             />
 
             <q-select
@@ -467,7 +469,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { logActivity } from 'src/utils/activityLogger';
@@ -503,6 +505,50 @@ const expenseForm = ref<ExpenseForm>({
   date: new Date().toISOString().split('T')[0] ?? '',
   split_type: 'equal',
 });
+
+// Amount calculator
+const amountExpression = ref('');
+
+function parseAmountExpression(input: string): number | null {
+  const cleaned = input.replace(/\s/g, '').replace(/,/g, '');
+  if (!cleaned) return null;
+  // Only allow digits, decimal point, and basic arithmetic operators/parens
+  if (!/^[\d.+\-*/()]+$/.test(cleaned)) return null;
+  if (!/^[\d(]/.test(cleaned)) return null;
+  try {
+    // eslint-disable-next-line no-new-func
+    const result = new Function(`return +(${cleaned})`)() as number;
+    if (!isFinite(result) || isNaN(result) || result < 0) return null;
+    return Math.round(result * 100) / 100;
+  } catch {
+    return null;
+  }
+}
+
+const amountExpressionResult = computed<number | null>(() => {
+  if (!/[+\-*/]/.test(amountExpression.value)) return null;
+  return parseAmountExpression(amountExpression.value);
+});
+
+function onAmountBlur(): void {
+  const result = parseAmountExpression(amountExpression.value);
+  if (result !== null) {
+    expenseForm.value.amount = result;
+    amountExpression.value = String(result);
+  } else if (!amountExpression.value.trim()) {
+    expenseForm.value.amount = null;
+  }
+}
+
+// Sync amountExpression when amount is set externally (draft load, edit load)
+watch(
+  () => expenseForm.value.amount,
+  (amount) => {
+    if (amount != null && !amountExpression.value.match(/[+\-*/]/)) {
+      amountExpression.value = String(amount);
+    }
+  },
+);
 
 // Composables
 const expenseData = useExpenseData(tripId);
