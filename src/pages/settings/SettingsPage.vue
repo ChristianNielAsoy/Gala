@@ -1,295 +1,185 @@
 <template>
-  <q-page class="bg-surface">
-    <!-- Header -->
-    <div class="q-pa-md bg-surface">
-      <div class="text-h5 text-weight-bold">Settings</div>
+  <q-page class="settings-page gala-mesh-bg">
+
+    <!-- ═══ Header ═══ -->
+    <div class="q-px-lg q-pt-lg q-pb-md">
+      <p class="text-caption text-weight-bold settings-eyebrow q-mb-xs">Account</p>
+      <h1 class="gala-display settings-title q-mb-none">Settings</h1>
     </div>
 
-    <!-- Profile & Team Section -->
-    <div class="q-pa-md">
-      <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">PROFILE & TEAM</div>
-      <q-card flat bordered>
-        <!-- User Profile -->
-        <q-item clickable @click="editProfileDialog = true">
-          <q-item-section avatar>
-            <q-avatar color="primary" text-color="white" size="56px">
-              <img :src="userProfile.photo_url" v-if="userProfile.photo_url" />
-              <span v-else>{{ userInitials }}</span>
-            </q-avatar>
-          </q-item-section>
-          <q-item-section>
-            <q-item-label class="text-weight-medium text-h6">
-              {{ userProfile.name }}
-            </q-item-label>
-            <q-item-label caption class="text-body2">
-              {{ userProfile.email }}
-            </q-item-label>
-            <q-item-label caption class="text-caption text-grey-6"> Team Gala Member </q-item-label>
-          </q-item-section>
-        </q-item>
+    <div class="settings-body">
 
-        <q-separator />
+      <!-- ─── Profile Card ────────────────────────────────────────────────────── -->
+      <div class="profile-card q-mb-lg">
+        <div class="profile-card__avatar-wrap">
+          <img v-if="userProfile.photo_url" :src="userProfile.photo_url" class="profile-card__img" />
+          <span v-else class="profile-card__initials">{{ userInitials }}</span>
+        </div>
+        <div class="profile-card__info">
+          <div class="profile-card__name">{{ userProfile.name }}</div>
+          <div class="profile-card__email">{{ userProfile.email }}</div>
+        </div>
+        <button class="profile-card__edit" @click="editProfileDialog = true">
+          <q-icon name="edit" size="16px" />
+        </button>
+      </div>
 
-        <!-- Edit Profile -->
-        <q-item clickable @click="editProfileDialog = true">
-          <q-item-section avatar>
-            <q-icon name="edit" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Edit Profile</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="chevron_right" color="grey-5" />
-          </q-item-section>
-        </q-item>
+      <!-- ─── Profile Actions ───────────────────────────────────────────────── -->
+      <div class="settings-section-label">Profile & Team</div>
+      <div class="settings-panel q-mb-lg">
+        <div class="setting-row setting-row--clickable" @click="editProfileDialog = true">
+          <div class="setting-row__icon"><q-icon name="edit" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Edit Profile</div>
+          </div>
+          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row setting-row--clickable" @click="$q.notify('Manage Team feature coming soon!')">
+          <div class="setting-row__icon"><q-icon name="groups" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Manage Team</div>
+          </div>
+          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
+        </div>
+      </div>
 
-        <!-- Manage Team -->
-        <q-item clickable @click="$q.notify('Manage Team feature coming soon!')">
-          <q-item-section avatar>
-            <q-icon name="groups" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Manage Team</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="chevron_right" color="grey-5" />
-          </q-item-section>
-        </q-item>
-      </q-card>
-    </div>
+      <!-- ─── Notifications ─────────────────────────────────────────────────── -->
+      <div class="settings-section-label">Notifications</div>
+      <div class="settings-panel q-mb-lg">
+        <div class="setting-row">
+          <div class="setting-row__icon">
+            <q-icon :name="pushEnabled ? 'notifications_active' : 'notifications_off'" size="18px"
+              :style="pushEnabled ? 'color: #0D9488' : 'color: var(--muted)'" />
+          </div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Push Notifications</div>
+            <div class="setting-row__caption" v-if="!pushSupported">Not supported in this browser</div>
+            <div class="setting-row__caption" v-else-if="pushEnabled">Active — receiving alerts</div>
+            <div class="setting-row__caption" v-else>Enable alerts on this device</div>
+          </div>
+          <q-toggle :model-value="pushEnabled" color="primary"
+            :disable="!pushSupported || togglingPush" @update:model-value="togglePushNotifications" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row" :class="{ 'setting-row--disabled': !pushEnabled }">
+          <div class="setting-row__icon"><q-icon name="receipt_long" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Expense Updates</div>
+            <div class="setting-row__caption">Get notified when expenses are added</div>
+          </div>
+          <q-toggle v-model="notifications.expenses" color="primary" :disable="!pushEnabled" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row" :class="{ 'setting-row--disabled': !pushEnabled }">
+          <div class="setting-row__icon"><q-icon name="event" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Trip Reminders</div>
+            <div class="setting-row__caption">Upcoming trip notifications</div>
+          </div>
+          <q-toggle v-model="notifications.trips" color="primary" :disable="!pushEnabled" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row" :class="{ 'setting-row--disabled': !pushEnabled }">
+          <div class="setting-row__icon"><q-icon name="payment" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Settlement Alerts</div>
+            <div class="setting-row__caption">When payments are due or received</div>
+          </div>
+          <q-toggle v-model="notifications.settlements" color="primary" :disable="!pushEnabled" />
+        </div>
+      </div>
 
-    <!-- Notifications Section -->
-    <div class="q-pa-md">
-      <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">NOTIFICATIONS</div>
-      <q-card flat bordered>
-        <!-- Master push toggle -->
-        <q-item>
-          <q-item-section avatar>
-            <q-icon
-              :name="pushEnabled ? 'notifications_active' : 'notifications_off'"
-              :color="pushEnabled ? 'primary' : 'grey-5'"
-            />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Push Notifications</q-item-label>
-            <q-item-label caption v-if="!pushSupported">Not supported in this browser</q-item-label>
-            <q-item-label caption v-else-if="pushEnabled">Active — receiving alerts</q-item-label>
-            <q-item-label caption v-else>Enable to receive alerts on this device</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-toggle
-              :model-value="pushEnabled"
-              color="primary"
-              :disable="!pushSupported || togglingPush"
-              @update:model-value="togglePushNotifications"
-            />
-          </q-item-section>
-        </q-item>
+      <!-- ─── App Preferences ───────────────────────────────────────────────── -->
+      <div class="settings-section-label">Preferences</div>
+      <div class="settings-panel q-mb-lg">
+        <div class="setting-row">
+          <div class="setting-row__icon"><q-icon name="dark_mode" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Dark Mode</div>
+            <div class="setting-row__caption">Enable dark theme</div>
+          </div>
+          <q-toggle v-model="darkMode" color="primary" @update:model-value="toggleDarkMode" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row setting-row--clickable" @click="currencyDialog = true">
+          <div class="setting-row__icon"><q-icon name="attach_money" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Default Currency</div>
+            <div class="setting-row__caption">{{ defaultCurrencyName }}</div>
+          </div>
+          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row">
+          <div class="setting-row__icon"><q-icon name="language" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Language</div>
+            <div class="setting-row__caption">English</div>
+          </div>
+          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
+        </div>
+      </div>
 
-        <q-separator />
+      <!-- ─── Data & Storage ────────────────────────────────────────────────── -->
+      <div class="settings-section-label">Data & Storage</div>
+      <div class="settings-panel q-mb-lg">
+        <div class="setting-row setting-row--clickable" @click="confirmExportData">
+          <div class="setting-row__icon"><q-icon name="download" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Export Trip Data</div>
+            <div class="setting-row__caption">Download all your trips as CSV</div>
+          </div>
+          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row setting-row--clickable" @click="confirmClearCache">
+          <div class="setting-row__icon"><q-icon name="delete_outline" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">Clear Cache</div>
+            <div class="setting-row__caption">Free up space</div>
+          </div>
+          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
+        </div>
+      </div>
 
-        <!-- Sub-toggles (which types to receive) -->
-        <q-item :disable="!pushEnabled">
-          <q-item-section avatar>
-            <q-icon name="receipt_long" :color="pushEnabled ? 'grey-7' : 'grey-4'" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Expense Updates</q-item-label>
-            <q-item-label caption>Get notified when expenses are added</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-toggle v-model="notifications.expenses" color="primary" :disable="!pushEnabled" />
-          </q-item-section>
-        </q-item>
+      <!-- ─── Legal & About ─────────────────────────────────────────────────── -->
+      <div class="settings-section-label">Legal & About</div>
+      <div class="settings-panel q-mb-lg">
+        <div class="setting-row setting-row--clickable" @click="openUrl('https://gala-app.com/terms')">
+          <div class="setting-row__icon"><q-icon name="description" size="18px" /></div>
+          <div class="setting-row__body"><div class="setting-row__label">Terms of Service</div></div>
+          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row setting-row--clickable" @click="openUrl('https://gala-app.com/privacy')">
+          <div class="setting-row__icon"><q-icon name="privacy_tip" size="18px" /></div>
+          <div class="setting-row__body"><div class="setting-row__label">Privacy Policy</div></div>
+          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row setting-row--clickable" @click="aboutDialog = true">
+          <div class="setting-row__icon"><q-icon name="info" size="18px" /></div>
+          <div class="setting-row__body">
+            <div class="setting-row__label">About Gala</div>
+            <div class="setting-row__caption">Version {{ appVersion }}</div>
+          </div>
+          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
+        </div>
+        <div class="setting-row__divider" />
+        <div class="setting-row setting-row--clickable" @click="openUrl('https://github.com/yourusername/gala-app')">
+          <div class="setting-row__icon"><q-icon name="code" size="18px" /></div>
+          <div class="setting-row__body"><div class="setting-row__label">View on GitHub</div></div>
+          <q-icon name="open_in_new" size="16px" class="setting-row__chevron" />
+        </div>
+      </div>
 
-        <q-separator />
+      <!-- ─── Logout ────────────────────────────────────────────────────────── -->
+      <button class="logout-btn" @click="confirmLogout">
+        <q-icon name="logout" size="18px" />
+        Sign Out
+      </button>
 
-        <q-item :disable="!pushEnabled">
-          <q-item-section avatar>
-            <q-icon name="event" :color="pushEnabled ? 'grey-7' : 'grey-4'" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Trip Reminders</q-item-label>
-            <q-item-label caption>Upcoming trip notifications</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-toggle v-model="notifications.trips" color="primary" :disable="!pushEnabled" />
-          </q-item-section>
-        </q-item>
-
-        <q-separator />
-
-        <q-item :disable="!pushEnabled">
-          <q-item-section avatar>
-            <q-icon name="payment" :color="pushEnabled ? 'grey-7' : 'grey-4'" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Settlement Alerts</q-item-label>
-            <q-item-label caption>When payments are due or received</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-toggle v-model="notifications.settlements" color="primary" :disable="!pushEnabled" />
-          </q-item-section>
-        </q-item>
-      </q-card>
-    </div>
-
-    <!-- App Preferences Section -->
-    <div class="q-pa-md">
-      <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">APP PREFERENCES</div>
-      <q-card flat bordered>
-        <q-item>
-          <q-item-section avatar>
-            <q-icon name="dark_mode" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Dark Mode</q-item-label>
-            <q-item-label caption>Enable dark theme</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-toggle v-model="darkMode" color="primary" @update:model-value="toggleDarkMode" />
-          </q-item-section>
-        </q-item>
-
-        <q-separator />
-
-        <q-item clickable @click="currencyDialog = true">
-          <q-item-section avatar>
-            <q-icon name="attach_money" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Default Currency</q-item-label>
-            <q-item-label caption>{{ defaultCurrencyName }}</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="chevron_right" color="grey-5" />
-          </q-item-section>
-        </q-item>
-
-        <q-separator />
-
-        <q-item clickable>
-          <q-item-section avatar>
-            <q-icon name="language" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Language</q-item-label>
-            <q-item-label caption>English</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="chevron_right" color="grey-5" />
-          </q-item-section>
-        </q-item>
-      </q-card>
-    </div>
-
-    <!-- Data & Storage Section -->
-    <div class="q-pa-md">
-      <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">DATA & STORAGE</div>
-      <q-card flat bordered>
-        <q-item clickable @click="confirmExportData">
-          <q-item-section avatar>
-            <q-icon name="download" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Export Trip Data</q-item-label>
-            <q-item-label caption>Download all your trips as CSV</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="chevron_right" color="grey-5" />
-          </q-item-section>
-        </q-item>
-
-        <q-separator />
-
-        <q-item clickable @click="confirmClearCache">
-          <q-item-section avatar>
-            <q-icon name="delete_outline" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Clear Cache</q-item-label>
-            <q-item-label caption>Free up space</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="chevron_right" color="grey-5" />
-          </q-item-section>
-        </q-item>
-      </q-card>
-    </div>
-
-    <!-- Legal & About Section -->
-    <div class="q-pa-md">
-      <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">LEGAL & ABOUT</div>
-      <q-card flat bordered>
-        <q-item clickable @click="openUrl('https://gala-app.com/terms')">
-          <q-item-section avatar>
-            <q-icon name="description" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Terms of Service</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="chevron_right" color="grey-5" />
-          </q-item-section>
-        </q-item>
-
-        <q-separator />
-
-        <q-item clickable @click="openUrl('https://gala-app.com/privacy')">
-          <q-item-section avatar>
-            <q-icon name="privacy_tip" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>Privacy Policy</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="chevron_right" color="grey-5" />
-          </q-item-section>
-        </q-item>
-
-        <q-separator />
-
-        <q-item clickable @click="aboutDialog = true">
-          <q-item-section avatar>
-            <q-icon name="info" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>About Gala</q-item-label>
-            <q-item-label caption>Version {{ appVersion }}</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="chevron_right" color="grey-5" />
-          </q-item-section>
-        </q-item>
-
-        <q-separator />
-
-        <q-item clickable @click="openUrl('https://github.com/yourusername/gala-app')">
-          <q-item-section avatar>
-            <q-icon name="code" color="grey-7" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>View on GitHub</q-item-label>
-          </q-item-section>
-          <q-item-section side>
-            <q-icon name="open_in_new" color="grey-5" />
-          </q-item-section>
-        </q-item>
-      </q-card>
-    </div>
-
-    <!-- Logout Button -->
-    <div class="q-pa-md q-pb-xl">
-      <q-btn
-        unelevated
-        no-caps
-        color="negative"
-        text-color="white"
-        label="Logout"
-        icon="logout"
-        class="full-width"
-        @click="confirmLogout"
-      />
     </div>
 
     <!-- Edit Profile Dialog -->
@@ -766,4 +656,204 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
+.settings-page {
+  min-height: 100vh;
+  background-color: var(--surface);
+}
+
+.settings-eyebrow {
+  color: $primary;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.settings-title {
+  font-size: clamp(2rem, 7vw, 3rem);
+  line-height: 1.05;
+  color: var(--on-background);
+}
+
+// ─── Body ─────────────────────────────────────────────────────────────────────
+.settings-body {
+  padding: 0 16px 80px;
+}
+
+// ─── Profile Card ──────────────────────────────────────────────────────────────
+.profile-card {
+  background: linear-gradient(135deg, #0D9488 0%, #134E4A 100%);
+  border-radius: var(--gala-radius-xl);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+
+  &__avatar-wrap {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  &__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &__initials {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  &__info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__email {
+    font-size: 0.78rem;
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__edit {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s;
+
+    &:hover { background: rgba(255, 255, 255, 0.25); }
+  }
+}
+
+// ─── Section labels ────────────────────────────────────────────────────────────
+.settings-section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 6px;
+  margin-top: 4px;
+}
+
+// ─── Panel ────────────────────────────────────────────────────────────────────
+.settings-panel {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--gala-radius-lg);
+  overflow: hidden;
+}
+
+// ─── Setting rows ─────────────────────────────────────────────────────────────
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+
+  &--clickable {
+    cursor: pointer;
+    transition: background 0.12s;
+    &:hover { background: var(--surface); }
+    &:active { background: var(--border); }
+  }
+
+  &--disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  &__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--gala-radius-sm);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--on-background);
+    line-height: 1.3;
+  }
+
+  &__caption {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  &__chevron {
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  &__divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0 16px;
+  }
+}
+
+// ─── Logout button ─────────────────────────────────────────────────────────────
+.logout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 0;
+  border-radius: var(--gala-radius-pill);
+  border: 1.5px solid rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.06);
+  color: #DC2626;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 16px;
+
+  &:hover {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: rgba(220, 38, 38, 0.5);
+  }
+}
 </style>
