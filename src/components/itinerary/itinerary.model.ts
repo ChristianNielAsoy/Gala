@@ -42,4 +42,7 @@ export interface ItineraryItem {
   weatherForecast?: string; // e.g., "Sunny", "Rainy"
   temperature?: number; // e.g., 25 (Celsius)
   weatherIcon?: string; // URL or identifier for weather icon
+  lat?: number | undefined; // map pin latitude
+  lng?: number | undefined; // map pin longitude
+  estimatedCost?: number | undefined; // planned cost for text/checklist items
 }

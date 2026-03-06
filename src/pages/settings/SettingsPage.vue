@@ -62,46 +62,73 @@
     <div class="q-pa-md">
       <div class="text-caption text-grey-7 q-mb-sm text-weight-medium">NOTIFICATIONS</div>
       <q-card flat bordered>
+        <!-- Master push toggle -->
         <q-item>
           <q-item-section avatar>
-            <q-icon name="notifications" color="grey-7" />
+            <q-icon
+              :name="pushEnabled ? 'notifications_active' : 'notifications_off'"
+              :color="pushEnabled ? 'primary' : 'grey-5'"
+            />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label>Push Notifications</q-item-label>
+            <q-item-label caption v-if="!pushSupported">Not supported in this browser</q-item-label>
+            <q-item-label caption v-else-if="pushEnabled">Active — receiving alerts</q-item-label>
+            <q-item-label caption v-else>Enable to receive alerts on this device</q-item-label>
+          </q-item-section>
+          <q-item-section side>
+            <q-toggle
+              :model-value="pushEnabled"
+              color="primary"
+              :disable="!pushSupported || togglingPush"
+              @update:model-value="togglePushNotifications"
+            />
+          </q-item-section>
+        </q-item>
+
+        <q-separator />
+
+        <!-- Sub-toggles (which types to receive) -->
+        <q-item :disable="!pushEnabled">
+          <q-item-section avatar>
+            <q-icon name="receipt_long" :color="pushEnabled ? 'grey-7' : 'grey-4'" />
           </q-item-section>
           <q-item-section>
             <q-item-label>Expense Updates</q-item-label>
             <q-item-label caption>Get notified when expenses are added</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="notifications.expenses" color="primary" />
+            <q-toggle v-model="notifications.expenses" color="primary" :disable="!pushEnabled" />
           </q-item-section>
         </q-item>
 
         <q-separator />
 
-        <q-item>
+        <q-item :disable="!pushEnabled">
           <q-item-section avatar>
-            <q-icon name="event" color="grey-7" />
+            <q-icon name="event" :color="pushEnabled ? 'grey-7' : 'grey-4'" />
           </q-item-section>
           <q-item-section>
             <q-item-label>Trip Reminders</q-item-label>
             <q-item-label caption>Upcoming trip notifications</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="notifications.trips" color="primary" />
+            <q-toggle v-model="notifications.trips" color="primary" :disable="!pushEnabled" />
           </q-item-section>
         </q-item>
 
         <q-separator />
 
-        <q-item>
+        <q-item :disable="!pushEnabled">
           <q-item-section avatar>
-            <q-icon name="payment" color="grey-7" />
+            <q-icon name="payment" :color="pushEnabled ? 'grey-7' : 'grey-4'" />
           </q-item-section>
           <q-item-section>
             <q-item-label>Settlement Alerts</q-item-label>
             <q-item-label caption>When payments are due or received</q-item-label>
           </q-item-section>
           <q-item-section side>
-            <q-toggle v-model="notifications.settlements" color="primary" />
+            <q-toggle v-model="notifications.settlements" color="primary" :disable="!pushEnabled" />
           </q-item-section>
         </q-item>
       </q-card>
@@ -358,6 +385,13 @@ import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
 import { useAuthStore } from 'src/stores/authStore';
+import {
+  isPushSupported,
+  isSubscribed,
+  subscribeUser,
+  unsubscribeUser,
+  getPermissionStatus,
+} from 'src/utils/notificationService';
 
 const router = useRouter();
 const $q = useQuasar();
@@ -379,6 +413,11 @@ const notifications = ref({
 const darkMode = ref(false);
 const defaultCurrency = ref('PHP');
 const appVersion = ref('1.0.0');
+
+// Push notification state
+const pushSupported = ref(false);
+const pushEnabled = ref(false);
+const togglingPush = ref(false);
 
 // Auto-save notification preferences whenever a toggle changes
 watch(notifications, () => { void saveUserPreferences(); }, { deep: true });
@@ -581,17 +620,71 @@ async function handleLogout() {
 function confirmExportData() {
   $q.dialog({
     title: 'Export Trip Data',
-    message: 'Download all your trip data as a CSV file?',
+    message: 'Download all your trips and expenses as a CSV file?',
     cancel: true,
     persistent: true,
     ok: { label: 'Export', color: 'primary' },
-  }).onOk(() => {
-    $q.notify({
-      type: 'info',
-      message: 'Export feature coming soon!',
-      position: 'top',
+  }).onOk(() => void doExportData());
+}
+
+async function doExportData() {
+  const user = authStore.user;
+  if (!user) return;
+
+  try {
+    const { data: trips } = await supabase
+      .from('trips')
+      .select('id, name, destination, start_date, end_date, currency_code')
+      .eq('user_id', user.id);
+
+    if (!trips?.length) {
+      $q.notify({ type: 'warning', message: 'No trips found to export.' });
+      return;
+    }
+
+    const tripIds = trips.map((t) => t.id);
+    const { data: expenses } = await supabase
+      .from('expenses')
+      .select('trip_id, date, description, category, amount, paid_by_id')
+      .in('trip_id', tripIds)
+      .order('date', { ascending: true });
+
+    const { data: members } = await supabase
+      .from('members')
+      .select('id, trip_id, name')
+      .in('trip_id', tripIds);
+
+    const tripMap = Object.fromEntries(trips.map((t) => [t.id, t]));
+    const memberMap = Object.fromEntries((members || []).map((m) => [m.id, m.name]));
+
+    const headers = ['Trip', 'Destination', 'Date', 'Description', 'Category', 'Amount', 'Currency', 'Paid By'];
+    const rows = (expenses || []).map((e) => {
+      const trip = tripMap[e.trip_id];
+      return [
+        `"${(trip?.name ?? '').replace(/"/g, '""')}"`,
+        `"${(trip?.destination ?? '').replace(/"/g, '""')}"`,
+        e.date,
+        `"${e.description.replace(/"/g, '""')}"`,
+        e.category,
+        (e.amount as number).toFixed(2),
+        trip?.currency_code ?? 'PHP',
+        memberMap[e.paid_by_id] ?? 'Unknown',
+      ];
     });
-  });
+
+    const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gala-trips-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    $q.notify({ type: 'positive', message: `Exported ${expenses?.length ?? 0} expenses from ${trips.length} trips.` });
+  } catch {
+    $q.notify({ type: 'negative', message: 'Export failed. Please try again.' });
+  }
 }
 
 function confirmClearCache() {
@@ -622,9 +715,53 @@ function openUrl(url: string) {
   window.open(url, '_blank');
 }
 
+// ─── Push notification management ────────────────────────────────────────────
+
+async function initPushState() {
+  pushSupported.value = isPushSupported();
+  if (pushSupported.value) {
+    pushEnabled.value = await isSubscribed();
+  }
+}
+
+async function togglePushNotifications(enable: boolean) {
+  if (togglingPush.value) return;
+  togglingPush.value = true;
+
+  try {
+    const user = authStore.user;
+    if (!user) return;
+
+    if (enable) {
+      if (getPermissionStatus() === 'denied') {
+        $q.notify({
+          type: 'warning',
+          message: 'Notifications are blocked by your browser.',
+          caption: 'Check your browser settings to allow notifications for this site.',
+        });
+        pushEnabled.value = false;
+        return;
+      }
+      const success = await subscribeUser(user.id);
+      pushEnabled.value = success;
+      if (success) {
+        $q.notify({ type: 'positive', message: 'Push notifications enabled!' });
+      } else {
+        $q.notify({ type: 'warning', message: 'Could not enable push notifications.' });
+      }
+    } else {
+      await unsubscribeUser(user.id);
+      pushEnabled.value = false;
+      $q.notify({ type: 'info', message: 'Push notifications disabled.' });
+    }
+  } finally {
+    togglingPush.value = false;
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
-  await Promise.all([fetchCurrencies(), fetchUserProfile()]);
+  await Promise.all([fetchCurrencies(), fetchUserProfile(), initPushState()]);
 });
 </script>
 

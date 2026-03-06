@@ -1,22 +1,83 @@
-// Gala — Design System
-// Font: Plus Jakarta Sans (modern, SEA tech aesthetic)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Gala Design System v2 — Premium Travel + Fintech Hybrid
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Fonts ───────────────────────────────────────────────────────────────────
+// Body: Plus Jakarta Sans (modern, SEA tech aesthetic)
 @import '@fontsource/plus-jakarta-sans/latin-400.css';
 @import '@fontsource/plus-jakarta-sans/latin-500.css';
 @import '@fontsource/plus-jakarta-sans/latin-600.css';
 @import '@fontsource/plus-jakarta-sans/latin-700.css';
 
+// Display: Instrument Serif (premium hero moments — trip names, budgets, countdowns)
+@import '@fontsource/instrument-serif/latin-400.css';
+
 // ─── Design Tokens ───────────────────────────────────────────────────────────
 :root {
-  --gala-radius-sm:  8px;
-  --gala-radius-md: 12px;
-  --gala-radius-lg: 16px;
-  --gala-radius-xl: 24px;
+  // Radius — organic, not boxy
+  --gala-radius-sm:   12px;
+  --gala-radius-md:   16px;
+  --gala-radius-lg:   24px;
+  --gala-radius-xl:   32px;
+  --gala-radius-pill: 999px;
 
-  --gala-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --gala-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --gala-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.10);
-  --gala-shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.12);
+  // Elevation — depth through blur, not hard shadows
+  --gala-elevation-1: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --gala-elevation-2: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --gala-elevation-3: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --gala-elevation-float: 0 16px 48px rgba(0, 0, 0, 0.12);
+
+  // Glass
+  --gala-glass-bg: rgba(255, 255, 255, 0.72);
+  --gala-glass-border: rgba(255, 255, 255, 0.2);
+  --gala-glass-blur: blur(20px) saturate(1.8);
+
+  // Spacing (4px base)
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  // Motion
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast:   150ms;
+  --duration-normal: 300ms;
+  --duration-slow:   500ms;
+
+  // Semantic surfaces (light)
+  --surface:       #{$surface};
+  --background:    #{$background};
+  --on-surface:    #{$on-surface};
+  --on-background: #{$on-background};
+  --border:        #{$border};
+  --muted:         #{$muted};
 }
+
+// Dark mode overrides
+body.body--dark {
+  --surface:        #1E293B;
+  --background:     #0F172A;
+  --on-surface:     #CBD5E1;
+  --on-background:  #F1F5F9;
+  --border:         #334155;
+  --muted:          #64748B;
+
+  --gala-glass-bg:     rgba(15, 23, 42, 0.72);
+  --gala-glass-border: rgba(255, 255, 255, 0.06);
+
+  --gala-elevation-1: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --gala-elevation-2: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --gala-elevation-3: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --gala-elevation-float: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+// ─── Semantic Utility Classes ────────────────────────────────────────────────
+.bg-surface { background-color: var(--surface) !important; }
+.bg-app     { background-color: var(--background) !important; }
 
 // ─── Base ────────────────────────────────────────────────────────────────────
 * {
@@ -25,9 +86,9 @@
 
 body {
   margin: 0;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  background-color: $background;
-  color: $on-background;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  background-color: var(--background);
+  color: var(--on-background);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -43,13 +104,13 @@ body {
 .text-h3,
 .text-h4 {
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
 }
 
 .text-h5,
 .text-h6 {
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
 .text-subtitle1,
@@ -61,13 +122,55 @@ body {
   font-weight: 700;
 }
 
+// Display font — for hero moments
+.gala-display {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+// Mono numbers — for budgets and amounts
+.gala-mono {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+// ─── Glassmorphism Panel ─────────────────────────────────────────────────────
+.gala-panel {
+  background: var(--gala-glass-bg);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid var(--gala-glass-border);
+  border-radius: var(--gala-radius-lg);
+  box-shadow: var(--gala-elevation-2);
+  transition: box-shadow var(--duration-normal) var(--ease-out-expo),
+              transform var(--duration-normal) var(--ease-out-expo);
+
+  &:hover {
+    box-shadow: var(--gala-elevation-3);
+  }
+}
+
+// Elevated variant for floating elements
+.gala-panel--float {
+  box-shadow: var(--gala-elevation-float);
+}
+
+// Solid panel (no glass, for content-heavy areas)
+.gala-panel--solid {
+  background: var(--background);
+  backdrop-filter: none;
+  border: 1px solid var(--border);
+}
+
 // ─── Header ──────────────────────────────────────────────────────────────────
 .q-header {
-  box-shadow: 0 1px 0 $border;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border);
 }
 
 .q-toolbar {
-  padding: 0 16px;
+  padding: 0 var(--space-md);
 }
 
 .q-toolbar-title {
@@ -76,49 +179,35 @@ body {
   letter-spacing: -0.01em;
 }
 
-// ─── Drawer / Sidebar ────────────────────────────────────────────────────────
-.q-drawer {
-  border-right: 1px solid $border;
-  box-shadow: none;
-}
-
-.q-list .q-item {
-  border-radius: 10px;
-  margin: 2px 8px;
-  font-weight: 500;
-  font-size: 0.9rem;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.q-list .q-item:hover {
-  background-color: rgba($primary, 0.08);
-  color: $primary;
-}
-
-// Active nav item highlight
-.q-list .q-item.q-router-link--active,
-.q-list .q-item--active {
-  background-color: rgba($primary, 0.1);
-  color: $primary;
-  font-weight: 600;
-
-  .q-icon {
-    color: $primary;
-  }
-}
-
-// ─── Cards ───────────────────────────────────────────────────────────────────
+// ─── Cards — Layered Depth System ────────────────────────────────────────────
 .q-card {
   border-radius: var(--gala-radius-lg);
-  box-shadow: var(--gala-shadow-sm);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: var(--gala-elevation-1);
+  border: 1px solid var(--border);
+  transition: transform var(--duration-normal) var(--ease-out-expo),
+              box-shadow var(--duration-normal) var(--ease-out-expo);
 }
 
-// flat + bordered (the combo used everywhere in the app)
 .q-card.q-card--flat.q-card--bordered {
   box-shadow: none;
-  border: 1px solid $border;
+  border: 1px solid var(--border);
   border-radius: var(--gala-radius-lg);
+}
+
+// Interactive cards (trip cards, expense items)
+.gala-card-interactive {
+  cursor: pointer;
+  transition: transform var(--duration-normal) var(--ease-spring),
+              box-shadow var(--duration-normal) var(--ease-out-expo);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--gala-elevation-3);
+  }
+
+  &:active {
+    transform: translateY(-1px) scale(0.99);
+  }
 }
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
@@ -128,10 +217,22 @@ body {
   font-weight: 600;
   letter-spacing: 0;
   font-size: 0.875rem;
+  transition: transform var(--duration-fast) var(--ease-spring),
+              box-shadow var(--duration-fast) var(--ease-out-expo);
+
+  &:active {
+    transform: scale(0.97);
+  }
 }
 
 .q-btn--round {
   border-radius: 50%;
+}
+
+// Pill button variant
+.gala-btn-pill {
+  border-radius: var(--gala-radius-pill) !important;
+  padding: 0 var(--space-lg);
 }
 
 // ─── Inputs ──────────────────────────────────────────────────────────────────
@@ -140,17 +241,22 @@ body {
 }
 
 .q-field--outlined .q-field__control::before {
-  border-color: $border;
-  transition: border-color 0.15s ease;
+  border-color: var(--border);
+  transition: border-color var(--duration-fast) ease;
 }
 
 .q-field--outlined:hover .q-field__control::before {
   border-color: $primary;
 }
 
+.q-field--outlined.q-field--focused .q-field__control::before {
+  border-color: $primary;
+  box-shadow: 0 0 0 3px rgba($primary, 0.1);
+}
+
 // ─── Chips ───────────────────────────────────────────────────────────────────
 .q-chip {
-  border-radius: 8px;
+  border-radius: var(--gala-radius-pill);
   font-weight: 600;
   font-size: 0.75rem;
   letter-spacing: 0;
@@ -164,17 +270,383 @@ body {
   text-transform: none;
 }
 
+// Pill-shaped segment control variant
+.gala-tabs-pill {
+  background: var(--surface);
+  border-radius: var(--gala-radius-pill);
+  padding: 4px;
+
+  .q-tab {
+    border-radius: var(--gala-radius-pill);
+    min-height: 36px;
+  }
+
+  .q-tab--active {
+    background: var(--background);
+    box-shadow: var(--gala-elevation-1);
+  }
+
+  .q-tabs__content {
+    gap: 4px;
+  }
+}
+
+body.body--dark .gala-tabs-pill {
+  background: rgba(255, 255, 255, 0.06);
+
+  .q-tab--active {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
 // ─── Separator ───────────────────────────────────────────────────────────────
 .q-separator {
-  background: $border;
+  background: var(--border);
   opacity: 1;
+}
+
+// ─── Drawer / Sidebar ────────────────────────────────────────────────────────
+.q-drawer {
+  border-right: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.q-list .q-item {
+  border-radius: var(--gala-radius-sm);
+  margin: 2px 8px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: background-color var(--duration-fast) ease,
+              color var(--duration-fast) ease;
+}
+
+.q-list .q-item:hover {
+  background-color: rgba($primary, 0.08);
+  color: $primary;
+}
+
+.q-list .q-item.q-router-link--active,
+.q-list .q-item--active {
+  background-color: rgba($primary, 0.1);
+  color: $primary;
+  font-weight: 600;
+
+  .q-icon {
+    color: $primary;
+  }
+}
+
+// ─── Category Accent Borders (expense cards) ─────────────────────────────────
+.gala-cat-food        { border-left: 3px solid $cat-food; }
+.gala-cat-transport   { border-left: 3px solid $cat-transport; }
+.gala-cat-hotel       { border-left: 3px solid $cat-hotel; }
+.gala-cat-activity    { border-left: 3px solid $cat-activity; }
+.gala-cat-grocery     { border-left: 3px solid $cat-grocery; }
+.gala-cat-other       { border-left: 3px solid $muted; }
+
+// Dot variant (for compact lists)
+.gala-cat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--food        { background: $cat-food; }
+  &--transport   { background: $cat-transport; }
+  &--hotel       { background: $cat-hotel; }
+  &--activity    { background: $cat-activity; }
+  &--grocery     { background: $cat-grocery; }
+  &--other       { background: $muted; }
+}
+
+// ─── Budget Progress Ring ────────────────────────────────────────────────────
+.gala-progress-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    transform: rotate(-90deg);
+  }
+
+  &__label {
+    position: absolute;
+    text-align: center;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// ─── Bottom Navigation (mobile) ──────────────────────────────────────────────
+.gala-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 64px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--gala-glass-bg);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-top: 1px solid var(--gala-glass-border);
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    flex: 1;
+    height: 100%;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    transition: color var(--duration-fast) ease;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    .q-icon {
+      font-size: 22px;
+      transition: transform var(--duration-fast) var(--ease-spring);
+    }
+
+    &--active {
+      color: $primary;
+
+      .q-icon {
+        transform: scale(1.1);
+      }
+    }
+  }
+
+  // FAB center button
+  &__fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+    color: white;
+    box-shadow: 0 4px 16px rgba($primary, 0.4);
+    margin-top: -20px;
+    transition: transform var(--duration-fast) var(--ease-spring),
+                box-shadow var(--duration-fast) var(--ease-out-expo);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    .q-icon {
+      font-size: 26px;
+    }
+
+    &:active {
+      transform: scale(0.92);
+    }
+  }
+}
+
+// Spacer to prevent content from hiding behind bottom nav
+.gala-bottom-nav-spacer {
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
+}
+
+// ─── Icon Rail (desktop sidebar) ─────────────────────────────────────────────
+.gala-rail {
+  width: 64px;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-md) 0;
+  background: var(--background);
+  border-right: 1px solid var(--border);
+  transition: width var(--duration-normal) var(--ease-out-expo);
+  overflow: hidden;
+
+  &:hover,
+  &--expanded {
+    width: 240px;
+
+    .gala-rail__label {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  &__logo {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--gala-radius-sm);
+    margin-bottom: var(--space-lg);
+    flex-shrink: 0;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    width: calc(100% - 16px);
+    padding: 10px 12px;
+    margin: 2px 8px;
+    border-radius: var(--gala-radius-sm);
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    transition: background-color var(--duration-fast) ease,
+                color var(--duration-fast) ease;
+    cursor: pointer;
+
+    .q-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background-color: rgba($primary, 0.08);
+      color: $primary;
+    }
+
+    &--active {
+      background-color: rgba($primary, 0.1);
+      color: $primary;
+      font-weight: 600;
+    }
+  }
+
+  &__label {
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: opacity var(--duration-normal) var(--ease-out-expo),
+                transform var(--duration-normal) var(--ease-out-expo);
+  }
+
+  &__spacer {
+    flex: 1;
+  }
+
+  &__divider {
+    width: calc(100% - 24px);
+    height: 1px;
+    background: var(--border);
+    margin: var(--space-sm) 0;
+  }
+}
+
+// ─── Page Transitions ────────────────────────────────────────────────────────
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity var(--duration-normal) var(--ease-out-expo),
+              transform var(--duration-normal) var(--ease-out-expo);
+}
+
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+// Slide up (for modals, panels)
+.gala-slide-up-enter-active,
+.gala-slide-up-leave-active {
+  transition: opacity var(--duration-normal) var(--ease-out-expo),
+              transform var(--duration-normal) var(--ease-out-expo);
+}
+
+.gala-slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.gala-slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+// Scale (for quick actions, FAB menus)
+.gala-scale-enter-active,
+.gala-scale-leave-active {
+  transition: opacity var(--duration-fast) var(--ease-spring),
+              transform var(--duration-fast) var(--ease-spring);
+}
+
+.gala-scale-enter-from {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.gala-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+// ─── Ambient Gradient Backgrounds ────────────────────────────────────────────
+.gala-gradient-primary {
+  background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+}
+
+.gala-gradient-accent {
+  background: linear-gradient(135deg, $accent 0%, #D97706 100%);
+}
+
+.gala-gradient-hero {
+  background: linear-gradient(
+    160deg,
+    $primary-dark 0%,
+    $primary 40%,
+    $tertiary 100%
+  );
+}
+
+// Mesh-style ambient background (for pages)
+.gala-mesh-bg {
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba($primary, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba($accent, 0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+body.body--dark .gala-mesh-bg::before {
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba($primary, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba($accent, 0.08) 0%, transparent 50%);
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 .logo {
   height: 36px;
   width: 36px;
-  border-radius: 10px;
+  border-radius: var(--gala-radius-sm);
   margin-right: 10px;
 }
 
@@ -186,4 +658,41 @@ body {
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+// Smooth scrollbar for content areas
+.gala-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba($primary, 0.2) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba($primary, 0.2);
+    border-radius: 3px;
+
+    &:hover {
+      background: rgba($primary, 0.35);
+    }
+  }
+}
+
+// Truncate text
+.gala-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Focus ring (accessibility)
+.gala-focus-ring:focus-visible {
+  outline: 2px solid $primary;
+  outline-offset: 2px;
+  border-radius: var(--gala-radius-sm);
 }

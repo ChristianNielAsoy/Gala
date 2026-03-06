@@ -19,6 +19,7 @@
       </div>
     </div>
 
+    <q-pull-to-refresh @refresh="onRefresh" color="primary">
     <!-- Search and Filters -->
     <div class="q-pa-md">
       <q-input
@@ -38,71 +39,100 @@
         <q-tab name="upcoming" label="Upcoming" />
         <q-tab name="active" label="Active" />
         <q-tab name="past" label="Past" />
+        <q-tab name="archived" label="Archived" />
       </q-tabs>
     </div>
 
     <!-- Trip Cards Grid -->
     <div class="q-pa-md">
-      <div v-if="tripStore.isLoading" class="text-center q-pa-xl">
-        <q-spinner color="primary" size="lg" />
-        <p class="text-grey-6 q-mt-md">Loading your trips...</p>
+      <div v-if="tripStore.isLoading" class="row q-gutter-md">
+        <div v-for="n in 4" :key="n" class="col-12 col-sm-6 col-md-4">
+          <q-card flat bordered>
+            <q-skeleton height="150px" square />
+            <q-card-section class="q-pa-sm">
+              <div class="row items-center justify-between q-mb-sm">
+                <div class="col">
+                  <q-skeleton type="text" width="60%" class="q-mb-xs" />
+                  <q-skeleton type="text" width="40%" />
+                </div>
+              </div>
+              <div class="row q-gutter-xs">
+                <q-skeleton type="QChip" width="60px" />
+                <q-skeleton type="QChip" width="80px" />
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
       </div>
 
-      <div v-else-if="!tripStore.isLoading && filteredTrips.length === 0" class="text-center q-pa-xl">
-        <q-icon name="flight_takeoff" size="xl" color="grey-4" class="q-mb-md" />
-        <h3 class="text-h6 text-grey-7 q-mb-sm">No trips found</h3>
-        <p class="text-grey-6 q-mb-lg">Start your journey by planning your first trip!</p>
-        <q-btn
-          unelevated
-          color="primary"
-          icon="add"
-          label="Create Your First Trip"
-          no-caps
-          @click="openNewTripModal"
-        />
-      </div>
+      <empty-state
+        v-else-if="!tripStore.isLoading && filteredTrips.length === 0"
+        icon="flight_takeoff"
+        title="No trips found"
+        subtitle="Start your journey by planning your first barkada trip!"
+        action-label="Create Your First Trip"
+        @action="openNewTripModal"
+      />
 
       <div v-else class="row q-gutter-md">
         <div v-for="trip in paginatedTrips" :key="trip.id" class="col-12 col-sm-6 col-md-4">
           <q-card flat bordered class="trip-card cursor-pointer" @click="goToTripDetails(trip.id)">
             <q-img :src="getTripImage(trip)" :alt="trip.name" height="150px" class="trip-image">
+              <!-- Status badge top-right -->
               <div class="absolute-top-right q-ma-sm">
                 <q-badge :color="getStatusColor(trip)" :label="getStatusLabel(trip)" rounded />
               </div>
-              <div class="trip-overlay"></div>
-              <div class="trip-info">
-                <div class="text-caption text-white">
-                  {{ formatDateRange(trip.start_date, trip.end_date) }}
-                </div>
+              <!-- Countdown pill bottom-left -->
+              <div class="absolute-bottom-left q-ma-sm" v-if="getCountdown(trip)">
+                <q-badge
+                  :color="getStatusLabel(trip) === 'Active' ? 'positive' : 'grey-9'"
+                  :label="getCountdown(trip)"
+                  rounded
+                  class="countdown-pill"
+                />
               </div>
+              <div class="trip-overlay"></div>
             </q-img>
-            <q-card-section class="q-pa-sm">
-              <div class="row items-center justify-between">
-                <div>
-                  <div class="text-subtitle2 text-weight-bold">{{ trip.name }}</div>
-                  <div class="text-caption text-grey-6">
-                    {{ trip.destination || 'Destination TBD' }}
+
+            <q-card-section class="q-pa-sm q-pb-xs">
+              <div class="row items-start justify-between no-wrap">
+                <div class="col ellipsis">
+                  <div class="text-subtitle2 text-weight-bold ellipsis">{{ trip.name }}</div>
+                  <div class="text-caption text-grey-6 row items-center no-wrap">
+                    <q-icon name="place" size="10px" class="q-mr-xs" />
+                    <span class="ellipsis">{{ trip.destination || 'Destination TBD' }}</span>
+                  </div>
+                  <div class="text-caption text-grey-5 row items-center q-mt-xs">
+                    <q-icon name="calendar_today" size="10px" class="q-mr-xs" />
+                    {{ formatDateRange(trip.start_date, trip.end_date) }}
                   </div>
                 </div>
-                <q-icon name="arrow_forward_ios" color="grey-5" size="sm" />
+                <q-icon name="chevron_right" color="grey-4" size="20px" class="q-mt-xs" />
               </div>
-              <div class="row q-gutter-xs q-mt-sm">
-                <q-chip
-                  dense
-                  color="primary"
-                  text-color="white"
-                  icon="group"
-                  :label="trip.member_count || 1"
-                  size="sm"
-                />
-                <q-chip
-                  dense
-                  color="accent"
-                  text-color="white"
-                  icon="attach_money"
-                  :label="formatCurrency(trip.total_expenses || 0, trip.currency_code)"
-                  size="sm"
-                />
+            </q-card-section>
+
+            <q-separator />
+
+            <q-card-section class="q-pa-sm q-pt-xs">
+              <div class="row items-center justify-between">
+                <!-- Member avatars -->
+                <div class="row items-center">
+                  <div
+                    v-for="i in Math.min(trip.member_count || 1, 4)"
+                    :key="i"
+                    class="member-avatar"
+                    :style="{ marginLeft: i > 1 ? '-8px' : '0', zIndex: 10 - i, background: getMemberAvatarColor(i) }"
+                  >
+                    {{ String.fromCharCode(64 + i) }}
+                  </div>
+                  <span v-if="(trip.member_count || 1) > 4" class="text-caption text-grey-6 q-ml-sm">
+                    +{{ (trip.member_count || 1) - 4 }}
+                  </span>
+                </div>
+                <!-- Expenses total -->
+                <div class="text-caption text-weight-medium text-positive">
+                  {{ formatCurrency(trip.total_expenses || 0, trip.currency_code) }}
+                </div>
               </div>
             </q-card-section>
           </q-card>
@@ -113,7 +143,11 @@
       <div v-if="hasMoreTrips" class="text-center q-mt-lg">
         <q-btn flat no-caps color="primary" label="Show More" @click="loadMoreTrips" />
       </div>
+      <div v-else-if="!tripStore.isLoading && paginatedTrips.length > 0" class="text-center q-mt-md text-caption text-grey-5">
+        All trips loaded
+      </div>
     </div>
+    </q-pull-to-refresh>
 
     <!-- New Trip Modal -->
     <q-dialog v-model="showNewTripModal" persistent>
@@ -148,44 +182,42 @@
             <template v-slot:prepend><q-icon name="place" /></template>
           </q-input>
 
-          <!-- Date Range -->
-          <div>
-            <div class="text-caption text-grey-7 q-mb-xs">Travel Dates</div>
-            <div class="row q-gutter-sm">
-              <q-input
-                v-model="newTrip.start_date"
-                label="Start Date"
-                mask="date"
-                :rules="['date']"
-                outlined
-                dense
-                class="col"
-              >
-                <template v-slot:append>
-                  <q-icon name="event" class="cursor-pointer">
-                    <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                      <q-date v-model="newTrip.start_date" />
-                    </q-popup-proxy>
-                  </q-icon>
-                </template>
-              </q-input>
-              <q-input
-                v-model="newTrip.end_date"
-                label="End Date"
-                mask="date"
-                :rules="['date']"
-                outlined
-                dense
-                class="col"
-              >
-                <template v-slot:append>
-                  <q-icon name="event" class="cursor-pointer">
-                    <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                      <q-date v-model="newTrip.end_date" :options="(d) => d >= newTrip.start_date" />
-                    </q-popup-proxy>
-                  </q-icon>
-                </template>
-              </q-input>
+          <!-- Date Range Card -->
+          <div class="date-range-card row items-center no-wrap">
+            <!-- Departure -->
+            <div class="date-range-card__side col cursor-pointer">
+              <div class="text-caption text-grey-5 q-mb-xs">
+                <q-icon name="flight_takeoff" size="11px" class="q-mr-xs" />Departure
+              </div>
+              <div class="text-subtitle1 text-weight-bold text-dark">
+                {{ formatTripDate(newTrip.start_date) }}
+              </div>
+              <div class="text-caption text-grey-5">{{ formatTripYear(newTrip.start_date) }}</div>
+              <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                <q-date v-model="newTrip.start_date" />
+              </q-popup-proxy>
+            </div>
+
+            <!-- Center: arrow + nights -->
+            <div class="date-range-card__mid column items-center justify-center q-px-sm">
+              <q-icon name="arrow_forward" color="primary" size="18px" />
+              <div class="text-caption text-primary text-weight-medium q-mt-xs">
+                {{ tripDuration }}n
+              </div>
+            </div>
+
+            <!-- Return -->
+            <div class="date-range-card__side col cursor-pointer text-right">
+              <div class="text-caption text-grey-5 q-mb-xs">
+                Return <q-icon name="flight_land" size="11px" class="q-ml-xs" />
+              </div>
+              <div class="text-subtitle1 text-weight-bold text-dark">
+                {{ formatTripDate(newTrip.end_date) }}
+              </div>
+              <div class="text-caption text-grey-5">{{ formatTripYear(newTrip.end_date) }}</div>
+              <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                <q-date v-model="newTrip.end_date" :options="(d: string) => d >= newTrip.start_date" />
+              </q-popup-proxy>
             </div>
           </div>
 
@@ -278,6 +310,7 @@ import { supabase } from 'boot/supabase';
 import { useAuthStore } from 'src/stores/authStore';
 import { useTripStore } from 'src/stores/tripStore';
 import type { Trip } from 'src/types/expense';
+import EmptyState from 'src/components/shared/EmptyState.vue';
 
 const router = useRouter();
 const $q = useQuasar();
@@ -295,20 +328,25 @@ const currentPage = ref(1);
 const filteredTrips = computed(() => {
   let filtered = tripStore.trips;
 
-  if (activeFilter.value !== 'all') {
-    const now = new Date().toISOString().split('T')[0] ?? '';
-    filtered = filtered.filter((trip) => {
-      switch (activeFilter.value) {
-        case 'upcoming':
-          return trip.start_date && trip.start_date > now;
-        case 'active':
-          return trip.start_date && trip.end_date && trip.start_date <= now && trip.end_date >= now;
-        case 'past':
-          return trip.end_date && trip.end_date < now;
-        default:
-          return true;
-      }
-    });
+  if (activeFilter.value === 'archived') {
+    filtered = filtered.filter((trip) => trip.status === 'archived');
+  } else {
+    filtered = filtered.filter((trip) => trip.status !== 'archived');
+    if (activeFilter.value !== 'all') {
+      const now = new Date().toISOString().split('T')[0] ?? '';
+      filtered = filtered.filter((trip) => {
+        switch (activeFilter.value) {
+          case 'upcoming':
+            return trip.start_date && trip.start_date > now;
+          case 'active':
+            return trip.start_date && trip.end_date && trip.start_date <= now && trip.end_date >= now;
+          case 'past':
+            return trip.end_date && trip.end_date < now;
+          default:
+            return true;
+        }
+      });
+    }
   }
 
   if (searchQuery.value.trim()) {
@@ -413,6 +451,7 @@ async function createTrip() {
       start_date: new Date().toISOString().split('T')[0] ?? '',
       end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0] ?? '',
       currency_code: 'PHP',
+      budget_amount: null,
     };
     showNewTripModal.value = false;
     newTripMembers.value = [];
@@ -475,8 +514,51 @@ function formatCurrency(amount: number, currency = 'PHP'): string {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency }).format(amount);
 }
 
+function getCountdown(trip: Trip): string {
+  const now = new Date().toISOString().split('T')[0] ?? '';
+  if (!trip.start_date) return '';
+  const diff = Math.ceil(
+    (new Date(trip.start_date).getTime() - new Date(now).getTime()) / 86400000,
+  );
+  if (trip.end_date && trip.end_date < now) return '';
+  if (diff > 1) return `${diff} days away`;
+  if (diff === 1) return 'Tomorrow!';
+  if (diff === 0) return 'Today!';
+  if (trip.end_date && trip.end_date >= now) return 'Ongoing';
+  return '';
+}
+
+const avatarColors = ['#0D9488', '#F97316', '#8B5CF6', '#0EA5E9'];
+function getMemberAvatarColor(i: number): string {
+  return avatarColors[(i - 1) % avatarColors.length] ?? '#0D9488';
+}
+
+const tripDuration = computed(() => {
+  if (!newTrip.value.start_date || !newTrip.value.end_date) return 0;
+  return Math.max(0, Math.ceil(
+    (new Date(newTrip.value.end_date).getTime() - new Date(newTrip.value.start_date).getTime()) / 86400000
+  ));
+});
+
+function formatTripDate(dateStr: string): string {
+  if (!dateStr) return '—';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
+}
+
+function formatTripYear(dateStr: string): string {
+  if (!dateStr) return '';
+  return new Date(dateStr + 'T00:00:00').getFullYear().toString();
+}
+
 function loadMoreTrips() {
   currentPage.value++;
+}
+
+async function onRefresh(done: () => void) {
+  await tripStore.fetchTrips(true);
+  done();
 }
 
 // Real-time subscription — invalidates store cache on remote change
@@ -578,6 +660,26 @@ function removeMember(idx: number) {
   background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.65));
 }
 
+.member-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  position: relative;
+}
+
+.countdown-pill {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .trip-info {
   position: absolute;
   bottom: 0;
@@ -590,5 +692,35 @@ function removeMember(idx: number) {
 .new-trip-modal {
   width: 100%;
   max-width: 500px;
+}
+
+.date-range-card {
+  border: 1.5px solid $border;
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: rgba($primary, 0.03);
+  transition: border-color 0.2s;
+
+  &:hover {
+    border-color: $primary;
+  }
+
+  &__side {
+    padding: 2px 6px;
+    border-radius: 8px;
+    transition: background 0.15s;
+    position: relative;
+
+    &:hover {
+      background: rgba($primary, 0.08);
+    }
+  }
+
+  &__mid {
+    border-left: 1px dashed rgba($primary, 0.25);
+    border-right: 1px dashed rgba($primary, 0.25);
+    min-width: 48px;
+    padding: 4px 10px;
+  }
 }
 </style>

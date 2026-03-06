@@ -28,18 +28,20 @@
       </div>
 
       <!-- No trip selected -->
-      <div v-else-if="!selectedTripId" class="text-center q-pa-xl">
-        <q-icon name="analytics" size="56px" color="grey-4" />
-        <div class="text-h6 text-grey-6 q-mt-md">Select a trip to view analytics</div>
-        <div class="text-body2 text-grey-5 q-mt-xs">Spending breakdowns and member insights will appear here</div>
-      </div>
+      <empty-state
+        v-else-if="!selectedTripId"
+        icon="analytics"
+        title="Select a trip to view analytics"
+        subtitle="Spending breakdowns and member insights will appear here"
+      />
 
       <!-- Empty expenses -->
-      <div v-else-if="expenses.length === 0" class="text-center q-pa-xl">
-        <q-icon name="receipt_long" size="56px" color="grey-4" />
-        <div class="text-h6 text-grey-6 q-mt-md">No expenses recorded</div>
-        <div class="text-body2 text-grey-5 q-mt-xs">Add expenses to this trip to see analytics</div>
-      </div>
+      <empty-state
+        v-else-if="expenses.length === 0"
+        icon="receipt_long"
+        title="No expenses recorded"
+        subtitle="Add expenses to this trip to see analytics"
+      />
 
       <!-- Analytics Content -->
       <template v-else>
@@ -143,6 +145,7 @@ import { useTripStore } from 'src/stores/tripStore';
 import Chart from 'chart.js/auto';
 import type { Chart as ChartType } from 'chart.js';
 import type { Expense, TripMember } from 'src/types/expense';
+import EmptyState from 'src/components/shared/EmptyState.vue';
 
 const $q = useQuasar();
 const tripStore = useTripStore();
@@ -318,7 +321,7 @@ onMounted(async () => {
 }
 
 .stat-number {
-  color: #1e293b;
+  color: var(--on-background);
   line-height: 1.1;
 }
 

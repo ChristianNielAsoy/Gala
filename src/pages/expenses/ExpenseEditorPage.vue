@@ -473,6 +473,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { logActivity } from 'src/utils/activityLogger';
+import { sendPushToTripMembers } from 'src/utils/notificationService';
 import { formatCurrency } from 'src/utils/settlementCalculator';
 import { supabase } from 'boot/supabase';
 import { useAuthStore } from 'src/stores/authStore';
@@ -512,12 +513,45 @@ const amountExpression = ref('');
 function parseAmountExpression(input: string): number | null {
   const cleaned = input.replace(/\s/g, '').replace(/,/g, '');
   if (!cleaned) return null;
-  // Only allow digits, decimal point, and basic arithmetic operators/parens
   if (!/^[\d.+\-*/()]+$/.test(cleaned)) return null;
   if (!/^[\d(]/.test(cleaned)) return null;
+
+  let pos = 0;
+
+  function parseExpr(): number {
+    let val = parseTerm();
+    while (pos < cleaned.length && (cleaned[pos] === '+' || cleaned[pos] === '-')) {
+      const op = cleaned[pos++];
+      const right = parseTerm();
+      val = op === '+' ? val + right : val - right;
+    }
+    return val;
+  }
+
+  function parseTerm(): number {
+    let val = parseFactor();
+    while (pos < cleaned.length && (cleaned[pos] === '*' || cleaned[pos] === '/')) {
+      const op = cleaned[pos++];
+      const right = parseFactor();
+      val = op === '*' ? val * right : val / right;
+    }
+    return val;
+  }
+
+  function parseFactor(): number {
+    if (cleaned[pos] === '(') {
+      pos++;
+      const val = parseExpr();
+      pos++; // skip ')'
+      return val;
+    }
+    let numStr = '';
+    while (pos < cleaned.length && /[\d.]/.test(cleaned[pos] ?? '')) numStr += cleaned[pos++];
+    return parseFloat(numStr);
+  }
+
   try {
-    // eslint-disable-next-line no-new-func
-    const result = new Function(`return +(${cleaned})`)() as number;
+    const result = parseExpr();
     if (!isFinite(result) || isNaN(result) || result < 0) return null;
     return Math.round(result * 100) / 100;
   } catch {
@@ -563,16 +597,13 @@ const draft = useExpenseDraft(tripId, expenseId, userId, {
 });
 
 // Destructure for template
-const { trip, members, loading, categoryOptions, memberOptions } = expenseData;
+const { trip, members, categoryOptions, memberOptions } = expenseData;
 const {
   splitMode, involvedMembers, customSplits, items, isValid,
   itemsTotal, itemsTotalMismatch, customTotal, splitDifference,
   memberCheckOptions, addItem, addIndividualSharedItem, removeItem, toggleItemParticipant,
 } = splitting;
 const { hasDraft, clearDraft, checkDraftExists, loadDraft } = draft;
-
-// Options
-const currencyOptions = expenseData.currencyOptions;
 
 function memberIdToName(id: string): string {
   return members.value.find((m: TripMember) => m.id === id)?.name || 'Unknown';
@@ -725,6 +756,18 @@ async function handleSave(): Promise<void> {
 
     $q.notify({ type: 'positive', message: 'Expense saved successfully!', icon: 'check_circle' });
     void clearDraft();
+
+    // Notify trip members about new expense (best-effort, fire-and-forget)
+    if (!isEdit.value) {
+      void sendPushToTripMembers({
+        trip_id: tripId.value,
+        exclude_user_id: authStore.user?.id,
+        title: 'New expense added',
+        body: `${expenseForm.value.description} — ${formatCurrency(total, trip.value?.currency_code || 'PHP')}`,
+        url: `/#/trips/${tripId.value}`,
+      });
+    }
+
     router.back();
   } catch (error) {
     console.error('Error saving expense:', error);

@@ -45,6 +45,7 @@ export interface TripMember {
   is_owner: boolean;
   avatar_url?: string;
   created_at: string;
+  personal_budget?: number | null | undefined;
 }
 
 // ============================================

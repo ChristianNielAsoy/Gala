@@ -1,31 +1,75 @@
 <template>
-  <q-layout view="lHh lpr lFf">
-    <q-header class="bg-white text-dark" height-hint="64">
-      <q-toolbar class="q-px-md">
-        <!-- Hamburger — always visible (closes/opens sidebar) -->
-        <q-btn
-          flat
-          round
-          dense
-          icon="menu"
-          @click="toggleSidebar"
-          aria-label="Toggle Sidebar"
-          class="q-mr-sm text-grey-7"
-        />
-
-        <!-- App Brand -->
-        <q-avatar size="34px" class="q-mr-xs">
+  <q-layout view="hHh lpr fFf">
+    <!-- ═══ DESKTOP: Minimal top bar ═══ -->
+    <q-header v-if="isDesktop" class="layout-header" height-hint="56">
+      <q-toolbar class="q-px-lg" style="min-height: 56px">
+        <q-avatar size="30px" class="q-mr-xs">
           <img src="/logo.png" alt="Gala Logo" />
         </q-avatar>
-        <span class="header-brand text-weight-bold text-primary q-mr-md">Gala</span>
-
-        <!-- Page Title -->
-        <span class="page-title text-body2 text-grey-6 gt-xs">{{ getPageTitle() }}</span>
+        <span class="header-brand gala-display text-primary">Gala</span>
 
         <q-space />
 
+        <!-- Notification Bell -->
+        <q-btn flat round dense class="q-mr-xs header-icon-btn" aria-label="Notifications">
+          <q-icon name="notifications_outlined" size="20px" />
+          <q-badge
+            v-if="unreadCount > 0"
+            color="negative"
+            :label="unreadCount > 9 ? '9+' : String(unreadCount)"
+            floating rounded
+          />
+          <q-menu
+            anchor="bottom right"
+            self="top right"
+            class="notif-menu"
+            @before-show="markNotificationsRead"
+          >
+            <div class="row items-center justify-between q-px-md q-pt-sm q-pb-xs">
+              <div class="text-subtitle2 text-weight-bold">Notifications</div>
+              <q-btn flat dense no-caps size="sm" label="See all" color="primary" :to="'/trips'" v-close-popup />
+            </div>
+            <q-separator />
+            <div v-if="loadingNotifs" class="text-center q-pa-md">
+              <q-spinner size="sm" color="primary" />
+            </div>
+            <div v-else-if="notifications.length === 0" class="text-center q-pa-xl" style="color: var(--muted)">
+              <q-icon name="notifications_none" size="lg" class="q-mb-sm" style="color: var(--border)" />
+              <div class="text-caption">No recent activity</div>
+            </div>
+            <q-list v-else class="gala-scroll" style="max-height: 360px; overflow-y: auto">
+              <q-item
+                v-for="n in notifications"
+                :key="n.id"
+                clickable
+                v-close-popup
+                :class="isUnread(n) ? 'notif-unread' : ''"
+                @click="goToTripFromNotif(n.trip_id)"
+                class="q-py-sm"
+              >
+                <q-item-section avatar>
+                  <q-avatar
+                    size="34px"
+                    :color="isUnread(n) ? 'primary' : 'grey-3'"
+                    :text-color="isUnread(n) ? 'white' : 'grey-7'"
+                  >
+                    <q-icon :name="getNotifIcon(n.action_type)" size="16px" />
+                  </q-avatar>
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-caption text-weight-medium">{{ n.description }}</q-item-label>
+                  <q-item-label caption style="color: var(--muted)">{{ formatRelativeTime(n.created_at) }}</q-item-label>
+                </q-item-section>
+                <q-item-section side v-if="isUnread(n)">
+                  <div class="notif-dot" />
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
+
         <!-- User Avatar + Menu -->
-        <q-btn flat round dense aria-label="User Menu" class="q-ml-sm">
+        <q-btn flat round dense aria-label="User Menu" class="q-ml-xs">
           <q-avatar size="32px" color="primary" text-color="white">
             <img v-if="authStore.userAvatar" :src="authStore.userAvatar" alt="User Avatar" />
             <span v-else class="text-caption text-weight-bold">{{ authStore.userInitials }}</span>
@@ -33,22 +77,16 @@
           <q-menu anchor="bottom right" self="top right" style="min-width: 160px">
             <q-list dense>
               <q-item clickable :to="'/user-profile'" v-close-popup>
-                <q-item-section avatar>
-                  <q-icon name="person" size="18px" />
-                </q-item-section>
+                <q-item-section avatar><q-icon name="person_outline" size="18px" /></q-item-section>
                 <q-item-section>Profile</q-item-section>
               </q-item>
               <q-item clickable :to="'/settings'" v-close-popup>
-                <q-item-section avatar>
-                  <q-icon name="settings" size="18px" />
-                </q-item-section>
+                <q-item-section avatar><q-icon name="settings" size="18px" /></q-item-section>
                 <q-item-section>Settings</q-item-section>
               </q-item>
               <q-separator />
               <q-item clickable @click="handleLogout" v-close-popup>
-                <q-item-section avatar>
-                  <q-icon name="logout" size="18px" color="negative" />
-                </q-item-section>
+                <q-item-section avatar><q-icon name="logout" size="18px" color="negative" /></q-item-section>
                 <q-item-section class="text-negative">Logout</q-item-section>
               </q-item>
             </q-list>
@@ -57,110 +95,219 @@
       </q-toolbar>
     </q-header>
 
-    <q-drawer
-      v-model="sidebarVisible"
-      show-if-above
-      :width="250"
-      :breakpoint="500"
-      :overlay="!$q.screen.gt.sm"
-      class="bg-white"
-    >
-      <!-- Sidebar brand header -->
-      <div class="sidebar-header">
-        <q-icon name="flight_takeoff" size="20px" color="white" />
-        <span class="text-subtitle1 text-white text-weight-bold q-ml-sm">Gala</span>
+    <!-- ═══ MOBILE: Compact top bar ═══ -->
+    <q-header v-else class="layout-header" height-hint="52">
+      <q-toolbar style="min-height: 52px">
+        <q-avatar size="28px" class="q-mr-xs">
+          <img src="/logo.png" alt="Gala Logo" />
+        </q-avatar>
+        <span class="header-brand gala-display text-primary">Gala</span>
+
         <q-space />
-        <q-btn
-          flat round dense
-          icon="chevron_left"
-          color="white"
-          size="sm"
-          @click="sidebarVisible = false"
-          aria-label="Close Sidebar"
-        />
-      </div>
 
-      <!-- Navigation -->
-      <div class="sidebar-list q-pt-sm">
-        <q-list padding>
-          <q-item clickable v-ripple :to="'/dashboard'" exact>
-            <q-item-section avatar>
-              <q-icon name="dashboard" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>Dashboard</q-item-label>
-            </q-item-section>
-          </q-item>
+        <q-btn flat round dense class="header-icon-btn" aria-label="Notifications">
+          <q-icon name="notifications_outlined" size="20px" />
+          <q-badge
+            v-if="unreadCount > 0"
+            color="negative"
+            :label="unreadCount > 9 ? '9+' : String(unreadCount)"
+            floating rounded
+          />
+          <q-menu
+            anchor="bottom right"
+            self="top right"
+            class="notif-menu"
+            @before-show="markNotificationsRead"
+          >
+            <div class="row items-center justify-between q-px-md q-pt-sm q-pb-xs">
+              <div class="text-subtitle2 text-weight-bold">Notifications</div>
+              <q-btn flat dense no-caps size="sm" label="See all" color="primary" :to="'/trips'" v-close-popup />
+            </div>
+            <q-separator />
+            <div v-if="loadingNotifs" class="text-center q-pa-md">
+              <q-spinner size="sm" color="primary" />
+            </div>
+            <div v-else-if="notifications.length === 0" class="text-center q-pa-xl" style="color: var(--muted)">
+              <q-icon name="notifications_none" size="lg" class="q-mb-sm" style="color: var(--border)" />
+              <div class="text-caption">No recent activity</div>
+            </div>
+            <q-list v-else class="gala-scroll" style="max-height: 320px; overflow-y: auto">
+              <q-item
+                v-for="n in notifications"
+                :key="n.id"
+                clickable
+                v-close-popup
+                :class="isUnread(n) ? 'notif-unread' : ''"
+                @click="goToTripFromNotif(n.trip_id)"
+                class="q-py-sm"
+              >
+                <q-item-section avatar>
+                  <q-avatar
+                    size="32px"
+                    :color="isUnread(n) ? 'primary' : 'grey-3'"
+                    :text-color="isUnread(n) ? 'white' : 'grey-7'"
+                  >
+                    <q-icon :name="getNotifIcon(n.action_type)" size="14px" />
+                  </q-avatar>
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-caption text-weight-medium">{{ n.description }}</q-item-label>
+                  <q-item-label caption style="color: var(--muted)">{{ formatRelativeTime(n.created_at) }}</q-item-label>
+                </q-item-section>
+                <q-item-section side v-if="isUnread(n)">
+                  <div class="notif-dot" />
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
 
-          <q-item clickable v-ripple :to="'/trips'">
-            <q-item-section avatar>
-              <q-icon name="luggage" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>Trips</q-item-label>
-            </q-item-section>
-          </q-item>
+        <q-btn flat round dense aria-label="User Menu" class="q-ml-xs">
+          <q-avatar size="28px" color="primary" text-color="white">
+            <img v-if="authStore.userAvatar" :src="authStore.userAvatar" alt="User Avatar" />
+            <span v-else style="font-size: 0.65rem" class="text-weight-bold">{{ authStore.userInitials }}</span>
+          </q-avatar>
+          <q-menu anchor="bottom right" self="top right" style="min-width: 160px">
+            <q-list dense>
+              <q-item clickable :to="'/user-profile'" v-close-popup>
+                <q-item-section avatar><q-icon name="person_outline" size="18px" /></q-item-section>
+                <q-item-section>Profile</q-item-section>
+              </q-item>
+              <q-item clickable :to="'/settings'" v-close-popup>
+                <q-item-section avatar><q-icon name="settings" size="18px" /></q-item-section>
+                <q-item-section>Settings</q-item-section>
+              </q-item>
+              <q-separator />
+              <q-item clickable @click="handleLogout" v-close-popup>
+                <q-item-section avatar><q-icon name="logout" size="18px" color="negative" /></q-item-section>
+                <q-item-section class="text-negative">Logout</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
+      </q-toolbar>
+    </q-header>
 
-          <q-separator class="q-my-sm" />
+    <!-- ═══ DESKTOP: Icon Rail Sidebar ═══ -->
+    <div v-if="isDesktop" class="gala-rail" :class="{ 'gala-rail--expanded': railExpanded }" @mouseenter="railExpanded = true" @mouseleave="railExpanded = false">
+      <div class="gala-rail__spacer" style="height: 56px" />
 
-          <q-item clickable v-ripple :to="'/expense-analytics'">
-            <q-item-section avatar>
-              <q-icon name="analytics" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>Expense Analytics</q-item-label>
-            </q-item-section>
-          </q-item>
+      <router-link
+        v-for="item in navItems"
+        :key="item.to"
+        :to="item.to"
+        class="gala-rail__item"
+        :class="{ 'gala-rail__item--active': isNavActive(item.to) }"
+      >
+        <q-icon :name="isNavActive(item.to) ? item.iconActive : item.icon" />
+        <span class="gala-rail__label">{{ item.label }}</span>
+      </router-link>
 
-          <q-item clickable v-ripple :to="'/documents-vault'">
-            <q-item-section avatar>
-              <q-icon name="description" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>Documents Vault</q-item-label>
-            </q-item-section>
-          </q-item>
+      <div class="gala-rail__divider" />
 
-          <q-item clickable v-ripple :to="'/packing-list'">
-            <q-item-section avatar>
-              <q-icon name="checklist" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>Packing List</q-item-label>
-            </q-item-section>
-          </q-item>
+      <router-link
+        v-for="item in navSecondary"
+        :key="item.to"
+        :to="item.to"
+        class="gala-rail__item"
+        :class="{ 'gala-rail__item--active': isNavActive(item.to) }"
+      >
+        <q-icon :name="isNavActive(item.to) ? item.iconActive : item.icon" />
+        <span class="gala-rail__label">{{ item.label }}</span>
+      </router-link>
 
-          <q-separator class="q-my-sm" />
+      <div class="gala-rail__spacer" />
 
-          <q-item clickable v-ripple :to="'/user-profile'">
-            <q-item-section avatar>
-              <q-icon name="person" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>User Profile</q-item-label>
-            </q-item-section>
-          </q-item>
+      <router-link to="/settings" class="gala-rail__item" :class="{ 'gala-rail__item--active': isNavActive('/settings') }">
+        <q-icon :name="isNavActive('/settings') ? 'settings' : 'settings'" />
+        <span class="gala-rail__label">Settings</span>
+      </router-link>
 
-          <q-item clickable v-ripple :to="'/settings'">
-            <q-item-section avatar>
-              <q-icon name="settings" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>Settings</q-item-label>
-            </q-item-section>
-          </q-item>
-        </q-list>
-      </div>
-    </q-drawer>
+      <div style="height: var(--space-md)" />
+    </div>
 
-    <q-page-container>
-      <router-view />
+    <!-- ═══ Page Content ═══ -->
+    <q-page-container :style="isDesktop ? 'padding-left: 64px' : ''">
+      <router-view v-slot="{ Component }">
+        <transition name="page-fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
+
+      <!-- Mobile bottom nav spacer -->
+      <div v-if="!isDesktop" class="gala-bottom-nav-spacer" />
     </q-page-container>
+
+    <!-- ═══ MOBILE: Bottom Tab Bar ═══ -->
+    <div v-if="!isDesktop" class="gala-bottom-nav">
+      <router-link
+        v-for="item in bottomNavItems"
+        :key="item.to"
+        :to="item.to"
+        class="gala-bottom-nav__item"
+        :class="{ 'gala-bottom-nav__item--active': isNavActive(item.to) }"
+      >
+        <q-icon :name="isNavActive(item.to) ? item.iconActive : item.icon" />
+        <span>{{ item.label }}</span>
+      </router-link>
+
+      <!-- Center FAB -->
+      <div class="gala-bottom-nav__fab" @click="showQuickActions = true">
+        <q-icon name="add" />
+      </div>
+
+      <router-link
+        v-for="item in bottomNavItemsRight"
+        :key="item.to"
+        :to="item.to"
+        class="gala-bottom-nav__item"
+        :class="{ 'gala-bottom-nav__item--active': isNavActive(item.to) }"
+      >
+        <q-icon :name="isNavActive(item.to) ? item.iconActive : item.icon" />
+        <span>{{ item.label }}</span>
+      </router-link>
+    </div>
+
+    <!-- ═══ Quick Actions Dialog ═══ -->
+    <q-dialog v-model="showQuickActions" position="bottom">
+      <q-card class="quick-actions-card">
+        <div class="quick-actions-handle" />
+        <q-card-section class="q-pb-none">
+          <div class="text-subtitle1 text-weight-bold">Quick Actions</div>
+        </q-card-section>
+        <q-card-section class="row q-gutter-md justify-center q-pb-lg">
+          <div class="quick-action-item" @click="quickAction('/trips')">
+            <div class="quick-action-icon gala-gradient-primary">
+              <q-icon name="flight_takeoff" color="white" size="24px" />
+            </div>
+            <span class="text-caption text-weight-medium">New Trip</span>
+          </div>
+          <div class="quick-action-item" @click="quickAction('/expense-analytics')">
+            <div class="quick-action-icon gala-gradient-accent">
+              <q-icon name="receipt_long" color="white" size="24px" />
+            </div>
+            <span class="text-caption text-weight-medium">Add Expense</span>
+          </div>
+          <div class="quick-action-item" @click="quickAction('/documents-vault')">
+            <div class="quick-action-icon" style="background: linear-gradient(135deg, #3B82F6, #6366F1)">
+              <q-icon name="description" color="white" size="24px" />
+            </div>
+            <span class="text-caption text-weight-medium">Documents</span>
+          </div>
+          <div class="quick-action-item" @click="quickAction('/packing-list')">
+            <div class="quick-action-icon" style="background: linear-gradient(135deg, #10B981, #059669)">
+              <q-icon name="checklist" color="white" size="24px" />
+            </div>
+            <span class="text-caption text-weight-medium">Packing List</span>
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { supabase } from 'boot/supabase';
@@ -173,23 +320,110 @@ const router = useRouter();
 const authStore = useAuthStore();
 const tripStore = useTripStore();
 
-const sidebarVisible = ref(true);
+const railExpanded = ref(false);
+const showQuickActions = ref(false);
 
-watch(
-  () => route.path,
-  () => {
-    if (!$q.screen.gt.sm) {
-      sidebarVisible.value = false;
-    }
-  },
-);
+const isDesktop = computed(() => $q.screen.gt.sm);
 
-function toggleSidebar() {
-  sidebarVisible.value = !sidebarVisible.value;
+// ─── Navigation items ─────────────────────────────────────────────────────
+const navItems = [
+  { to: '/dashboard', icon: 'dashboard_outlined', iconActive: 'dashboard', label: 'Dashboard' },
+  { to: '/trips', icon: 'luggage_outlined', iconActive: 'luggage', label: 'Trips' },
+  { to: '/expense-analytics', icon: 'analytics_outlined', iconActive: 'analytics', label: 'Analytics' },
+];
+
+const navSecondary = [
+  { to: '/documents-vault', icon: 'description_outlined', iconActive: 'description', label: 'Documents' },
+  { to: '/packing-list', icon: 'checklist_outlined', iconActive: 'checklist', label: 'Packing' },
+  { to: '/user-profile', icon: 'person_outline', iconActive: 'person', label: 'Profile' },
+];
+
+// Mobile bottom nav — split left/right around FAB
+const bottomNavItems = [
+  { to: '/dashboard', icon: 'dashboard_outlined', iconActive: 'dashboard', label: 'Home' },
+  { to: '/trips', icon: 'luggage_outlined', iconActive: 'luggage', label: 'Trips' },
+];
+
+const bottomNavItemsRight = [
+  { to: '/expense-analytics', icon: 'analytics_outlined', iconActive: 'analytics', label: 'Analytics' },
+  { to: '/user-profile', icon: 'person_outline', iconActive: 'person', label: 'Profile' },
+];
+
+function isNavActive(path: string): boolean {
+  return route.path === path || route.path.startsWith(path + '/');
 }
 
-function getPageTitle(): string {
-  return (route.meta.title as string) || '';
+function quickAction(path: string) {
+  showQuickActions.value = false;
+  void router.push(path);
+}
+
+// ─── Notification centre ───────────────────────────────────────────────────
+interface NotifEntry {
+  id: string;
+  trip_id: string;
+  action_type: string;
+  description: string;
+  created_at: string;
+}
+
+const NOTIF_KEY = 'gala_notif_last_read';
+const notifications = ref<NotifEntry[]>([]);
+const loadingNotifs = ref(false);
+const lastReadAt = ref<string>(localStorage.getItem(NOTIF_KEY) ?? '');
+
+const unreadCount = computed(() =>
+  notifications.value.filter((n) => isUnread(n)).length
+);
+
+function isUnread(n: NotifEntry): boolean {
+  if (!lastReadAt.value) return true;
+  return n.created_at > lastReadAt.value;
+}
+
+function markNotificationsRead() {
+  const now = new Date().toISOString();
+  lastReadAt.value = now;
+  localStorage.setItem(NOTIF_KEY, now);
+}
+
+function getNotifIcon(actionType: string): string {
+  if (actionType.startsWith('expense')) return 'receipt_long';
+  if (actionType.startsWith('settlement')) return 'account_balance_wallet';
+  if (actionType.startsWith('member')) return 'people';
+  if (actionType.startsWith('trip')) return 'flight_takeoff';
+  return 'notifications';
+}
+
+function formatRelativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function goToTripFromNotif(tripId: string) {
+  void router.push(`/trips/${tripId}`);
+}
+
+async function fetchNotifications() {
+  const ids = tripStore.tripIds;
+  if (!ids.length) return;
+  loadingNotifs.value = true;
+  try {
+    const { data } = await supabase
+      .from('activity_log')
+      .select('id, trip_id, action_type, description, created_at')
+      .in('trip_id', ids)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    notifications.value = (data || []) as NotifEntry[];
+  } finally {
+    loadingNotifs.value = false;
+  }
 }
 
 async function handleLogout() {
@@ -213,30 +447,93 @@ onMounted(async () => {
   if (data?.dark_mode != null) {
     $q.dark.set(data.dark_mode as boolean);
   }
+  await tripStore.fetchTrips();
+  void fetchNotifications();
 });
 </script>
 
 <style scoped lang="scss">
-.q-header {
-  border-bottom: 1px solid $border;
+// ─── Header ──────────────────────────────────────────────────────────────────
+.layout-header {
+  background: var(--gala-glass-bg) !important;
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-bottom: 1px solid var(--gala-glass-border);
   box-shadow: none;
+  color: var(--on-background) !important;
 }
 
 .header-brand {
-  font-size: 1.0625rem;
-  letter-spacing: -0.01em;
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
 }
 
-.page-title {
-  font-weight: 500;
+.header-icon-btn {
+  color: var(--muted);
+
+  &:hover {
+    color: var(--on-background);
+  }
 }
 
-.sidebar-header {
+// ─── Notification menu ───────────────────────────────────────────────────────
+.notif-menu {
+  min-width: 310px;
+  max-width: 360px;
+  border-radius: var(--gala-radius-lg) !important;
+  box-shadow: var(--gala-elevation-float) !important;
+  border: 1px solid var(--gala-glass-border);
+}
+
+.notif-unread {
+  background: rgba(13, 148, 136, 0.06);
+}
+
+.notif-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--q-primary);
+}
+
+// ─── Quick Actions Dialog ────────────────────────────────────────────────────
+.quick-actions-card {
+  width: 100%;
+  max-width: 400px;
+  border-radius: var(--gala-radius-xl) var(--gala-radius-xl) 0 0 !important;
+  background: var(--background);
+  border: none;
+  box-shadow: var(--gala-elevation-float);
+}
+
+.quick-actions-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 12px auto 0;
+}
+
+.quick-action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  &:active .quick-action-icon {
+    transform: scale(0.92);
+  }
+}
+
+.quick-action-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
-  height: 64px;
-  padding: 0 16px;
-  background: linear-gradient(135deg, #0d9488 0%, #065f52 100%);
-  flex-shrink: 0;
+  justify-content: center;
+  transition: transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 </style>
