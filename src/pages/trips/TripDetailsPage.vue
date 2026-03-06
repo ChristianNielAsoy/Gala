@@ -1,54 +1,59 @@
 <template>
-  <q-page class="q-pb-xl bg-surface">
-    <!-- Header with Tabs -->
-    <q-header class="bg-primary text-white">
+  <q-page class="details-page">
+    <!-- ═══ Floating transparent toolbar ═══ -->
+    <q-header class="details-toolbar" :class="{ 'details-toolbar--scrolled': titleCollapsed }">
       <q-toolbar>
-        <q-btn flat round icon="arrow_back" @click="handleBack" aria-label="Go Back" />
-        <q-toolbar-title>
+        <q-btn
+          flat round
+          icon="arrow_back"
+          @click="handleBack"
+          aria-label="Go Back"
+          class="toolbar-icon-btn"
+        />
+        <q-toolbar-title class="toolbar-title">
           <transition name="fade">
-            <span v-if="titleCollapsed">{{ trip?.name ?? 'Loading...' }}</span>
+            <span v-if="titleCollapsed" class="gala-display toolbar-trip-name">{{ trip?.name ?? 'Loading...' }}</span>
           </transition>
         </q-toolbar-title>
-        <q-btn flat round icon="settings" @click="openSettingsModal" aria-label="Settings" />
-      </q-toolbar>
-
-      <!-- Navigation Tabs -->
-      <q-tabs v-model="tab" align="justify" indicator-color="white" active-color="white" dense>
-        <q-tab name="itinerary" label="Itinerary" icon="event_note" />
-        <q-tab name="expenses" label="Expenses" icon="receipt_long" />
-        <q-tab name="settlement" label="Settlement" icon="account_balance_wallet" />
-        <q-tab name="members" label="Members" icon="people" />
-        <q-tab name="activity" label="Activity" icon="timeline" />
-      </q-tabs>
-    </q-header>
-
-    <!-- Scroll detector -->
-    <q-scroll-observer @scroll="onPageScroll" />
-
-    <!-- Large title hero (scrolls away, revealing toolbar title) -->
-    <div class="trip-title-hero bg-primary q-px-md q-pt-md q-pb-sm">
-      <div class="text-h4 text-white text-weight-bold">{{ trip?.name ?? '' }}</div>
-      <div class="row items-center q-mt-xs q-gutter-x-md">
-        <div v-if="trip?.destination" class="text-caption text-white trip-title-hero__sub">
-          <q-icon name="place" size="xs" class="q-mr-xs" />{{ trip.destination }}
-        </div>
-        <div v-if="loadingWeather" class="text-caption text-white trip-title-hero__sub">
-          <q-spinner size="xs" color="white" />
-        </div>
-        <div v-else-if="weather" class="text-caption text-white trip-title-hero__sub">
-          <q-icon :name="getWeatherIcon(weather.forecast)" size="xs" class="q-mr-xs" />
-          {{ weather.temperature }}°C · {{ weather.forecast }}
-        </div>
         <q-btn
-          flat
-          round
-          dense
+          flat round dense
           icon="currency_exchange"
-          color="white"
-          size="sm"
           @click="showConverter = true"
           aria-label="Currency converter"
+          class="toolbar-icon-btn q-mr-xs"
         />
+        <q-btn
+          flat round
+          icon="settings"
+          @click="openSettingsModal"
+          aria-label="Settings"
+          class="toolbar-icon-btn"
+        />
+      </q-toolbar>
+    </q-header>
+
+    <!-- ═══ Cover image hero ═══ -->
+    <q-scroll-observer @scroll="onPageScroll" />
+
+    <div class="details-hero">
+      <img :src="tripCoverImage" :alt="trip?.name ?? ''" class="details-hero__image" />
+      <div class="details-hero__overlay" />
+
+      <!-- Title content over image -->
+      <div class="details-hero__content">
+        <div class="gala-display details-hero__name">{{ trip?.name ?? '' }}</div>
+        <div class="row items-center q-gutter-x-sm q-mt-xs">
+          <span v-if="trip?.destination" class="details-hero__meta">
+            <q-icon name="place" size="12px" />{{ trip.destination }}
+          </span>
+          <span v-if="!loadingWeather && weather" class="details-hero__meta">
+            <q-icon :name="getWeatherIcon(weather.forecast)" size="12px" />
+            {{ weather.temperature }}°C
+          </span>
+          <span v-if="loadingWeather" class="details-hero__meta">
+            <q-spinner size="xs" color="white" />
+          </span>
+        </div>
       </div>
     </div>
 
@@ -57,6 +62,22 @@
       :default-from="trip?.currency_code"
       default-to="PHP"
     />
+
+    <!-- ═══ Sticky pill segment tabs ═══ -->
+    <div class="details-tabs-wrap">
+      <div class="details-tabs gala-scroll">
+        <div
+          v-for="t in tabItems"
+          :key="t.name"
+          class="details-tab"
+          :class="{ 'details-tab--active': tab === t.name }"
+          @click="tab = t.name"
+        >
+          <q-icon :name="t.icon" size="14px" />
+          {{ t.label }}
+        </div>
+      </div>
+    </div>
 
     <!-- Tab Panels -->
     <q-tab-panels
@@ -115,36 +136,33 @@
           @action="goToAddExpense"
         />
 
-        <q-list v-else bordered separator>
+        <div v-else class="expense-list">
           <q-slide-item
             v-for="expense in expenses"
             :key="expense.id"
             right-color="negative"
             @right="({ reset }) => confirmDeleteExpense(expense, reset)"
             @click="goToEditExpense(expense.id)"
+            class="expense-slide-item"
           >
             <template #right>
               <q-icon name="delete" />
             </template>
-            <q-item-section avatar>
-              <q-avatar :color="getCategoryColor(expense.category)" text-color="white" size="md">
-                <q-icon :name="getCategoryIcon(expense.category)" size="sm" />
-              </q-avatar>
-            </q-item-section>
-            <q-item-section>
-              <q-item-label class="text-weight-medium">{{ expense.description }}</q-item-label>
-              <q-item-label caption>
-                {{ expense.category }} · {{ formatDate(expense.date) }}
-              </q-item-label>
-            </q-item-section>
-            <q-item-section side class="text-right">
-              <div class="text-subtitle2 text-weight-bold text-primary">
-                {{ formatAmount(expense.amount, trip?.currency_code) }}
+            <div class="expense-item" :class="`expense-item--${getCategoryClass(expense.category)}`">
+              <div class="expense-item__icon" :style="{ background: getCategoryBg(expense.category) }">
+                <q-icon :name="getCategoryIcon(expense.category)" :style="{ color: getCategoryHex(expense.category) }" size="18px" />
               </div>
-              <div class="text-caption text-grey-5">by {{ getMemberName(expense.paid_by_id) }}</div>
-            </q-item-section>
+              <div class="expense-item__body col">
+                <div class="expense-item__desc">{{ expense.description }}</div>
+                <div class="expense-item__meta">{{ expense.category }} · {{ formatDate(expense.date) }}</div>
+              </div>
+              <div class="expense-item__right">
+                <div class="expense-item__amount">{{ formatAmount(expense.amount, trip?.currency_code) }}</div>
+                <div class="expense-item__payer">{{ getMemberName(expense.paid_by_id) }}</div>
+              </div>
+            </div>
           </q-slide-item>
-        </q-list>
+        </div>
 
         <div v-if="expenses.length > 0" class="expense-total q-mt-sm">
           <div class="row items-center justify-between">
@@ -626,6 +644,52 @@ const $q = useQuasar();
 const authStore = useAuthStore();
 const tripStore = useTripStore();
 
+// Tab items for the pill segment control
+const tabItems = [
+  { name: 'itinerary',  icon: 'event_note',          label: 'Itinerary' },
+  { name: 'expenses',   icon: 'receipt_long',         label: 'Expenses' },
+  { name: 'settlement', icon: 'account_balance_wallet', label: 'Settle' },
+  { name: 'members',    icon: 'people',               label: 'Members' },
+  { name: 'activity',   icon: 'timeline',             label: 'Activity' },
+];
+
+// Cover image derived from trip name
+const tripCoverImages = [
+  'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=360&fit=crop',
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=360&fit=crop',
+  'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=360&fit=crop',
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=360&fit=crop',
+  'https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?w=800&h=360&fit=crop',
+];
+
+const tripCoverImage = computed(() => {
+  const name = trip.value?.name ?? '';
+  return tripCoverImages[Math.abs((name.charCodeAt(0) || 0) % tripCoverImages.length)]!;
+});
+
+// Category helper for CSS class
+function getCategoryClass(category: string): string {
+  const map: Record<string, string> = {
+    'Food & Drinks': 'food',
+    Accommodation:   'hotel',
+    Transportation:  'transport',
+    Activities:      'activity',
+    Groceries:       'grocery',
+  };
+  return map[category] ?? 'other';
+}
+
+function getCategoryBg(category: string): string {
+  const map: Record<string, string> = {
+    'Food & Drinks': 'rgba(245, 158, 11, 0.1)',
+    Accommodation:   'rgba(167, 139, 250, 0.1)',
+    Transportation:  'rgba(56, 189, 248, 0.1)',
+    Activities:      'rgba(251, 113, 133, 0.1)',
+    Groceries:       'rgba(163, 230, 53, 0.1)',
+  };
+  return map[category] ?? 'rgba(100, 116, 139, 0.1)';
+}
+
 // State
 const tab = ref('itinerary');
 const tabOrder = ['itinerary', 'expenses', 'settlement', 'members', 'activity'];
@@ -862,20 +926,6 @@ function getCategoryIcon(category: string): string {
     Other:           'category',
   };
   return icons[category] ?? 'receipt';
-}
-
-function getCategoryColor(category: string): string {
-  const colors: Record<string, string> = {
-    'Food & Drinks': 'deep-orange-7',
-    Accommodation:   'indigo-6',
-    Transportation:  'cyan-8',
-    Activities:      'deep-purple-6',
-    Groceries:       'green-7',
-    Shopping:        'pink-6',
-    Health:          'red-7',
-    Other:           'blue-grey-6',
-  };
-  return colors[category] ?? 'primary';
 }
 
 function getMemberColor(name: string): string {
@@ -1248,13 +1298,226 @@ onUnmounted(() => {
 </script>
 
 <style scoped lang="scss">
-.trip-title-hero {
-  // Seamlessly extends the primary header colour
-  &__sub {
-    opacity: 0.78;
+// ─── Page ────────────────────────────────────────────────────────────────────
+.details-page {
+  min-height: 100vh;
+  background-color: var(--surface);
+  padding-bottom: 80px;
+}
+
+// ─── Floating toolbar ────────────────────────────────────────────────────────
+.details-toolbar {
+  background: transparent !important;
+  box-shadow: none !important;
+  transition: background var(--duration-normal) var(--ease-out-expo),
+              backdrop-filter var(--duration-normal) var(--ease-out-expo);
+
+  &--scrolled {
+    background: var(--gala-glass-bg) !important;
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border-bottom: 1px solid var(--gala-glass-border);
   }
 }
 
+.toolbar-icon-btn {
+  color: white;
+  transition: color var(--duration-fast) ease;
+
+  .details-toolbar--scrolled & {
+    color: var(--on-background);
+  }
+}
+
+.toolbar-title {
+  .details-toolbar--scrolled & {
+    color: var(--on-background);
+  }
+}
+
+.toolbar-trip-name {
+  font-size: 1.1rem;
+}
+
+// ─── Hero ────────────────────────────────────────────────────────────────────
+.details-hero {
+  position: relative;
+  height: clamp(200px, 50vw, 280px);
+  overflow: hidden;
+
+  &__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.15) 0%,
+      rgba(0, 0, 0, 0.3) 40%,
+      rgba(0, 0, 0, 0.75) 100%
+    );
+  }
+
+  &__content {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+  }
+
+  &__name {
+    font-size: clamp(1.5rem, 5.5vw, 2.25rem);
+    color: white;
+    line-height: 1.1;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  &__meta {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+}
+
+// ─── Pill Segment Tabs ────────────────────────────────────────────────────────
+.details-tabs-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--gala-glass-bg);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-bottom: 1px solid var(--gala-glass-border);
+  padding: 8px 16px;
+}
+
+.details-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.details-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: var(--gala-radius-pill);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out-expo);
+  user-select: none;
+
+  &:hover {
+    color: $primary;
+    background: rgba($primary, 0.06);
+  }
+
+  &--active {
+    background: $primary;
+    color: white;
+  }
+}
+
+// ─── Expense list ─────────────────────────────────────────────────────────────
+.expense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.expense-slide-item {
+  border-radius: var(--gala-radius-md);
+  overflow: hidden;
+}
+
+.expense-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--gala-radius-md);
+  border-left-width: 3px;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-spring),
+              box-shadow var(--duration-fast) var(--ease-out-expo);
+
+  &:hover {
+    transform: translateX(2px);
+    box-shadow: var(--gala-elevation-1);
+  }
+
+  &--food      { border-left-color: $cat-food; }
+  &--hotel     { border-left-color: $cat-hotel; }
+  &--transport { border-left-color: $cat-transport; }
+  &--activity  { border-left-color: $cat-activity; }
+  &--grocery   { border-left-color: $cat-grocery; }
+  &--other     { border-left-color: $muted; }
+
+  &__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--gala-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__body {
+    min-width: 0;
+    flex: 1;
+  }
+
+  &__desc {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--on-background);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__meta {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  &__right {
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  &__amount {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: $primary;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__payer {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+}
+
+// ─── Expense total ────────────────────────────────────────────────────────────
 .expense-total {
   padding: 12px 16px;
   background: rgba($primary, 0.04);
@@ -1262,10 +1525,10 @@ onUnmounted(() => {
   border-radius: var(--gala-radius-md);
 }
 
-// Toolbar title fade transition
+// ─── Toolbar title fade transition ────────────────────────────────────────────
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--duration-fast) ease;
 }
 .fade-enter-from,
 .fade-leave-to {

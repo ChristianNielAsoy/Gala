@@ -1,29 +1,28 @@
 <template>
-  <q-page class="bg-surface">
-    <!-- Header -->
-    <div class="q-pa-md bg-surface">
-      <div class="text-h5 text-weight-bold">Expense Analytics</div>
-      <div class="text-body2 text-grey-6 q-mt-xs">Spending breakdown for your trips</div>
+  <q-page class="analytics-page gala-mesh-bg">
+
+    <!-- ═══ Page Header ═══ -->
+    <div class="q-px-lg q-pt-lg q-pb-md">
+      <p class="text-caption text-weight-bold analytics-eyebrow q-mb-xs">Trip Insights</p>
+      <h1 class="gala-display analytics-title q-mb-none">Spending<br>Analytics</h1>
     </div>
 
-    <div class="q-pa-md q-pt-none">
+    <div class="q-px-lg q-pb-xl">
       <!-- Trip Selector -->
-      <q-card flat bordered class="q-mb-md">
-        <q-card-section class="q-pb-sm">
-          <q-select
-            v-model="selectedTripId"
-            :options="tripOptions"
-            label="Select Trip"
-            outlined
-            dense
-            emit-value
-            map-options
-          />
-        </q-card-section>
-      </q-card>
+      <q-select
+        v-model="selectedTripId"
+        :options="tripOptions"
+        label="Select Trip"
+        outlined
+        dense
+        emit-value
+        map-options
+        class="analytics-trip-select q-mb-lg"
+        bg-color="background"
+      />
 
       <!-- Loading -->
-      <div v-if="loading" class="flex flex-center q-pa-xl">
+      <div v-if="loading" class="flex flex-center q-py-xl">
         <q-spinner color="primary" size="lg" />
       </div>
 
@@ -43,95 +42,70 @@
         subtitle="Add expenses to this trip to see analytics"
       />
 
-      <!-- Analytics Content -->
+      <!-- ═══ Analytics Content ═══ -->
       <template v-else>
-        <!-- Summary Stats -->
-        <div class="row q-col-gutter-md q-mb-md">
-          <div class="col-12 col-sm-4">
-            <q-card flat bordered class="stat-card q-pa-md">
-              <div class="row items-center no-wrap">
-                <div class="stat-icon-wrap stat-icon-wrap--primary q-mr-md">
-                  <q-icon name="receipt_long" size="22px" color="primary" />
-                </div>
-                <div>
-                  <div class="text-h5 text-weight-bold stat-number">{{ formatAmount(totalSpent) }}</div>
-                  <div class="text-caption text-grey-6">Total Spent</div>
-                </div>
-              </div>
-            </q-card>
+
+        <!-- Summary Stat Tiles -->
+        <div class="stats-row q-mb-lg">
+          <div class="stat-tile">
+            <div class="stat-tile__icon" style="background: rgba(13,148,136,0.1)">
+              <q-icon name="receipt_long" color="primary" size="20px" />
+            </div>
+            <div class="gala-display stat-tile__number">{{ formatAmount(totalSpent) }}</div>
+            <div class="stat-tile__label">Total Spent</div>
           </div>
-          <div class="col-12 col-sm-4">
-            <q-card flat bordered class="stat-card q-pa-md">
-              <div class="row items-center no-wrap">
-                <div class="stat-icon-wrap stat-icon-wrap--accent q-mr-md">
-                  <q-icon name="format_list_numbered" size="22px" color="accent" />
-                </div>
-                <div>
-                  <div class="text-h5 text-weight-bold stat-number">{{ expenses.length }}</div>
-                  <div class="text-caption text-grey-6">Expenses</div>
-                </div>
-              </div>
-            </q-card>
+          <div class="stat-tile">
+            <div class="stat-tile__icon" style="background: rgba(245,158,11,0.1)">
+              <q-icon name="format_list_numbered" color="warning" size="20px" />
+            </div>
+            <div class="gala-display stat-tile__number">{{ expenses.length }}</div>
+            <div class="stat-tile__label">Expenses</div>
           </div>
-          <div class="col-12 col-sm-4">
-            <q-card flat bordered class="stat-card q-pa-md">
-              <div class="row items-center no-wrap">
-                <div class="stat-icon-wrap stat-icon-wrap--positive q-mr-md">
-                  <q-icon name="star" size="22px" color="positive" />
-                </div>
-                <div>
-                  <div class="text-h5 text-weight-bold stat-number text-truncate" style="max-width: 120px">
-                    {{ topCategory }}
-                  </div>
-                  <div class="text-caption text-grey-6">Top Category</div>
-                </div>
-              </div>
-            </q-card>
+          <div class="stat-tile">
+            <div class="stat-tile__icon" style="background: rgba(16,185,129,0.1)">
+              <q-icon name="star" color="positive" size="20px" />
+            </div>
+            <div class="gala-display stat-tile__number stat-tile__number--sm">{{ topCategory }}</div>
+            <div class="stat-tile__label">Top Category</div>
           </div>
         </div>
 
-        <!-- Expenses by Category (Pie) -->
-        <q-card flat bordered class="q-mb-md">
-          <q-card-section>
-            <div class="text-subtitle1 text-weight-bold q-mb-sm">Spending by Category</div>
-            <!-- Category breakdown list -->
-            <div class="q-mb-md">
+        <!-- Category Breakdown -->
+        <div class="section-label q-mb-sm">Spending by Category</div>
+        <div class="analytics-panel q-mb-lg">
+          <!-- Category bars -->
+          <div
+            v-for="(item, index) in categoryBreakdown"
+            :key="item.label"
+            class="cat-row"
+          >
+            <div class="cat-row__dot" :style="{ background: brandColors[index % brandColors.length] }" />
+            <div class="cat-row__label">{{ item.label }}</div>
+            <div class="cat-row__bar-wrap">
               <div
-                v-for="(item, index) in categoryBreakdown"
-                :key="item.label"
-                class="row items-center q-mb-sm"
-              >
-                <div class="col-auto q-mr-sm">
-                  <div class="category-dot" :style="{ background: brandColors[index % brandColors.length] }" />
-                </div>
-                <div class="col text-body2">{{ item.label }}</div>
-                <div class="col-auto text-body2 text-weight-medium q-mr-sm">{{ formatAmount(item.value) }}</div>
-                <div class="col-auto" style="width: 80px">
-                  <q-linear-progress
-                    :value="item.value / totalSpent"
-                    :style="{ '--q-color-primary': brandColors[index % brandColors.length] }"
-                    color="primary"
-                    track-color="grey-3"
-                    rounded
-                    size="6px"
-                  />
-                </div>
-                <div class="col-auto text-caption text-grey-6 q-ml-sm" style="min-width: 34px; text-align: right">
-                  {{ Math.round((item.value / totalSpent) * 100) }}%
-                </div>
-              </div>
+                class="cat-row__bar"
+                :style="{
+                  width: `${(item.value / totalSpent) * 100}%`,
+                  background: brandColors[index % brandColors.length]
+                }"
+              />
             </div>
-            <canvas ref="categoryChart" height="180"></canvas>
-          </q-card-section>
-        </q-card>
+            <div class="cat-row__amount">{{ formatAmount(item.value) }}</div>
+            <div class="cat-row__pct">{{ Math.round((item.value / totalSpent) * 100) }}%</div>
+          </div>
 
-        <!-- Expenses by Member (Bar) -->
-        <q-card flat bordered class="q-mb-md">
-          <q-card-section>
-            <div class="text-subtitle1 text-weight-bold q-mb-sm">Amount Paid by Member</div>
-            <canvas ref="memberChart" height="180"></canvas>
-          </q-card-section>
-        </q-card>
+          <!-- Doughnut chart -->
+          <div class="chart-wrap q-mt-md">
+            <canvas ref="categoryChart" height="180" />
+          </div>
+        </div>
+
+        <!-- Member Spending -->
+        <div class="section-label q-mb-sm">Paid by Member</div>
+        <div class="analytics-panel">
+          <canvas ref="memberChart" height="180" />
+        </div>
+
       </template>
     </div>
   </q-page>
@@ -311,38 +285,153 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.stat-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.analytics-page {
+  min-height: 100vh;
+  background-color: var(--surface);
+}
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--gala-shadow-md);
+.analytics-eyebrow {
+  color: $primary;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.analytics-title {
+  font-size: clamp(2.25rem, 8vw, 3.5rem);
+  line-height: 1.05;
+  color: var(--on-background);
+}
+
+.analytics-trip-select {
+  :deep(.q-field__control) {
+    border-radius: var(--gala-radius-pill);
   }
 }
 
-.stat-number {
-  color: var(--on-background);
-  line-height: 1.1;
+// ─── Stats ────────────────────────────────────────────────────────────────────
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
 }
 
-.stat-icon-wrap {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--gala-radius-sm);
+.stat-tile {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--gala-radius-lg);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--gala-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__number {
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--on-background);
+    font-variant-numeric: tabular-nums;
+
+    &--sm {
+      font-size: 0.85rem;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+  }
+
+  &__label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+}
+
+// ─── Section label ────────────────────────────────────────────────────────────
+.section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+// ─── Analytics panel ─────────────────────────────────────────────────────────
+.analytics-panel {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--gala-radius-lg);
+  padding: 16px;
+}
+
+// ─── Category rows ────────────────────────────────────────────────────────────
+.cat-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  gap: 8px;
+  margin-bottom: 12px;
 
-  &--primary  { background: rgba(13, 148, 136, 0.1); }
-  &--accent   { background: rgba(249, 115, 22, 0.1); }
-  &--positive { background: rgba(22, 163, 74, 0.1); }
+  &__dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  &__label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--on-background);
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  &__bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--surface);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  &__bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s var(--ease-out-expo);
+    min-width: 4px;
+  }
+
+  &__amount {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--on-background);
+    text-align: right;
+    min-width: 64px;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  &__pct {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+    min-width: 32px;
+    text-align: right;
+    flex-shrink: 0;
+  }
 }
 
-.category-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.chart-wrap {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
 }
 </style>

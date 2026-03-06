@@ -1,261 +1,143 @@
 <template>
-  <div class="settlement-view q-pa-md">
+  <div class="settlement-view">
+
     <!-- Loading State -->
-    <div v-if="loading" class="text-center q-pa-xl">
+    <div v-if="loading" class="flex flex-center q-py-xl">
       <q-spinner color="primary" size="lg" />
-      <p class="q-mt-md text-grey-7">Calculating settlements...</p>
     </div>
 
-    <!-- Settlement Content -->
-    <div v-else>
-      <!-- Your Balance Card -->
-      <q-card flat bordered class="q-mb-md" v-if="currentMemberId">
-        <q-card-section class="bg-primary text-white">
-          <div class="text-subtitle2">Your Balance</div>
-          <div class="text-h4 text-weight-bold q-mt-sm">
-            <span v-if="yourBalance > 0">+</span>{{ currencyCode }}
-            {{ Math.abs(yourBalance).toFixed(2) }}
+    <div v-else class="settlement-content">
+
+      <!-- ═══ Your Balance Panel ═══ -->
+      <div v-if="currentMemberId" class="balance-panel q-mb-lg">
+        <div class="balance-panel__eyebrow">Your Balance</div>
+        <div class="balance-panel__amount" :class="yourBalance >= 0 ? 'balance-panel__amount--positive' : 'balance-panel__amount--negative'">
+          <span v-if="yourBalance > 0">+</span>{{ currencyCode }} {{ Math.abs(yourBalance).toFixed(2) }}
+        </div>
+        <div class="balance-panel__status">
+          <span v-if="yourBalance > 0">You are owed</span>
+          <span v-else-if="yourBalance < 0">You owe</span>
+          <span v-else>You're all settled up!</span>
+        </div>
+
+        <!-- Member balance pills -->
+        <div class="balance-pills q-mt-md">
+          <div
+            v-for="balance in memberBalances"
+            :key="balance.memberId"
+            class="balance-pill"
+            :class="balance.netBalance > 0 ? 'balance-pill--positive' : balance.netBalance < 0 ? 'balance-pill--negative' : 'balance-pill--neutral'"
+          >
+            <div class="balance-pill__avatar">{{ balance.memberName.charAt(0).toUpperCase() }}</div>
+            <div class="balance-pill__info">
+              <div class="balance-pill__name">{{ balance.memberName }}</div>
+              <div class="balance-pill__amount">
+                <span v-if="balance.netBalance > 0">+</span>{{ currencyCode }} {{ Math.abs(balance.netBalance).toFixed(2) }}
+              </div>
+            </div>
           </div>
-          <div class="text-subtitle1 q-mt-xs">
-            <span v-if="yourBalance > 0">You are owed</span>
-            <span v-else-if="yourBalance < 0">You owe</span>
-            <span v-else>You're all settled up! 🎉</span>
+        </div>
+      </div>
+
+      <!-- ═══ You Need to Pay ═══ -->
+      <template v-if="settlementsToPay.length > 0">
+        <div class="section-label q-mb-sm">You Need to Pay</div>
+        <div class="settle-card settle-card--pay q-mb-sm" v-for="settlement in settlementsToPay" :key="settlement.to">
+          <div class="settle-card__avatar settle-card__avatar--negative">{{ settlement.toName.charAt(0).toUpperCase() }}</div>
+          <div class="settle-card__body">
+            <div class="settle-card__name">{{ settlement.toName }}</div>
+            <div class="settle-card__caption">Settle your share of expenses</div>
           </div>
-        </q-card-section>
-      </q-card>
-
-      <!-- Settlements to Make (You Owe) -->
-      <q-card v-if="settlementsToPay.length > 0" flat bordered class="q-mb-md">
-        <q-card-section>
-          <div class="text-h6 text-negative q-mb-md">
-            <q-icon name="arrow_upward" /> You Need to Pay
+          <div class="settle-card__right">
+            <div class="settle-card__amount settle-card__amount--negative">{{ currencyCode }} {{ settlement.amount.toFixed(2) }}</div>
+            <button class="settle-card__action" @click="markAsPaid(settlement)">Mark Paid</button>
           </div>
+        </div>
+      </template>
 
-          <q-list separator>
-            <q-item v-for="settlement in settlementsToPay" :key="settlement.to" class="q-py-md">
-              <q-item-section avatar>
-                <q-avatar color="negative" text-color="white" size="48px">
-                  {{ settlement.toName.charAt(0).toUpperCase() }}
-                </q-avatar>
-              </q-item-section>
-
-              <q-item-section>
-                <q-item-label class="text-weight-bold"> Pay {{ settlement.toName }} </q-item-label>
-                <q-item-label caption> Settle your share of expenses </q-item-label>
-              </q-item-section>
-
-              <q-item-section side>
-                <q-item-label class="text-h6 text-negative text-weight-bold">
-                  {{ currencyCode }} {{ settlement.amount.toFixed(2) }}
-                </q-item-label>
-                <q-btn
-                  flat
-                  dense
-                  color="primary"
-                  label="Mark Paid"
-                  size="sm"
-                  @click="markAsPaid(settlement)"
-                  class="q-mt-xs"
-                />
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </q-card-section>
-      </q-card>
-
-      <!-- Payments Awaiting Your Confirmation -->
-      <q-card v-if="pendingVerifications.length > 0" flat bordered class="q-mb-md">
-        <q-card-section>
-          <div class="text-h6 text-orange-8 q-mb-md">
-            <q-icon name="pending_actions" class="q-mr-xs" /> Awaiting Your Confirmation
+      <!-- ═══ Awaiting Confirmation ═══ -->
+      <template v-if="pendingVerifications.length > 0">
+        <div class="section-label q-mb-sm q-mt-lg">Awaiting Confirmation</div>
+        <div class="settle-card settle-card--pending q-mb-sm" v-for="s in pendingVerifications" :key="s.id">
+          <div class="settle-card__avatar settle-card__avatar--warning">{{ getMemberName(s.from_member_id).charAt(0).toUpperCase() }}</div>
+          <div class="settle-card__body">
+            <div class="settle-card__name">{{ getMemberName(s.from_member_id) }} paid you</div>
+            <div class="settle-card__caption">{{ s.payment_method }}{{ s.notes ? ' · ' + s.notes : '' }}</div>
           </div>
-
-          <q-list separator>
-            <q-item v-for="s in pendingVerifications" :key="s.id" class="q-py-md">
-              <q-item-section avatar>
-                <q-avatar color="orange-8" text-color="white" size="48px">
-                  {{ getMemberName(s.from_member_id).charAt(0).toUpperCase() }}
-                </q-avatar>
-              </q-item-section>
-
-              <q-item-section>
-                <q-item-label class="text-weight-bold">
-                  {{ getMemberName(s.from_member_id) }} says they paid you
-                </q-item-label>
-                <q-item-label caption>
-                  {{ s.payment_method }}{{ s.notes ? ' · ' + s.notes : '' }}
-                </q-item-label>
-              </q-item-section>
-
-              <q-item-section side>
-                <q-item-label class="text-h6 text-positive text-weight-bold">
-                  {{ currencyCode }} {{ s.amount.toFixed(2) }}
-                </q-item-label>
-                <q-btn
-                  flat dense color="positive" label="Confirm" size="sm"
-                  @click="verifyPayment(s)" class="q-mt-xs"
-                />
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </q-card-section>
-      </q-card>
-
-      <!-- Settlements to Receive (You Are Owed) -->
-      <q-card v-if="settlementsToReceive.length > 0" flat bordered class="q-mb-md">
-        <q-card-section>
-          <div class="text-h6 text-positive q-mb-md">
-            <q-icon name="arrow_downward" /> You Will Receive
+          <div class="settle-card__right">
+            <div class="settle-card__amount settle-card__amount--positive">{{ currencyCode }} {{ s.amount.toFixed(2) }}</div>
+            <button class="settle-card__action settle-card__action--positive" @click="verifyPayment(s)">Confirm</button>
           </div>
+        </div>
+      </template>
 
-          <q-list separator>
-            <q-item
-              v-for="settlement in settlementsToReceive"
-              :key="settlement.from"
-              class="q-py-md"
-            >
-              <q-item-section avatar>
-                <q-avatar color="positive" text-color="white" size="48px">
-                  {{ settlement.fromName.charAt(0).toUpperCase() }}
-                </q-avatar>
-              </q-item-section>
+      <!-- ═══ You Will Receive ═══ -->
+      <template v-if="settlementsToReceive.length > 0">
+        <div class="section-label q-mb-sm q-mt-lg">You Will Receive</div>
+        <div class="settle-card q-mb-sm" v-for="settlement in settlementsToReceive" :key="settlement.from">
+          <div class="settle-card__avatar settle-card__avatar--positive">{{ settlement.fromName.charAt(0).toUpperCase() }}</div>
+          <div class="settle-card__body">
+            <div class="settle-card__name">{{ settlement.fromName }}</div>
+            <div class="settle-card__caption">Waiting for payment</div>
+          </div>
+          <div class="settle-card__right">
+            <div class="settle-card__amount settle-card__amount--positive">{{ currencyCode }} {{ settlement.amount.toFixed(2) }}</div>
+          </div>
+        </div>
+      </template>
 
-              <q-item-section>
-                <q-item-label class="text-weight-bold">
-                  {{ settlement.fromName }} owes you
-                </q-item-label>
-                <q-item-label caption> Waiting for payment </q-item-label>
-              </q-item-section>
-
-              <q-item-section side>
-                <q-item-label class="text-h6 text-positive text-weight-bold">
-                  {{ currencyCode }} {{ settlement.amount.toFixed(2) }}
-                </q-item-label>
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </q-card-section>
-      </q-card>
-
-      <!-- All Trip Settlements -->
-      <q-card v-if="allSettlements.length > 0" flat bordered>
-        <q-card-section>
-          <div class="text-h6 q-mb-md">All Trip Settlements</div>
-
-          <q-list separator>
-            <q-item v-for="(settlement, index) in allSettlements" :key="index" class="q-py-sm">
-              <q-item-section>
-                <div class="row items-center">
-                  <q-avatar size="32px" color="grey-4" text-color="grey-8" class="q-mr-sm">
-                    {{ settlement.fromName.charAt(0) }}
-                  </q-avatar>
-                  <span class="text-weight-medium">{{ settlement.fromName }}</span>
-
-                  <q-icon name="arrow_forward" class="q-mx-md" color="grey-5" />
-
-                  <q-avatar size="32px" color="grey-4" text-color="grey-8" class="q-mr-sm">
-                    {{ settlement.toName.charAt(0) }}
-                  </q-avatar>
-                  <span class="text-weight-medium">{{ settlement.toName }}</span>
-
-                  <q-space />
-
-                  <span class="text-weight-bold">
-                    {{ currencyCode }} {{ settlement.amount.toFixed(2) }}
-                  </span>
-                </div>
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </q-card-section>
-      </q-card>
+      <!-- ═══ All Trip Settlements ═══ -->
+      <template v-if="allSettlements.length > 0">
+        <div class="section-label q-mb-sm q-mt-lg">All Settlements</div>
+        <div class="flow-list">
+          <div class="flow-item" v-for="(settlement, index) in allSettlements" :key="index">
+            <div class="flow-item__member">
+              <div class="flow-item__pip">{{ settlement.fromName.charAt(0) }}</div>
+              <span class="flow-item__name">{{ settlement.fromName }}</span>
+            </div>
+            <div class="flow-item__arrow">
+              <div class="flow-item__line" />
+              <div class="flow-item__badge">{{ currencyCode }} {{ settlement.amount.toFixed(2) }}</div>
+              <q-icon name="arrow_forward" size="14px" color="primary" />
+            </div>
+            <div class="flow-item__member flow-item__member--right">
+              <div class="flow-item__pip flow-item__pip--teal">{{ settlement.toName.charAt(0) }}</div>
+              <span class="flow-item__name">{{ settlement.toName }}</span>
+            </div>
+          </div>
+        </div>
+      </template>
 
       <!-- All Settled State -->
-      <q-card v-if="allSettlements.length === 0" flat bordered>
-        <q-card-section class="text-center q-py-xl">
-          <q-icon name="check_circle" size="xl" color="positive" />
-          <div class="text-h6 q-mt-md">All Settled!</div>
-          <div class="text-grey-7 q-mt-sm">
-            Everyone has paid their share. No settlements needed.
-          </div>
-        </q-card-section>
-      </q-card>
+      <div v-if="allSettlements.length === 0" class="settled-state">
+        <div class="settled-state__icon">
+          <q-icon name="check_circle" size="40px" color="positive" />
+        </div>
+        <div class="settled-state__title">All Settled!</div>
+        <div class="settled-state__sub">Everyone has paid their share.</div>
+      </div>
 
-      <!-- Member Balances Summary (Expandable) -->
-      <q-expansion-item
-        icon="people"
-        label="Member Balances"
-        caption="See detailed balance for each member"
-        class="q-mt-md"
-      >
-        <q-card>
-          <q-card-section>
-            <q-list separator>
-              <q-item v-for="balance in memberBalances" :key="balance.memberId">
-                <q-item-section avatar>
-                  <q-avatar
-                    :color="
-                      balance.netBalance > 0
-                        ? 'positive'
-                        : balance.netBalance < 0
-                          ? 'negative'
-                          : 'grey'
-                    "
-                    text-color="white"
-                  >
-                    {{ balance.memberName.charAt(0).toUpperCase() }}
-                  </q-avatar>
-                </q-item-section>
-
-                <q-item-section>
-                  <q-item-label>{{ balance.memberName }}</q-item-label>
-                </q-item-section>
-
-                <q-item-section side>
-                  <q-item-label
-                    class="text-weight-bold"
-                    :class="getBalanceColor(balance.netBalance)"
-                  >
-                    <span v-if="balance.netBalance > 0">+</span>
-                    {{ currencyCode }} {{ Math.abs(balance.netBalance).toFixed(2) }}
-                  </q-item-label>
-                  <q-item-label caption>
-                    <span v-if="balance.netBalance > 0">is owed</span>
-                    <span v-else-if="balance.netBalance < 0">owes</span>
-                    <span v-else>settled</span>
-                  </q-item-label>
-                </q-item-section>
-              </q-item>
-            </q-list>
-          </q-card-section>
-        </q-card>
-      </q-expansion-item>
     </div>
 
-    <!-- Mark as Paid Dialog -->
+    <!-- ═══ Mark as Paid Dialog ═══ -->
     <q-dialog v-model="showPaymentDialog">
-      <q-card style="min-width: 350px">
-        <q-card-section>
-          <div class="text-h6">Record Payment</div>
+      <q-card class="payment-dialog">
+        <q-card-section class="q-pb-sm">
+          <div class="text-subtitle1 text-weight-bold">Record Payment</div>
+          <div class="text-caption text-grey-6 q-mt-xs">
+            {{ currencyCode }} {{ selectedSettlement?.amount.toFixed(2) }} to <strong>{{ selectedSettlement?.toName }}</strong>
+          </div>
         </q-card-section>
 
-        <q-card-section class="q-pt-none">
-          <p>
-            Confirm payment of
-            <strong>{{ currencyCode }} {{ selectedSettlement?.amount.toFixed(2) }}</strong> to
-            <strong>{{ selectedSettlement?.toName }}</strong
-            >?
-          </p>
-
+        <q-card-section class="q-pt-sm">
           <q-select
             v-model="paymentMethod"
             :options="paymentMethods"
             label="Payment Method"
             outlined
             dense
-            class="q-mt-md"
+            class="q-mb-md"
           />
-
           <q-input
             v-model="paymentNotes"
             label="Notes (optional)"
@@ -263,30 +145,29 @@
             dense
             type="textarea"
             rows="2"
-            class="q-mt-md"
+            class="q-mb-md"
           />
-
           <q-file
             v-model="paymentProofFile"
             label="Payment proof (optional)"
             outlined
             dense
             accept="image/*,.pdf"
-            class="q-mt-md"
           >
             <template v-slot:prepend><q-icon name="attach_file" /></template>
           </q-file>
         </q-card-section>
 
-        <q-card-actions align="right">
+        <q-card-actions align="right" class="q-px-md q-pb-md">
           <q-btn flat no-caps label="Cancel" color="grey-7" v-close-popup />
           <q-btn
-            flat
+            unelevated
             no-caps
             label="Confirm Payment"
             color="primary"
             @click="confirmPayment"
             :loading="processingPayment"
+            style="border-radius: 999px; padding: 0 20px;"
           />
         </q-card-actions>
       </q-card>
@@ -302,7 +183,6 @@ import { sendPushToTripMembers } from 'src/utils/notificationService';
 import {
   calculateMemberBalances,
   simplifySettlements,
-  getBalanceColor,
   type MemberBalance,
   type Settlement,
   type ExpenseWithSplits,
@@ -495,9 +375,295 @@ async function confirmPayment() {
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .settlement-view {
-  max-width: 800px;
+  max-width: 640px;
   margin: 0 auto;
+  padding: 0 16px 80px;
+}
+
+// ─── Balance Panel ─────────────────────────────────────────────────────────────
+.balance-panel {
+  background: linear-gradient(135deg, #0D9488 0%, #134E4A 100%);
+  border-radius: var(--gala-radius-xl);
+  padding: 24px 20px 20px;
+  color: #fff;
+
+  &__eyebrow {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.75;
+    margin-bottom: 4px;
+  }
+
+  &__amount {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 2.5rem;
+    line-height: 1;
+    margin-bottom: 4px;
+
+    &--positive { color: #6EE7B7; }
+    &--negative { color: #FCA5A5; }
+  }
+
+  &__status {
+    font-size: 0.85rem;
+    opacity: 0.85;
+    font-weight: 500;
+  }
+}
+
+// ─── Balance Pills ─────────────────────────────────────────────────────────────
+.balance-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.balance-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--gala-radius-pill);
+  padding: 6px 12px 6px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+
+  &__avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  &__name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.2;
+  }
+
+  &__amount {
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  &--positive &__amount { color: #6EE7B7; }
+  &--negative &__amount { color: #FCA5A5; }
+  &--neutral &__amount { color: rgba(255,255,255,0.6); }
+}
+
+// ─── Section label ─────────────────────────────────────────────────────────────
+.section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+// ─── Settlement Cards ──────────────────────────────────────────────────────────
+.settle-card {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--gala-radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  &--pay { border-left: 3px solid #DC2626; }
+  &--pending { border-left: 3px solid #D97706; }
+
+  &__avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+
+    &--negative { background: #DC2626; }
+    &--positive { background: #16A34A; }
+    &--warning { background: #D97706; }
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--on-background);
+    line-height: 1.3;
+  }
+
+  &__caption {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  &__right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  &__amount {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+
+    &--negative { color: #DC2626; }
+    &--positive { color: #16A34A; }
+  }
+
+  &__action {
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: rgba(13, 148, 136, 0.1);
+    color: #0D9488;
+    border: none;
+    border-radius: 999px;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: rgba(13, 148, 136, 0.2); }
+    &--positive {
+      background: rgba(22, 163, 74, 0.1);
+      color: #16A34A;
+      &:hover { background: rgba(22, 163, 74, 0.2); }
+    }
+  }
+}
+
+// ─── Flow List ─────────────────────────────────────────────────────────────────
+.flow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.flow-item {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--gala-radius-lg);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &__member {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 72px;
+    &--right { justify-content: flex-end; }
+  }
+
+  &__pip {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+    flex-shrink: 0;
+
+    &--teal {
+      background: rgba(13, 148, 136, 0.12);
+      border-color: rgba(13, 148, 136, 0.3);
+      color: #0D9488;
+    }
+  }
+
+  &__name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--on-background);
+  }
+
+  &__arrow {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex-direction: column;
+  }
+
+  &__badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: $primary;
+    background: rgba(13, 148, 136, 0.1);
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__line {
+    display: none;
+  }
+}
+
+// ─── All Settled State ─────────────────────────────────────────────────────────
+.settled-state {
+  text-align: center;
+  padding: 40px 0 20px;
+
+  &__icon {
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--on-background);
+    margin-bottom: 4px;
+  }
+
+  &__sub {
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+}
+
+// ─── Dialog ───────────────────────────────────────────────────────────────────
+.payment-dialog {
+  min-width: 340px;
+  border-radius: var(--gala-radius-xl) !important;
 }
 </style>

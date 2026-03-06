@@ -1,126 +1,148 @@
 <template>
-  <q-page class="bg-surface">
-    <q-header class="bg-primary text-white">
-      <q-toolbar>
-        <q-btn flat round icon="arrow_back" @click="handleBack" aria-label="Cancel" />
-        <q-toolbar-title>
-          {{ isEdit ? 'Edit Expense' : 'Add New Expense' }}
+  <q-page class="editor-page gala-mesh-bg">
+
+    <!-- ═══ Floating Header ═══ -->
+    <q-header class="editor-header">
+      <q-toolbar class="editor-toolbar">
+        <q-btn flat round icon="arrow_back" @click="handleBack" aria-label="Cancel" color="on-background" />
+        <q-toolbar-title class="editor-toolbar__title">
+          {{ isEdit ? 'Edit Expense' : 'New Expense' }}
           <q-badge v-if="hasDraft" color="warning" class="q-ml-sm" label="Draft" />
         </q-toolbar-title>
         <q-btn
           v-if="hasDraft"
-          flat
-          round
-          icon="delete"
-          color="warning"
-          @click="clearDraft"
-          aria-label="Clear draft"
+          flat round icon="delete_outline" color="warning"
+          @click="clearDraft" aria-label="Clear draft"
         />
-        <q-btn flat no-caps label="Save" @click="handleSave" :loading="saving" :disable="!isValid" />
+        <q-btn
+          unelevated no-caps label="Save"
+          color="primary"
+          @click="handleSave"
+          :loading="saving"
+          :disable="!isValid"
+          style="border-radius: 999px; padding: 0 20px; height: 36px;"
+        />
       </q-toolbar>
     </q-header>
 
-    <div class="q-pa-md">
-      <q-form @submit.prevent="handleSave" class="q-gutter-y-md">
-        <!-- Section 1: Basic Details -->
-        <q-card flat bordered>
-          <q-card-section>
-            <div class="text-h6 q-pb-sm">Basic Details</div>
+    <div class="editor-body">
+      <q-form @submit.prevent="handleSave">
 
-            <q-input
-              v-model="expenseForm.description"
-              label="Description"
-              placeholder="e.g., Dinner at Bali, Fuel for rental"
-              :rules="[(val: string) => !!val || 'Description is required']"
-              outlined
-              dense
-              class="q-mb-md"
-            />
+        <!-- ─── Section 1: Basic Details ───────────────────────────────────── -->
+        <div class="editor-section-label">Details</div>
+        <div class="editor-panel q-mb-lg">
 
+          <!-- Description -->
+          <q-input
+            v-model="expenseForm.description"
+            placeholder="What was this for?"
+            :rules="[(val: string) => !!val || 'Description is required']"
+            borderless
+            dense
+            class="editor-field editor-field--description"
+            input-class="editor-input editor-input--description"
+          />
+
+          <div class="editor-divider" />
+
+          <!-- Amount -->
+          <div class="editor-amount-row">
+            <span class="editor-amount-currency">{{ trip?.currency_code || 'PHP' }}</span>
             <q-input
               v-model="amountExpression"
-              label="Total Amount"
-              :prefix="trip?.currency_code || 'PHP'"
-              :hint="amountExpressionResult !== null ? `= ${(trip?.currency_code || 'PHP')} ${amountExpressionResult.toFixed(2)}` : 'Tip: type 120+45+30 to calculate'"
-              :rules="[(val: string) => { const n = parseAmountExpression(val); return (n !== null && n > 0) || 'Enter a valid amount greater than zero'; }]"
-              outlined
+              placeholder="0.00"
+              :rules="[(val: string) => { const n = parseAmountExpression(val); return (n !== null && n > 0) || 'Enter a valid amount'; }]"
+              borderless
               dense
               inputmode="decimal"
-              input-class="text-right text-h6 text-primary"
-              class="q-mb-md"
+              class="editor-field editor-field--amount"
+              input-class="editor-input editor-input--amount"
               @blur="onAmountBlur"
               @keyup.enter="onAmountBlur"
             />
+            <div v-if="amountExpressionResult !== null" class="editor-amount-hint">
+              = {{ trip?.currency_code || 'PHP' }} {{ amountExpressionResult.toFixed(2) }}
+            </div>
+          </div>
 
-            <q-select
-              v-model="expenseForm.category"
-              :options="categoryOptions"
-              label="Category"
-              outlined
-              dense
-              emit-value
-              map-options
-              class="q-mb-md"
+          <div class="editor-divider" />
+
+          <!-- Category chips -->
+          <div class="editor-field-label q-mt-sm q-mb-xs">Category</div>
+          <div class="cat-chips">
+            <button
+              v-for="opt in categoryOptions"
+              :key="opt.value"
+              type="button"
+              class="cat-chip"
+              :class="expenseForm.category === opt.value ? 'cat-chip--active' : ''"
+              @click="expenseForm.category = opt.value"
             >
-              <template v-slot:prepend>
-                <q-icon name="list" />
-              </template>
-            </q-select>
+              {{ opt.label }}
+            </button>
+          </div>
 
-            <q-input
-              v-model="expenseForm.date"
-              label="Date"
-              mask="date"
-              :rules="['date']"
-              outlined
-              dense
-            >
-              <template v-slot:append>
-                <q-icon name="event" class="cursor-pointer">
-                  <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                    <q-date v-model="expenseForm.date" />
-                  </q-popup-proxy>
-                </q-icon>
-              </template>
-            </q-input>
-          </q-card-section>
-        </q-card>
+          <div class="editor-divider q-mt-sm" />
 
-        <!-- Section 2: Who Paid? -->
-        <q-card flat bordered>
-          <q-card-section>
-            <div class="text-h6 q-pb-sm">Who paid?</div>
-            <q-select
-              v-model="expenseForm.paid_by_id"
-              :options="memberOptions"
-              label="Paid By"
-              outlined
-              dense
-              emit-value
-              map-options
-              :rules="[(val: string) => !!val || 'Payer is required']"
-            >
-              <template v-slot:prepend>
-                <q-icon name="payments" />
-              </template>
-            </q-select>
-          </q-card-section>
-        </q-card>
+          <!-- Date -->
+          <div class="editor-field-label q-mt-sm">Date</div>
+          <q-input
+            v-model="expenseForm.date"
+            mask="date"
+            :rules="['date']"
+            borderless
+            dense
+            class="editor-field"
+            input-class="editor-input"
+          >
+            <template v-slot:append>
+              <q-icon name="calendar_today" size="18px" class="cursor-pointer text-muted">
+                <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                  <q-date v-model="expenseForm.date" />
+                </q-popup-proxy>
+              </q-icon>
+            </template>
+          </q-input>
+        </div>
 
-        <!-- Section 3: Split Type -->
-        <q-card flat bordered>
-          <q-card-section>
-            <div class="text-h6 q-pb-sm">How to split?</div>
-            <q-option-group
-              v-model="splitMode"
-              :options="splitModeOptions"
-              color="primary"
-              class="q-mb-md"
-            />
+        <!-- ─── Section 2: Who Paid? ───────────────────────────────────────── -->
+        <div class="editor-section-label">Who paid?</div>
+        <div class="editor-panel q-mb-lg">
+          <q-select
+            v-model="expenseForm.paid_by_id"
+            :options="memberOptions"
+            label="Paid By"
+            outlined
+            dense
+            emit-value
+            map-options
+            :rules="[(val: string) => !!val || 'Payer is required']"
+            class="editor-select"
+          >
+            <template v-slot:prepend>
+              <q-icon name="payments" color="primary" size="20px" />
+            </template>
+          </q-select>
+        </div>
+
+        <!-- ─── Section 3: Split Type ──────────────────────────────────────── -->
+        <div class="editor-section-label">How to split?</div>
+        <div class="editor-panel q-mb-lg">
+          <!-- Split mode pill tabs -->
+          <div class="split-tabs q-mb-md">
+            <button
+              v-for="opt in splitModeOptions"
+              :key="opt.value"
+              type="button"
+              class="split-tab"
+              :class="splitMode === opt.value ? 'split-tab--active' : ''"
+              @click="splitMode = opt.value as SplitMode"
+            >{{ opt.label }}</button>
+          </div>
 
 
-            <!-- ITEM-BASED SPLITTING -->
-            <div v-if="splitMode === 'itemized'" class="q-mt-md">
+          <!-- ITEM-BASED SPLITTING -->
+          <div v-if="splitMode === 'itemized'" class="q-mt-sm">
               <div class="row items-center justify-between q-mb-sm">
                 <div class="text-subtitle2 text-weight-medium">Items</div>
                 <q-btn
@@ -135,67 +157,38 @@
               </div>
 
               <!-- Item Cards -->
-              <div v-for="(item, idx) in items" :key="idx" class="q-mb-md">
-                <q-card flat bordered class="bg-surface">
-                  <q-card-section class="q-pa-sm">
-                    <div class="row items-center q-gutter-sm">
-                      <q-input
-                        v-model="item.name"
-                        placeholder="Item name"
-                        outlined
-                        dense
-                        class="col"
-                        :rules="[(val: string) => !!val || 'Required']"
-                      />
-                      <q-input
-                        v-model.number="item.amount"
-                        type="number"
-                        step="0.01"
-                        :prefix="trip?.currency_code || 'PHP'"
-                        outlined
-                        dense
-                        style="max-width: 120px"
-                        :rules="[(val: number) => val > 0 || 'Required']"
-                      />
-                      <q-btn
-                        flat
-                        round
-                        dense
-                        icon="delete"
-                        color="negative"
-                        size="sm"
-                        @click="removeItem(idx)"
-                      />
-                    </div>
-
-                    <!-- Is this "libre" (free)? -->
-                    <q-checkbox
-                      v-model="item.isLibre"
-                      label="This is libre (no split needed)"
-                      dense
-                      class="q-mt-xs"
-                    />
-
-                    <!-- Participant Selection for this item -->
-                    <div v-if="!item.isLibre" class="q-mt-sm">
-                      <div class="text-caption text-grey-7 q-mb-xs">Who's sharing this?</div>
-                      <div class="row q-gutter-xs">
-                        <q-chip
-                          v-for="member in members"
-                          :key="member.id"
-                          :selected="item.participants.includes(member.id)"
-                          clickable
-                          @click="toggleItemParticipant(idx, member.id)"
-                          :color="item.participants.includes(member.id) ? 'primary' : 'grey-3'"
-                          :text-color="item.participants.includes(member.id) ? 'white' : 'grey-8'"
-                          size="sm"
-                        >
-                          {{ member.name }}
-                        </q-chip>
-                      </div>
-                    </div>
-                  </q-card-section>
-                </q-card>
+              <div v-for="(item, idx) in items" :key="idx" class="item-card q-mb-sm">
+                <div class="item-card__row">
+                  <q-input
+                    v-model="item.name"
+                    placeholder="Item name"
+                    outlined dense class="col"
+                    :rules="[(val: string) => !!val || 'Required']"
+                  />
+                  <q-input
+                    v-model.number="item.amount"
+                    type="number" step="0.01"
+                    :prefix="trip?.currency_code || 'PHP'"
+                    outlined dense style="max-width: 110px"
+                    :rules="[(val: number) => val > 0 || 'Required']"
+                  />
+                  <q-btn flat round dense icon="delete_outline" color="negative" size="sm" @click="removeItem(idx)" />
+                </div>
+                <q-checkbox v-model="item.isLibre" label="Libre (no split)" dense class="q-mt-xs" />
+                <div v-if="!item.isLibre" class="q-mt-xs">
+                  <div class="editor-field-label q-mb-xs">Who's sharing?</div>
+                  <div class="member-chips">
+                    <q-chip
+                      v-for="member in members" :key="member.id"
+                      :selected="item.participants.includes(member.id)"
+                      clickable
+                      @click="toggleItemParticipant(idx, member.id)"
+                      :color="item.participants.includes(member.id) ? 'primary' : 'grey-3'"
+                      :text-color="item.participants.includes(member.id) ? 'white' : 'grey-8'"
+                      size="sm"
+                    >{{ member.name }}</q-chip>
+                  </div>
+                </div>
               </div>
 
               <!-- Items Total vs Expense Total Validation -->
@@ -209,249 +202,172 @@
               </q-banner>
             </div>
 
-            <!-- EQUAL SPLIT MODE -->
-            <div v-else-if="splitMode === 'equal'" class="q-mt-md">
-              <div class="text-subtitle2 text-weight-medium q-mb-sm">Who's involved?</div>
-              <q-option-group
-                :options="memberCheckOptions"
-                type="checkbox"
-                v-model="involvedMembers"
-                :rules="[(val: string[]) => val.length > 0 || 'Select at least one']"
+          <!-- EQUAL SPLIT MODE -->
+          <div v-else-if="splitMode === 'equal'" class="q-mt-sm">
+            <div class="editor-field-label q-mb-xs">Who's involved?</div>
+            <div class="member-chips">
+              <q-chip
+                v-for="opt in memberCheckOptions" :key="opt.value"
+                :selected="involvedMembers.includes(opt.value)"
+                clickable
+                @click="involvedMembers.includes(opt.value)
+                  ? involvedMembers.splice(involvedMembers.indexOf(opt.value), 1)
+                  : involvedMembers.push(opt.value)"
+                :color="involvedMembers.includes(opt.value) ? 'primary' : 'grey-3'"
+                :text-color="involvedMembers.includes(opt.value) ? 'white' : 'grey-8'"
+                size="sm"
+              >{{ opt.label }}</q-chip>
+            </div>
+          </div>
+
+          <!-- GIFTED / LIBRE MODE -->
+          <div v-else-if="splitMode === 'gifted'" class="q-mt-sm">
+            <div class="split-info-banner split-info-banner--purple q-mb-sm">
+              <q-icon name="card_giftcard" size="16px" />
+              This is libre — selected members won't owe anything.
+            </div>
+            <div class="editor-field-label q-mb-xs">Who's receiving this gift?</div>
+            <div class="member-chips">
+              <q-chip
+                v-for="opt in memberCheckOptions" :key="opt.value"
+                :selected="involvedMembers.includes(opt.value)"
+                clickable
+                @click="involvedMembers.includes(opt.value)
+                  ? involvedMembers.splice(involvedMembers.indexOf(opt.value), 1)
+                  : involvedMembers.push(opt.value)"
+                :color="involvedMembers.includes(opt.value) ? 'primary' : 'grey-3'"
+                :text-color="involvedMembers.includes(opt.value) ? 'white' : 'grey-8'"
+                size="sm"
+              >{{ opt.label }}</q-chip>
+            </div>
+          </div>
+
+          <!-- EQUAL MEALS MODE -->
+          <div v-else-if="splitMode === 'equalized_meals'" class="q-mt-sm">
+            <div class="split-info-banner split-info-banner--blue q-mb-sm">
+              <q-icon name="restaurant" size="16px" />
+              Everyone orders separately, total split equally.
+            </div>
+            <div class="editor-field-label q-mb-xs">Who's in?</div>
+            <div class="member-chips q-mb-md">
+              <q-chip
+                v-for="opt in memberCheckOptions" :key="opt.value"
+                :selected="involvedMembers.includes(opt.value)"
+                clickable
+                @click="involvedMembers.includes(opt.value)
+                  ? involvedMembers.splice(involvedMembers.indexOf(opt.value), 1)
+                  : involvedMembers.push(opt.value)"
+                :color="involvedMembers.includes(opt.value) ? 'primary' : 'grey-3'"
+                :text-color="involvedMembers.includes(opt.value) ? 'white' : 'grey-8'"
+                size="sm"
+              >{{ opt.label }}</q-chip>
+            </div>
+            <div class="row items-center justify-between q-mb-xs">
+              <div class="editor-field-label">Track individual orders (optional)</div>
+              <q-btn flat dense color="primary" icon="add" label="Add order" size="sm" no-caps @click="addItem" />
+            </div>
+            <div v-for="(item, idx) in items" :key="idx" class="item-card q-mb-sm">
+              <div class="item-card__row">
+                <q-select
+                  :model-value="item.participants[0]"
+                  @update:model-value="(val) => { item.participants = val ? [val] : [] }"
+                  :options="memberOptions" emit-value map-options outlined dense class="col" placeholder="Who ordered?"
+                />
+                <q-input v-model="item.name" placeholder="Item" outlined dense style="max-width: 130px" />
+                <q-input v-model.number="item.amount" type="number" step="0.01" :prefix="trip?.currency_code || 'PHP'" outlined dense style="max-width: 100px" />
+                <q-btn flat round dense icon="delete_outline" color="negative" size="sm" @click="removeItem(idx)" />
+              </div>
+            </div>
+          </div>
+
+          <!-- PERSONAL + SHARED MODE -->
+          <div v-else-if="splitMode === 'individual_shared'" class="q-mt-sm">
+            <div class="split-info-banner split-info-banner--teal q-mb-sm">
+              <q-icon name="people" size="16px" />
+              Tag items as <b>personal</b> (one person) or <b>shared</b> (everyone splits).
+            </div>
+            <div class="row items-center justify-between q-mb-xs">
+              <div class="editor-field-label">Items</div>
+              <q-btn flat dense color="primary" icon="add" label="Add Item" size="sm" no-caps @click="addIndividualSharedItem" />
+            </div>
+            <div v-for="(item, idx) in items" :key="idx" class="item-card q-mb-sm">
+              <div class="item-card__row">
+                <q-input v-model="item.name" placeholder="Item name" outlined dense class="col" :rules="[(val: string) => !!val || 'Required']" />
+                <q-input v-model.number="item.amount" type="number" step="0.01" :prefix="trip?.currency_code || 'PHP'" outlined dense style="max-width: 110px" :rules="[(val: number) => val > 0 || 'Required']" />
+                <q-btn flat round dense icon="delete_outline" color="negative" size="sm" @click="removeItem(idx)" />
+              </div>
+              <q-btn-toggle
+                v-model="item.itemType"
+                :options="[{ label: 'Personal', value: 'individual', icon: 'person' }, { label: 'Shared', value: 'shared', icon: 'group' }]"
+                toggle-color="primary" flat dense size="sm" class="q-mt-xs q-mb-xs"
+              />
+              <div v-if="item.itemType === 'individual'">
+                <q-select
+                  :model-value="item.participants[0]"
+                  @update:model-value="(val) => { item.participants = val ? [val] : [] }"
+                  :options="memberOptions" emit-value map-options label="Who pays for this?" outlined dense
+                />
+              </div>
+              <div v-else>
+                <div class="editor-field-label q-mb-xs">Who's sharing this?</div>
+                <div class="member-chips">
+                  <q-chip
+                    v-for="member in members" :key="member.id"
+                    :selected="item.participants.includes(member.id)"
+                    clickable @click="toggleItemParticipant(idx, member.id)"
+                    :color="item.participants.includes(member.id) ? 'teal' : 'grey-3'"
+                    :text-color="item.participants.includes(member.id) ? 'white' : 'grey-8'"
+                    size="sm"
+                  >{{ member.name }}</q-chip>
+                </div>
+              </div>
+            </div>
+            <q-banner v-if="itemsTotalMismatch" class="bg-warning text-white q-mt-sm" rounded>
+              <template v-slot:avatar><q-icon name="warning" /></template>
+              Items total ({{ itemsTotal.toFixed(2) }}) doesn't match expense amount ({{ expenseForm.amount?.toFixed(2) || '0.00' }})
+            </q-banner>
+          </div>
+
+          <!-- CUSTOM SPLIT MODE -->
+          <div v-else-if="splitMode === 'custom'" class="q-mt-sm">
+            <div class="editor-field-label q-mb-sm">Custom amounts per person</div>
+            <div v-for="memberId in involvedMembers" :key="memberId" class="custom-split-row q-mb-sm">
+              <div class="custom-split-row__name">{{ memberIdToName(memberId) }}</div>
+              <q-input
+                v-model.number="customSplits[memberId]"
+                type="number" step="0.01" dense outlined
+                :prefix="trip?.currency_code || 'PHP'"
+                :rules="[(val: number) => val >= 0 || 'Must be positive']"
+                input-class="text-right"
+                style="max-width: 140px"
               />
             </div>
-
-            <!-- GIFTED / LIBRE MODE -->
-            <div v-else-if="splitMode === 'gifted'" class="q-mt-md">
-              <q-banner class="bg-purple-1 text-purple-8 q-mb-md" rounded>
-                <template v-slot:avatar>
-                  <q-icon name="card_giftcard" color="purple" />
-                </template>
-                This is a free treat (libre) — selected members won't owe anything.
-              </q-banner>
-              <div class="text-subtitle2 text-weight-medium q-mb-sm">Who's receiving this gift?</div>
-              <q-option-group
-                :options="memberCheckOptions"
-                type="checkbox"
-                v-model="involvedMembers"
-              />
+            <div class="custom-split-total q-mt-sm">
+              <span>Total Assigned</span>
+              <span :class="splitDifference !== 0 ? 'text-negative' : 'text-positive'">
+                {{ customTotal.toFixed(2) }}
+              </span>
             </div>
-
-            <!-- EQUAL MEALS MODE -->
-            <div v-else-if="splitMode === 'equalized_meals'" class="q-mt-md">
-              <q-banner class="bg-blue-1 text-blue-8 q-mb-md" rounded>
-                <template v-slot:avatar>
-                  <q-icon name="restaurant" color="blue" />
-                </template>
-                Everyone orders separately, but the total is split equally.
-              </q-banner>
-              <div class="text-subtitle2 text-weight-medium q-mb-sm">Who's in?</div>
-              <q-option-group
-                :options="memberCheckOptions"
-                type="checkbox"
-                v-model="involvedMembers"
-              />
-              <!-- Optional: track individual orders for reference -->
-              <div class="q-mt-md">
-                <div class="row items-center justify-between q-mb-sm">
-                  <div class="text-caption text-grey-7">Track individual orders (optional)</div>
-                  <q-btn flat dense color="primary" icon="add" label="Add order" size="sm" @click="addItem" />
-                </div>
-                <div v-for="(item, idx) in items" :key="idx" class="q-mb-sm">
-                  <q-card flat bordered class="bg-surface">
-                    <q-card-section class="q-pa-sm">
-                      <div class="row items-center q-gutter-sm">
-                        <q-select
-                          :model-value="item.participants[0]"
-                          @update:model-value="(val) => { item.participants = val ? [val] : [] }"
-                          :options="memberOptions"
-                          emit-value
-                          map-options
-                          outlined
-                          dense
-                          class="col"
-                          placeholder="Who ordered?"
-                        />
-                        <q-input
-                          v-model="item.name"
-                          placeholder="Item name"
-                          outlined
-                          dense
-                          style="max-width: 130px"
-                        />
-                        <q-input
-                          v-model.number="item.amount"
-                          type="number"
-                          step="0.01"
-                          :prefix="trip?.currency_code || 'PHP'"
-                          outlined
-                          dense
-                          style="max-width: 100px"
-                        />
-                        <q-btn flat round dense icon="delete" color="negative" size="sm" @click="removeItem(idx)" />
-                      </div>
-                    </q-card-section>
-                  </q-card>
-                </div>
-              </div>
+            <div v-if="splitDifference !== 0" class="text-caption text-negative text-right">
+              Difference: {{ splitDifference.toFixed(2) }}
             </div>
+          </div>
 
-            <!-- PERSONAL + SHARED MODE -->
-            <div v-else-if="splitMode === 'individual_shared'" class="q-mt-md">
-              <q-banner class="bg-teal-1 text-teal-8 q-mb-md" rounded>
-                <template v-slot:avatar>
-                  <q-icon name="people" color="teal" />
-                </template>
-                Tag items as <b>personal</b> (one person pays) or <b>shared</b> (split among all).
-              </q-banner>
-              <div class="row items-center justify-between q-mb-sm">
-                <div class="text-subtitle2 text-weight-medium">Items</div>
-                <q-btn flat dense color="primary" icon="add" label="Add Item" size="sm" @click="addIndividualSharedItem" />
-              </div>
-              <div v-for="(item, idx) in items" :key="idx" class="q-mb-md">
-                <q-card flat bordered class="bg-surface">
-                  <q-card-section class="q-pa-sm">
-                    <div class="row items-center q-gutter-sm q-mb-sm">
-                      <q-input
-                        v-model="item.name"
-                        placeholder="Item name"
-                        outlined
-                        dense
-                        class="col"
-                        :rules="[(val: string) => !!val || 'Required']"
-                      />
-                      <q-input
-                        v-model.number="item.amount"
-                        type="number"
-                        step="0.01"
-                        :prefix="trip?.currency_code || 'PHP'"
-                        outlined
-                        dense
-                        style="max-width: 120px"
-                        :rules="[(val: number) => val > 0 || 'Required']"
-                      />
-                      <q-btn flat round dense icon="delete" color="negative" size="sm" @click="removeItem(idx)" />
-                    </div>
-                    <!-- Individual vs Shared toggle -->
-                    <q-btn-toggle
-                      v-model="item.itemType"
-                      :options="[{ label: 'Personal', value: 'individual', icon: 'person' }, { label: 'Shared', value: 'shared', icon: 'group' }]"
-                      toggle-color="primary"
-                      flat
-                      dense
-                      size="sm"
-                      class="q-mb-sm"
-                    />
-                    <!-- For individual: select one person -->
-                    <div v-if="item.itemType === 'individual'">
-                      <q-select
-                        :model-value="item.participants[0]"
-                        @update:model-value="(val) => { item.participants = val ? [val] : [] }"
-                        :options="memberOptions"
-                        emit-value
-                        map-options
-                        label="Who pays for this?"
-                        outlined
-                        dense
-                      />
-                    </div>
-                    <!-- For shared: select multiple people -->
-                    <div v-else>
-                      <div class="text-caption text-grey-7 q-mb-xs">Who's sharing this?</div>
-                      <div class="row q-gutter-xs">
-                        <q-chip
-                          v-for="member in members"
-                          :key="member.id"
-                          :selected="item.participants.includes(member.id)"
-                          clickable
-                          @click="toggleItemParticipant(idx, member.id)"
-                          :color="item.participants.includes(member.id) ? 'teal' : 'grey-3'"
-                          :text-color="item.participants.includes(member.id) ? 'white' : 'grey-8'"
-                          size="sm"
-                        >
-                          {{ member.name }}
-                        </q-chip>
-                      </div>
-                    </div>
-                  </q-card-section>
-                </q-card>
-              </div>
-              <!-- Items total vs expense total -->
-              <q-banner v-if="itemsTotalMismatch" class="bg-warning text-white" rounded>
-                <template v-slot:avatar><q-icon name="warning" /></template>
-                Items total ({{ itemsTotal.toFixed(2) }}) doesn't match expense amount ({{ expenseForm.amount?.toFixed(2) || '0.00' }})
-              </q-banner>
-            </div>
+        </div><!-- /editor-panel -->
 
-            <!-- CUSTOM SPLIT MODE -->
-            <div v-else-if="splitMode === 'custom'" class="q-mt-md">
-              <div class="text-subtitle2 text-weight-medium q-mb-sm">Custom amounts per person</div>
-
-              <div
-                v-for="memberId in involvedMembers"
-                :key="memberId"
-                class="row items-center q-mb-sm"
-              >
-                <div class="col-6 text-weight-medium">
-                  {{ memberIdToName(memberId) }}
-                </div>
-                <div class="col-6">
-                  <q-input
-                    v-model.number="customSplits[memberId]"
-                    type="number"
-                    step="0.01"
-                    dense
-                    outlined
-                    :prefix="trip?.currency_code || 'PHP'"
-                    :rules="[(val: number) => val >= 0 || 'Must be positive']"
-                    input-class="text-right"
-                  />
-                </div>
-              </div>
-
-              <q-separator class="q-my-sm" />
-
-              <div class="row q-pt-sm">
-                <div class="col-6 text-weight-bold">Total Assigned:</div>
-                <div
-                  class="col-6 text-right text-weight-bold"
-                  :class="{
-                    'text-negative': splitDifference !== 0,
-                    'text-positive': splitDifference === 0,
-                  }"
-                >
-                  {{ customTotal.toFixed(2) }}
-                </div>
-              </div>
-
-              <div class="text-caption text-negative text-right" v-if="splitDifference !== 0">
-                Difference: {{ splitDifference.toFixed(2) }}
-              </div>
-            </div>
-          </q-card-section>
-        </q-card>
-
-        <!-- Section 4: Receipt Upload -->
-        <q-card flat bordered>
-          <q-card-section>
-            <div class="text-h6 q-pb-sm">Receipt (Optional)</div>
-            <q-file
-              v-model="receiptFile"
-              label="Attach receipt"
-              outlined
-              dense
-              accept="image/*"
-              max-file-size="5242880"
-              @rejected="onFileRejected"
-            >
-              <template v-slot:prepend>
-                <q-icon name="receipt" />
-              </template>
-              <template v-slot:append>
-                <q-icon name="attach_file" />
-              </template>
-            </q-file>
-          </q-card-section>
-        </q-card>
+        <!-- ─── Section 4: Receipt Upload ──────────────────────────────────── -->
+        <div class="editor-section-label">Receipt</div>
+        <div class="editor-panel q-mb-lg">
+          <q-file
+            v-model="receiptFile"
+            label="Attach receipt (optional)"
+            outlined dense accept="image/*" max-file-size="5242880"
+            @rejected="onFileRejected"
+          >
+            <template v-slot:prepend><q-icon name="receipt_long" color="primary" /></template>
+            <template v-slot:append><q-icon name="attach_file" /></template>
+          </q-file>
+        </div>
       </q-form>
 
       <!-- Delete Button (Edit Mode Only) -->
@@ -459,9 +375,8 @@
         v-if="isEdit"
         label="Delete Expense"
         color="negative"
-        flat
-        no-caps
-        class="full-width q-mt-lg"
+        flat no-caps
+        class="full-width q-mt-sm q-mb-xl"
         @click="handleDeleteExpense"
       />
     </div>
@@ -479,7 +394,7 @@ import { supabase } from 'boot/supabase';
 import { useAuthStore } from 'src/stores/authStore';
 import type { TripMember } from 'src/types/expense';
 import { useExpenseSplitting, splitModeOptions } from 'src/composables/useExpenseSplitting';
-import type { ExpenseForm } from 'src/composables/useExpenseSplitting';
+import type { ExpenseForm, SplitMode } from 'src/composables/useExpenseSplitting';
 import { useExpenseDraft } from 'src/composables/useExpenseDraft';
 import { useExpenseData } from 'src/composables/useExpenseData';
 
@@ -861,8 +776,238 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped>
-.q-page {
+<style scoped lang="scss">
+.editor-page {
   min-height: 100vh;
+  background-color: var(--surface);
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+.editor-header {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.editor-toolbar {
+  padding: 8px 12px;
+
+  &__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--on-background);
+  }
+}
+
+// ─── Body ─────────────────────────────────────────────────────────────────────
+.editor-body {
+  padding: 0 16px 80px;
+  padding-top: 8px;
+}
+
+// ─── Section label ─────────────────────────────────────────────────────────────
+.editor-section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 6px;
+  margin-top: 4px;
+}
+
+// ─── Panel ────────────────────────────────────────────────────────────────────
+.editor-panel {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--gala-radius-lg);
+  padding: 16px;
+}
+
+// ─── Field labels ─────────────────────────────────────────────────────────────
+.editor-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.editor-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 10px 0;
+}
+
+// ─── Description ──────────────────────────────────────────────────────────────
+.editor-field--description {
+  :deep(.q-field__control) { padding: 0; min-height: unset; }
+  :deep(.q-field__bottom) { padding: 2px 0 0; }
+}
+
+.editor-input--description {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--on-background);
+  &::placeholder { color: var(--muted); font-weight: 400; }
+}
+
+// ─── Amount ───────────────────────────────────────────────────────────────────
+.editor-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-amount-currency {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.editor-field--amount {
+  flex: 1;
+  :deep(.q-field__control) { padding: 0; min-height: unset; }
+  :deep(.q-field__bottom) { display: none; }
+}
+
+.editor-input--amount {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 2rem;
+  color: $primary;
+  font-variant-numeric: tabular-nums;
+  &::placeholder { color: var(--border); }
+}
+
+.editor-amount-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+// ─── Category chips ────────────────────────────────────────────────────────────
+.cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cat-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &--active {
+    background: $primary;
+    border-color: $primary;
+    color: #fff;
+  }
+
+  &:hover:not(&--active) {
+    border-color: $primary;
+    color: $primary;
+  }
+}
+
+// ─── Editor select ─────────────────────────────────────────────────────────────
+.editor-select {
+  :deep(.q-field__control) { border-radius: var(--gala-radius-md); }
+}
+
+// ─── Split tabs ────────────────────────────────────────────────────────────────
+.split-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.split-tab {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &--active {
+    background: $primary;
+    border-color: $primary;
+    color: #fff;
+  }
+
+  &:hover:not(&--active) {
+    border-color: $primary;
+    color: $primary;
+  }
+}
+
+// ─── Info banners ──────────────────────────────────────────────────────────────
+.split-info-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  padding: 10px 12px;
+  border-radius: var(--gala-radius-md);
+
+  &--purple { background: rgba(139, 92, 246, 0.08); color: #7C3AED; }
+  &--blue { background: rgba(14, 165, 233, 0.08); color: #0369A1; }
+  &--teal { background: rgba(13, 148, 136, 0.08); color: #0D9488; }
+}
+
+// ─── Member chips ──────────────────────────────────────────────────────────────
+.member-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+// ─── Item cards ────────────────────────────────────────────────────────────────
+.item-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--gala-radius-md);
+  padding: 10px 12px;
+
+  &__row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+// ─── Custom split ──────────────────────────────────────────────────────────────
+.custom-split-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  &__name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--on-background);
+    flex: 1;
+  }
+}
+
+.custom-split-total {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  color: var(--on-background);
 }
 </style>

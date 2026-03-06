@@ -1,70 +1,72 @@
 <template>
-  <q-page class="bg-surface">
-    <!-- Hero Section -->
-    <div class="hero-section">
-      <div class="hero-content">
-        <h1 class="text-h4 text-white text-weight-bold q-mb-sm">Your Adventures</h1>
-        <p class="text-white q-mb-lg hero-subtitle">
-          Plan, split, and cherish every trip with your barkada
-        </p>
-        <q-btn
-          unelevated
-          color="white"
-          text-color="primary"
-          icon="add"
-          label="Plan New Trip"
-          no-caps
-          @click="openNewTripModal"
-        />
-      </div>
-    </div>
-
+  <q-page class="trips-page gala-mesh-bg">
     <q-pull-to-refresh @refresh="onRefresh" color="primary">
-    <!-- Search and Filters -->
-    <div class="q-pa-md">
-      <q-input
-        v-model="searchQuery"
-        outlined
-        dense
-        placeholder="Search trips..."
-        class="q-mb-md"
-      >
-        <template v-slot:prepend>
-          <q-icon name="search" />
-        </template>
-      </q-input>
 
-      <q-tabs v-model="activeFilter" class="q-mb-md">
-        <q-tab name="all" label="All Trips" />
-        <q-tab name="upcoming" label="Upcoming" />
-        <q-tab name="active" label="Active" />
-        <q-tab name="past" label="Past" />
-        <q-tab name="archived" label="Archived" />
-      </q-tabs>
-    </div>
-
-    <!-- Trip Cards Grid -->
-    <div class="q-pa-md">
-      <div v-if="tripStore.isLoading" class="row q-gutter-md">
-        <div v-for="n in 4" :key="n" class="col-12 col-sm-6 col-md-4">
-          <q-card flat bordered>
-            <q-skeleton height="150px" square />
-            <q-card-section class="q-pa-sm">
-              <div class="row items-center justify-between q-mb-sm">
-                <div class="col">
-                  <q-skeleton type="text" width="60%" class="q-mb-xs" />
-                  <q-skeleton type="text" width="40%" />
-                </div>
-              </div>
-              <div class="row q-gutter-xs">
-                <q-skeleton type="QChip" width="60px" />
-                <q-skeleton type="QChip" width="80px" />
-              </div>
-            </q-card-section>
-          </q-card>
+      <!-- ═══ Page Header ═══ -->
+      <div class="page-header q-px-lg q-pt-lg q-pb-md">
+        <div class="row items-end justify-between">
+          <div>
+            <p class="text-caption text-weight-medium q-mb-xs header-eyebrow">Your Adventures</p>
+            <h1 class="gala-display page-title q-mb-none">Barkada<br>Trips</h1>
+          </div>
+          <q-btn
+            unelevated
+            round
+            color="primary"
+            icon="add"
+            size="md"
+            @click="openNewTripModal"
+            aria-label="Plan New Trip"
+            class="fab-add"
+          />
         </div>
       </div>
 
+      <!-- ═══ Search + Filter ═══ -->
+      <div class="q-px-lg q-mb-md">
+        <q-input
+          v-model="searchQuery"
+          outlined
+          dense
+          placeholder="Search trips..."
+          class="search-input q-mb-sm"
+          bg-color="background"
+        >
+          <template v-slot:prepend>
+            <q-icon name="search" size="18px" style="color: var(--muted)" />
+          </template>
+          <template v-slot:append v-if="searchQuery">
+            <q-icon name="close" size="16px" class="cursor-pointer" @click="searchQuery = ''" style="color: var(--muted)" />
+          </template>
+        </q-input>
+
+        <!-- Pill filter tabs -->
+        <div class="filter-pills row no-wrap q-gutter-xs">
+          <div
+            v-for="f in filters"
+            :key="f.value"
+            class="filter-pill"
+            :class="{ 'filter-pill--active': activeFilter === f.value }"
+            @click="activeFilter = f.value"
+          >
+            {{ f.label }}
+            <span v-if="filterCount(f.value)" class="filter-pill__count">{{ filterCount(f.value) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Loading Skeletons ═══ -->
+      <div v-if="tripStore.isLoading" class="q-px-lg q-pb-md">
+        <div v-for="n in 3" :key="n" class="skeleton-card q-mb-lg">
+          <q-skeleton height="220px" class="skeleton-img" />
+          <div class="q-pa-md">
+            <q-skeleton type="text" width="55%" class="q-mb-xs" />
+            <q-skeleton type="text" width="35%" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Empty State ═══ -->
       <empty-state
         v-else-if="!tripStore.isLoading && filteredTrips.length === 0"
         icon="flight_takeoff"
@@ -72,98 +74,168 @@
         subtitle="Start your journey by planning your first barkada trip!"
         action-label="Create Your First Trip"
         @action="openNewTripModal"
+        class="q-mt-xl"
       />
 
-      <div v-else class="row q-gutter-md">
-        <div v-for="trip in paginatedTrips" :key="trip.id" class="col-12 col-sm-6 col-md-4">
-          <q-card flat bordered class="trip-card cursor-pointer" @click="goToTripDetails(trip.id)">
-            <q-img :src="getTripImage(trip)" :alt="trip.name" height="150px" class="trip-image">
-              <!-- Status badge top-right -->
-              <div class="absolute-top-right q-ma-sm">
-                <q-badge :color="getStatusColor(trip)" :label="getStatusLabel(trip)" rounded />
-              </div>
-              <!-- Countdown pill bottom-left -->
-              <div class="absolute-bottom-left q-ma-sm" v-if="getCountdown(trip)">
-                <q-badge
-                  :color="getStatusLabel(trip) === 'Active' ? 'positive' : 'grey-9'"
-                  :label="getCountdown(trip)"
-                  rounded
-                  class="countdown-pill"
-                />
-              </div>
-              <div class="trip-overlay"></div>
-            </q-img>
+      <!-- ═══ Active / Upcoming Trips ═══ -->
+      <template v-else>
+        <div v-if="activeUpcomingTrips.length > 0" class="q-px-lg q-mb-xl">
+          <div class="section-label q-mb-md">
+            <span class="text-caption text-weight-bold" style="color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase">
+              {{ activeUpcomingTrips.length === 1 ? 'Next Up' : 'Active & Upcoming' }}
+            </span>
+          </div>
 
-            <q-card-section class="q-pa-sm q-pb-xs">
-              <div class="row items-start justify-between no-wrap">
-                <div class="col ellipsis">
-                  <div class="text-subtitle2 text-weight-bold ellipsis">{{ trip.name }}</div>
-                  <div class="text-caption text-grey-6 row items-center no-wrap">
-                    <q-icon name="place" size="10px" class="q-mr-xs" />
-                    <span class="ellipsis">{{ trip.destination || 'Destination TBD' }}</span>
-                  </div>
-                  <div class="text-caption text-grey-5 row items-center q-mt-xs">
-                    <q-icon name="calendar_today" size="10px" class="q-mr-xs" />
-                    {{ formatDateRange(trip.start_date, trip.end_date) }}
-                  </div>
+          <div
+            v-for="trip in activeUpcomingTrips"
+            :key="trip.id"
+            class="immersive-card q-mb-lg"
+            @click="goToTripDetails(trip.id)"
+          >
+            <!-- Cover image with overlaid content -->
+            <div class="immersive-card__image-wrap">
+              <img
+                :src="getTripImage(trip)"
+                :alt="trip.name"
+                class="immersive-card__image"
+                loading="lazy"
+              />
+              <!-- Gradient overlay -->
+              <div class="immersive-card__overlay" />
+
+              <!-- Budget arc (SVG) -->
+              <div class="immersive-card__arc" v-if="trip.budget_amount && (trip.total_expenses ?? 0) >= 0">
+                <svg width="72" height="72" viewBox="0 0 72 72">
+                  <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4" />
+                  <circle
+                    cx="36" cy="36" r="28"
+                    fill="none"
+                    stroke="white"
+                    stroke-width="4"
+                    stroke-linecap="round"
+                    :stroke-dasharray="`${budgetPct(trip) * 1.759} 175.9`"
+                    stroke-dashoffset="0"
+                    transform="rotate(-90 36 36)"
+                  />
+                </svg>
+                <div class="immersive-card__arc-label">
+                  <span class="arc-pct">{{ Math.round(budgetPct(trip)) }}%</span>
                 </div>
-                <q-icon name="chevron_right" color="grey-4" size="20px" class="q-mt-xs" />
               </div>
-            </q-card-section>
 
-            <q-separator />
+              <!-- Status chip + countdown -->
+              <div class="immersive-card__top-row">
+                <div class="status-chip" :class="`status-chip--${getStatusLabel(trip).toLowerCase()}`">
+                  {{ getStatusLabel(trip) }}
+                </div>
+                <div class="countdown-badge" v-if="getCountdown(trip)">
+                  {{ getCountdown(trip) }}
+                </div>
+              </div>
 
-            <q-card-section class="q-pa-sm q-pt-xs">
-              <div class="row items-center justify-between">
-                <!-- Member avatars -->
-                <div class="row items-center">
-                  <div
-                    v-for="i in Math.min(trip.member_count || 1, 4)"
-                    :key="i"
-                    class="member-avatar"
-                    :style="{ marginLeft: i > 1 ? '-8px' : '0', zIndex: 10 - i, background: getMemberAvatarColor(i) }"
-                  >
-                    {{ String.fromCharCode(64 + i) }}
-                  </div>
-                  <span v-if="(trip.member_count || 1) > 4" class="text-caption text-grey-6 q-ml-sm">
-                    +{{ (trip.member_count || 1) - 4 }}
+              <!-- Trip info overlay -->
+              <div class="immersive-card__info">
+                <h2 class="gala-display immersive-card__name">{{ trip.name }}</h2>
+                <div class="immersive-card__meta row items-center q-gutter-x-md">
+                  <span v-if="trip.destination" class="meta-item">
+                    <q-icon name="place" size="12px" />
+                    {{ trip.destination }}
+                  </span>
+                  <span class="meta-item">
+                    <q-icon name="calendar_today" size="12px" />
+                    {{ formatDateRange(trip.start_date, trip.end_date) }}
                   </span>
                 </div>
-                <!-- Expenses total -->
-                <div class="text-caption text-weight-medium text-positive">
-                  {{ formatCurrency(trip.total_expenses || 0, trip.currency_code) }}
+
+                <!-- Footer row: members + budget -->
+                <div class="immersive-card__footer row items-center justify-between q-mt-sm">
+                  <div class="row items-center">
+                    <div
+                      v-for="i in Math.min(trip.member_count || 1, 5)"
+                      :key="i"
+                      class="member-pip"
+                      :style="{ marginLeft: i > 1 ? '-8px' : '0', background: getMemberAvatarColor(i) }"
+                    >{{ String.fromCharCode(64 + i) }}</div>
+                    <span v-if="(trip.member_count || 1) > 5" class="member-more">
+                      +{{ (trip.member_count || 1) - 5 }}
+                    </span>
+                  </div>
+
+                  <div class="budget-label" v-if="trip.budget_amount">
+                    <span class="budget-spent">{{ formatCurrency(trip.total_expenses || 0, trip.currency_code) }}</span>
+                    <span class="budget-sep"> / </span>
+                    <span class="budget-total">{{ formatCurrency(trip.budget_amount, trip.currency_code) }}</span>
+                  </div>
+                  <div class="budget-label" v-else>
+                    <span class="budget-spent">{{ formatCurrency(trip.total_expenses || 0, trip.currency_code) }}</span>
+                    <span class="budget-sep"> spent</span>
+                  </div>
                 </div>
               </div>
-            </q-card-section>
-          </q-card>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <!-- Load More -->
-      <div v-if="hasMoreTrips" class="text-center q-mt-lg">
-        <q-btn flat no-caps color="primary" label="Show More" @click="loadMoreTrips" />
-      </div>
-      <div v-else-if="!tripStore.isLoading && paginatedTrips.length > 0" class="text-center q-mt-md text-caption text-grey-5">
-        All trips loaded
-      </div>
-    </div>
+        <!-- ═══ Past Trips — Polaroid Horizontal Scroll ═══ -->
+        <div v-if="pastTrips.length > 0 && (activeFilter === 'all' || activeFilter === 'past')" class="q-mb-xl">
+          <div class="section-label q-mb-md q-px-lg">
+            <span class="text-caption text-weight-bold" style="color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase">
+              Memories
+            </span>
+          </div>
+
+          <div class="polaroid-scroll">
+            <div class="polaroid-track">
+              <div
+                v-for="trip in pastTrips"
+                :key="trip.id"
+                class="polaroid-card"
+                @click="goToTripDetails(trip.id)"
+              >
+                <div class="polaroid-card__photo">
+                  <img :src="getTripImage(trip)" :alt="trip.name" loading="lazy" />
+                  <div class="polaroid-card__overlay" />
+                </div>
+                <div class="polaroid-card__caption">
+                  <div class="text-weight-bold polaroid-card__name gala-truncate">{{ trip.name }}</div>
+                  <div class="polaroid-card__sub">{{ formatDateRange(trip.start_date, trip.end_date) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ Load more (for large lists) ═══ -->
+        <div v-if="hasMoreTrips" class="text-center q-mt-lg q-mb-xl q-px-lg">
+          <q-btn
+            flat no-caps
+            color="primary"
+            label="Show More"
+            class="gala-btn-pill"
+            @click="loadMoreTrips"
+          />
+        </div>
+      </template>
+
     </q-pull-to-refresh>
 
-    <!-- New Trip Modal -->
+    <!-- ═══ New Trip Modal ═══ -->
     <q-dialog v-model="showNewTripModal" persistent>
       <q-card class="new-trip-modal">
-        <q-card-section class="row items-center q-pb-none">
-          <div class="text-h6">Plan a New Trip</div>
-          <q-space />
-          <q-btn icon="close" flat round dense v-close-popup />
-        </q-card-section>
+        <!-- Modal header -->
+        <div class="modal-header">
+          <div>
+            <div class="text-caption text-weight-medium modal-eyebrow">Plan ahead</div>
+            <div class="text-h6 text-weight-bold">New Trip</div>
+          </div>
+          <q-btn icon="close" flat round dense v-close-popup style="color: var(--muted)" />
+        </div>
 
-        <q-card-section class="q-gutter-y-md q-pt-md">
-          <!-- Trip Name -->
+        <q-card-section class="q-gutter-y-md q-pt-sm">
           <q-input
             v-model="newTrip.name"
             label="Trip Name"
-            placeholder="e.g., Boracay Summer 2025"
+            placeholder="e.g., Boracay Summer 2026"
             outlined
             dense
             :rules="[(val: string) => !!val || 'Trip name is required']"
@@ -171,7 +243,6 @@
             <template v-slot:prepend><q-icon name="flight_takeoff" /></template>
           </q-input>
 
-          <!-- Destination -->
           <q-input
             v-model="newTrip.destination"
             label="Destination (optional)"
@@ -182,39 +253,30 @@
             <template v-slot:prepend><q-icon name="place" /></template>
           </q-input>
 
-          <!-- Date Range Card -->
+          <!-- Date Range -->
           <div class="date-range-card row items-center no-wrap">
-            <!-- Departure -->
             <div class="date-range-card__side col cursor-pointer">
-              <div class="text-caption text-grey-5 q-mb-xs">
+              <div class="text-caption q-mb-xs" style="color: var(--muted)">
                 <q-icon name="flight_takeoff" size="11px" class="q-mr-xs" />Departure
               </div>
-              <div class="text-subtitle1 text-weight-bold text-dark">
-                {{ formatTripDate(newTrip.start_date) }}
-              </div>
-              <div class="text-caption text-grey-5">{{ formatTripYear(newTrip.start_date) }}</div>
+              <div class="text-subtitle1 text-weight-bold">{{ formatTripDate(newTrip.start_date) }}</div>
+              <div class="text-caption" style="color: var(--muted)">{{ formatTripYear(newTrip.start_date) }}</div>
               <q-popup-proxy cover transition-show="scale" transition-hide="scale">
                 <q-date v-model="newTrip.start_date" />
               </q-popup-proxy>
             </div>
 
-            <!-- Center: arrow + nights -->
             <div class="date-range-card__mid column items-center justify-center q-px-sm">
               <q-icon name="arrow_forward" color="primary" size="18px" />
-              <div class="text-caption text-primary text-weight-medium q-mt-xs">
-                {{ tripDuration }}n
-              </div>
+              <div class="text-caption text-primary text-weight-medium q-mt-xs">{{ tripDuration }}n</div>
             </div>
 
-            <!-- Return -->
             <div class="date-range-card__side col cursor-pointer text-right">
-              <div class="text-caption text-grey-5 q-mb-xs">
+              <div class="text-caption q-mb-xs" style="color: var(--muted)">
                 Return <q-icon name="flight_land" size="11px" class="q-ml-xs" />
               </div>
-              <div class="text-subtitle1 text-weight-bold text-dark">
-                {{ formatTripDate(newTrip.end_date) }}
-              </div>
-              <div class="text-caption text-grey-5">{{ formatTripYear(newTrip.end_date) }}</div>
+              <div class="text-subtitle1 text-weight-bold">{{ formatTripDate(newTrip.end_date) }}</div>
+              <div class="text-caption" style="color: var(--muted)">{{ formatTripYear(newTrip.end_date) }}</div>
               <q-popup-proxy cover transition-show="scale" transition-hide="scale">
                 <q-date v-model="newTrip.end_date" :options="(d: string) => d >= newTrip.start_date" />
               </q-popup-proxy>
@@ -227,71 +289,48 @@
               v-model="newTrip.currency_code"
               :options="tripStore.currencyOptions"
               label="Currency"
-              outlined
-              dense
-              emit-value
-              map-options
-              class="col"
+              outlined dense emit-value map-options class="col"
             >
               <template v-slot:prepend><q-icon name="payments" /></template>
             </q-select>
-
             <q-input
               v-model.number="newTrip.budget_amount"
               label="Budget (optional)"
               type="number"
-              outlined
-              dense
-              class="col"
+              outlined dense class="col"
               :prefix="newTrip.currency_code"
             />
           </div>
 
-          <!-- Add Members -->
+          <!-- Members -->
           <div>
-            <div class="text-caption text-grey-7 q-mb-xs">Add Barkada Members (optional)</div>
+            <div class="text-caption text-weight-medium q-mb-xs" style="color: var(--muted)">Barkada Members (optional)</div>
             <div class="row q-gutter-sm">
               <q-input
                 v-model="newMemberName"
                 label="Member name"
-                outlined
-                dense
-                class="col"
+                outlined dense class="col"
                 @keyup.enter="addMember"
               />
-              <q-btn
-                flat
-                round
-                icon="person_add"
-                color="primary"
-                @click="addMember"
-                :disable="!newMemberName.trim()"
-              />
+              <q-btn flat round icon="person_add" color="primary" @click="addMember" :disable="!newMemberName.trim()" />
             </div>
             <div v-if="newTripMembers.length > 0" class="row q-gutter-xs q-mt-sm">
               <q-chip
-                v-for="(name, idx) in newTripMembers"
-                :key="idx"
-                removable
-                @remove="removeMember(idx)"
-                color="primary"
-                text-color="white"
-                icon="person"
-                dense
-              >
-                {{ name }}
-              </q-chip>
+                v-for="(name, idx) in newTripMembers" :key="idx"
+                removable @remove="removeMember(idx)"
+                color="primary" text-color="white" icon="person" dense
+              >{{ name }}</q-chip>
             </div>
           </div>
         </q-card-section>
 
-        <q-card-actions align="right" class="q-pa-md">
-          <q-btn flat no-caps label="Cancel" v-close-popup />
+        <q-card-actions align="right" class="q-pa-md q-pt-sm">
+          <q-btn flat no-caps label="Cancel" v-close-popup style="color: var(--muted)" />
           <q-btn
-            unelevated
-            no-caps
+            unelevated no-caps
             color="primary"
             label="Create Trip"
+            class="gala-btn-pill"
             :loading="creating"
             :disable="!isFormValid"
             @click="createTrip"
@@ -317,13 +356,35 @@ const $q = useQuasar();
 const authStore = useAuthStore();
 const tripStore = useTripStore();
 
-// UI-only state (stays local)
 const showNewTripModal = ref(false);
 const activeFilter = ref('all');
 const creating = ref(false);
 const searchQuery = ref('');
 const pageSize = ref(12);
 const currentPage = ref(1);
+
+const filters = [
+  { label: 'All', value: 'all' },
+  { label: 'Active', value: 'active' },
+  { label: 'Upcoming', value: 'upcoming' },
+  { label: 'Past', value: 'past' },
+  { label: 'Archived', value: 'archived' },
+];
+
+function filterCount(filterValue: string): number {
+  if (filterValue === 'all') return 0;
+  const now = new Date().toISOString().split('T')[0] ?? '';
+  return tripStore.trips.filter((trip) => {
+    if (filterValue === 'archived') return trip.status === 'archived';
+    if (trip.status === 'archived') return false;
+    switch (filterValue) {
+      case 'upcoming': return trip.start_date && trip.start_date > now;
+      case 'active':   return trip.start_date && trip.end_date && trip.start_date <= now && trip.end_date >= now;
+      case 'past':     return trip.end_date && trip.end_date < now;
+      default: return true;
+    }
+  }).length;
+}
 
 const filteredTrips = computed(() => {
   let filtered = tripStore.trips;
@@ -336,14 +397,10 @@ const filteredTrips = computed(() => {
       const now = new Date().toISOString().split('T')[0] ?? '';
       filtered = filtered.filter((trip) => {
         switch (activeFilter.value) {
-          case 'upcoming':
-            return trip.start_date && trip.start_date > now;
-          case 'active':
-            return trip.start_date && trip.end_date && trip.start_date <= now && trip.end_date >= now;
-          case 'past':
-            return trip.end_date && trip.end_date < now;
-          default:
-            return true;
+          case 'upcoming': return trip.start_date && trip.start_date > now;
+          case 'active':   return trip.start_date && trip.end_date && trip.start_date <= now && trip.end_date >= now;
+          case 'past':     return trip.end_date && trip.end_date < now;
+          default: return true;
         }
       });
     }
@@ -361,13 +418,23 @@ const filteredTrips = computed(() => {
   return filtered;
 });
 
-const paginatedTrips = computed(() => {
-  return filteredTrips.value.slice(0, currentPage.value * pageSize.value);
-});
+const now = new Date().toISOString().split('T')[0] ?? '';
 
-const hasMoreTrips = computed(() => {
-  return paginatedTrips.value.length < filteredTrips.value.length;
-});
+const activeUpcomingTrips = computed(() =>
+  filteredTrips.value.filter(
+    (t) => !(t.end_date && t.end_date < now)
+  ).slice(0, currentPage.value * pageSize.value)
+);
+
+const pastTrips = computed(() =>
+  filteredTrips.value.filter(
+    (t) => t.end_date && t.end_date < now
+  ).slice(0, currentPage.value * pageSize.value)
+);
+
+const hasMoreTrips = computed(() =>
+  activeUpcomingTrips.value.length + pastTrips.value.length < filteredTrips.value.length
+);
 
 const newTrip = ref({
   name: '',
@@ -378,14 +445,12 @@ const newTrip = ref({
   budget_amount: null as number | null,
 });
 
-const isFormValid = computed(() => {
-  return (
-    newTrip.value.name &&
-    newTrip.value.start_date &&
-    newTrip.value.end_date &&
-    new Date(newTrip.value.end_date) >= new Date(newTrip.value.start_date)
-  );
-});
+const isFormValid = computed(() =>
+  newTrip.value.name &&
+  newTrip.value.start_date &&
+  newTrip.value.end_date &&
+  new Date(newTrip.value.end_date) >= new Date(newTrip.value.start_date)
+);
 
 async function loadTrips() {
   try {
@@ -401,9 +466,7 @@ async function createTrip() {
     $q.notify({ type: 'warning', message: 'Please fill all required fields' });
     return;
   }
-
   creating.value = true;
-
   try {
     const user = authStore.user;
     if (!user) throw new Error('You must be logged in to create a trip');
@@ -425,65 +488,49 @@ async function createTrip() {
     if (tripError) throw tripError;
 
     const membersToInsert = [
-      {
-        trip_id: tripData.id,
-        user_id: user.id,
-        name: user.email?.split('@')[0] || 'You',
-        is_owner: true,
-      },
-      ...newTripMembers.value.map((name) => ({
-        trip_id: tripData.id,
-        name,
-        is_owner: false,
-      })),
+      { trip_id: tripData.id, user_id: user.id, name: user.email?.split('@')[0] || 'You', is_owner: true },
+      ...newTripMembers.value.map((name) => ({ trip_id: tripData.id, name, is_owner: false })),
     ];
     const { error: memberError } = await supabase.from('members').insert(membersToInsert);
     if (memberError) throw memberError;
 
-    // Update store cache directly — no extra DB fetch needed
     tripStore.addTrip(tripData as Trip);
-
-    $q.notify({ type: 'positive', message: 'Trip created successfully!', position: 'top' });
+    $q.notify({ type: 'positive', message: 'Trip created!', position: 'top' });
 
     newTrip.value = {
-      name: '',
-      destination: '',
+      name: '', destination: '',
       start_date: new Date().toISOString().split('T')[0] ?? '',
       end_date: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0] ?? '',
-      currency_code: 'PHP',
-      budget_amount: null,
+      currency_code: 'PHP', budget_amount: null,
     };
-    showNewTripModal.value = false;
     newTripMembers.value = [];
     newMemberName.value = '';
-
+    showNewTripModal.value = false;
     void router.push(`/trips/${tripData.id}`);
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to create trip: ' + errorMessage,
-      position: 'top',
-    });
+    $q.notify({ type: 'negative', message: 'Failed to create trip: ' + (err instanceof Error ? err.message : 'Unknown error'), position: 'top' });
   } finally {
     creating.value = false;
   }
 }
 
-function openNewTripModal() {
-  showNewTripModal.value = true;
-}
+function openNewTripModal() { showNewTripModal.value = true; }
+function goToTripDetails(tripId: string) { void router.push(`/trips/${tripId}`); }
+function loadMoreTrips() { currentPage.value++; }
 
-function goToTripDetails(tripId: string) {
-  void router.push(`/trips/${tripId}`);
+async function onRefresh(done: () => void) {
+  await tripStore.fetchTrips(true);
+  done();
 }
 
 function getTripImage(trip: Trip): string {
   const images = [
-    'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=400&fit=crop',
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=400&fit=crop',
+    'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=500&fit=crop',
+    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=500&fit=crop',
+    'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=500&fit=crop',
+    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=500&fit=crop',
+    'https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?w=800&h=500&fit=crop',
+    'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&h=500&fit=crop',
   ];
   const index = Math.abs(trip.name.charCodeAt(0) % images.length);
   return images[index]!;
@@ -496,39 +543,35 @@ function getStatusLabel(trip: Trip): string {
   return 'Active';
 }
 
-function getStatusColor(trip: Trip): string {
-  const label = getStatusLabel(trip);
-  if (label === 'Active') return 'primary';
-  if (label === 'Upcoming') return 'accent';
-  return 'grey-6';
+function budgetPct(trip: Trip): number {
+  if (!trip.budget_amount || !trip.total_expenses) return 0;
+  return Math.min(100, (trip.total_expenses / trip.budget_amount) * 100);
 }
 
 function formatDateRange(start: string, end: string): string {
-  const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-  const startFormatted = new Date(start).toLocaleDateString('en-US', options);
-  const endFormatted = new Date(end).toLocaleDateString('en-US', { ...options, year: 'numeric' });
-  return `${startFormatted} – ${endFormatted}`;
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  const s = new Date(start).toLocaleDateString('en-US', opts);
+  const e = new Date(end).toLocaleDateString('en-US', { ...opts, year: 'numeric' });
+  return `${s} – ${e}`;
 }
 
 function formatCurrency(amount: number, currency = 'PHP'): string {
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency }).format(amount);
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
 }
 
 function getCountdown(trip: Trip): string {
   const now = new Date().toISOString().split('T')[0] ?? '';
   if (!trip.start_date) return '';
-  const diff = Math.ceil(
-    (new Date(trip.start_date).getTime() - new Date(now).getTime()) / 86400000,
-  );
+  const diff = Math.ceil((new Date(trip.start_date).getTime() - new Date(now).getTime()) / 86400000);
   if (trip.end_date && trip.end_date < now) return '';
-  if (diff > 1) return `${diff} days away`;
-  if (diff === 1) return 'Tomorrow!';
+  if (diff > 1) return `${diff}d away`;
+  if (diff === 1) return 'Tomorrow';
   if (diff === 0) return 'Today!';
   if (trip.end_date && trip.end_date >= now) return 'Ongoing';
   return '';
 }
 
-const avatarColors = ['#0D9488', '#F97316', '#8B5CF6', '#0EA5E9'];
+const avatarColors = ['#0D9488', '#F59E0B', '#8B5CF6', '#0EA5E9', '#FB7185'];
 function getMemberAvatarColor(i: number): string {
   return avatarColors[(i - 1) % avatarColors.length] ?? '#0D9488';
 }
@@ -542,9 +585,7 @@ const tripDuration = computed(() => {
 
 function formatTripDate(dateStr: string): string {
   if (!dateStr) return '—';
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-  });
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function formatTripYear(dateStr: string): string {
@@ -552,21 +593,10 @@ function formatTripYear(dateStr: string): string {
   return new Date(dateStr + 'T00:00:00').getFullYear().toString();
 }
 
-function loadMoreTrips() {
-  currentPage.value++;
-}
-
-async function onRefresh(done: () => void) {
-  await tripStore.fetchTrips(true);
-  done();
-}
-
-// Real-time subscription — invalidates store cache on remote change
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
 onMounted(async () => {
   await Promise.all([tripStore.fetchCurrencies(), loadTrips()]);
-
   realtimeChannel = supabase
     .channel('trips_changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'trips' }, () => {
@@ -590,81 +620,250 @@ function addMember() {
   }
 }
 
-function removeMember(idx: number) {
-  newTripMembers.value.splice(idx, 1);
-}
+function removeMember(idx: number) { newTripMembers.value.splice(idx, 1); }
 </script>
 
 <style scoped lang="scss">
-.hero-section {
-  background: linear-gradient(135deg, #0d9488 0%, #065f52 100%);
-  padding: 56px 32px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
+// ─── Page ────────────────────────────────────────────────────────────────────
+.trips-page {
+  min-height: 100vh;
+  background-color: var(--surface);
+}
 
-  &::before {
-    content: '';
-    position: absolute;
-    width: 500px;
-    height: 500px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
-    top: -250px;
-    right: -100px;
+// ─── Header ──────────────────────────────────────────────────────────────────
+.page-header {
+  padding-top: 24px;
+}
+
+.header-eyebrow {
+  color: $primary;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.page-title {
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  line-height: 1.05;
+  color: var(--on-background);
+}
+
+.fab-add {
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba($primary, 0.35);
+  transition: transform 150ms var(--ease-spring), box-shadow 150ms var(--ease-out-expo);
+
+  &:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 24px rgba($primary, 0.45);
+  }
+}
+
+// ─── Search + Filter ─────────────────────────────────────────────────────────
+.search-input {
+  :deep(.q-field__control) {
+    border-radius: var(--gala-radius-pill);
+  }
+}
+
+.filter-pills {
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+  &::-webkit-scrollbar { display: none; }
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--gala-radius-pill);
+  background: var(--background);
+  border: 1px solid var(--border);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out-expo);
+  user-select: none;
+
+  &:hover {
+    border-color: $primary;
+    color: $primary;
   }
 
-  &::after {
-    content: '';
-    position: absolute;
-    width: 300px;
-    height: 300px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.03);
-    bottom: -150px;
-    left: -60px;
+  &--active {
+    background: $primary;
+    border-color: $primary;
+    color: white;
+  }
+
+  &__count {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 99px;
+    padding: 1px 6px;
+    font-size: 0.6875rem;
   }
 }
 
-.hero-content {
-  position: relative;
-  z-index: 1;
-}
-
-.hero-subtitle {
-  font-size: 0.9375rem;
-  opacity: 0.88;
-}
-
-.trip-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+// ─── Skeleton ────────────────────────────────────────────────────────────────
+.skeleton-card {
+  border-radius: var(--gala-radius-xl);
   overflow: hidden;
+  background: var(--background);
+  border: 1px solid var(--border);
 }
 
-.trip-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--gala-shadow-lg);
+.skeleton-img :deep(.q-skeleton) {
+  border-radius: 0;
 }
 
-.trip-card:hover .trip-image {
-  transform: scale(1.05);
+// ─── Immersive Card ──────────────────────────────────────────────────────────
+.immersive-card {
+  border-radius: var(--gala-radius-xl);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform var(--duration-normal) var(--ease-spring),
+              box-shadow var(--duration-normal) var(--ease-out-expo);
+  box-shadow: var(--gala-elevation-2);
+
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--gala-elevation-float);
+
+    .immersive-card__image {
+      transform: scale(1.04);
+    }
+  }
+
+  &:active {
+    transform: translateY(-2px) scale(0.99);
+  }
+
+  &__image-wrap {
+    position: relative;
+    height: clamp(200px, 52vw, 300px);
+    overflow: hidden;
+  }
+
+  &__image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--duration-slow) var(--ease-out-expo);
+  }
+
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.05) 0%,
+      rgba(0, 0, 0, 0.25) 40%,
+      rgba(0, 0, 0, 0.8) 100%
+    );
+  }
+
+  &__arc {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 72px;
+    height: 72px;
+
+    svg {
+      position: absolute;
+      inset: 0;
+    }
+  }
+
+  &__arc-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__top-row {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px;
+  }
+
+  &__name {
+    font-size: clamp(1.4rem, 5vw, 2rem);
+    color: white;
+    line-height: 1.1;
+    margin: 0 0 6px;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  &__meta {
+    flex-wrap: wrap;
+  }
+
+  &__footer {
+    margin-top: 10px;
+  }
 }
 
-.trip-image {
-  transition: transform 0.3s ease;
+.arc-pct {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: white;
+  font-variant-numeric: tabular-nums;
 }
 
-.trip-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.65));
+.status-chip {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: var(--gala-radius-pill);
+  backdrop-filter: blur(8px);
+
+  &--active    { background: rgba($positive, 0.9); color: white; }
+  &--upcoming  { background: rgba($accent, 0.9); color: white; }
+  &--completed { background: rgba(0, 0, 0, 0.4); color: rgba(255, 255, 255, 0.8); }
 }
 
-.member-avatar {
-  width: 26px;
-  height: 26px;
+.countdown-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  padding: 3px 10px;
+  border-radius: var(--gala-radius-pill);
+}
+
+.meta-item {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.member-pip {
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 2px solid white;
+  border: 2px solid rgba(255, 255, 255, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -674,46 +873,149 @@ function removeMember(idx: number) {
   position: relative;
 }
 
-.countdown-pill {
-  font-size: 11px;
+.member-more {
+  font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.8);
+  margin-left: 6px;
 }
 
-.trip-info {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 10px 12px;
-  z-index: 1;
+.budget-label {
+  font-size: 0.8rem;
 }
 
+.budget-spent {
+  font-weight: 700;
+  color: white;
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-sep {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.budget-total {
+  color: rgba(255, 255, 255, 0.65);
+  font-variant-numeric: tabular-nums;
+}
+
+// ─── Polaroid Scroll ─────────────────────────────────────────────────────────
+.polaroid-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.polaroid-track {
+  display: flex;
+  gap: 16px;
+  padding: 4px 24px 8px;
+  width: max-content;
+}
+
+.polaroid-card {
+  width: 150px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform var(--duration-normal) var(--ease-spring);
+
+  &:hover {
+    transform: translateY(-6px) rotate(1deg);
+  }
+
+  &:nth-child(odd) {
+    transform: rotate(-1.5deg);
+    &:hover { transform: translateY(-6px) rotate(0deg); }
+  }
+
+  &:nth-child(even) {
+    transform: rotate(1deg);
+    &:hover { transform: translateY(-6px) rotate(0deg); }
+  }
+
+  &__photo {
+    position: relative;
+    height: 120px;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+    background: var(--surface);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.12);
+  }
+
+  &__caption {
+    background: white;
+    padding: 8px 10px 12px;
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  &__name {
+    font-size: 0.75rem;
+    color: var(--on-background);
+    margin-bottom: 2px;
+  }
+
+  &__sub {
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+}
+
+body.body--dark .polaroid-card__caption {
+  background: #1E293B;
+}
+
+// ─── New Trip Modal ──────────────────────────────────────────────────────────
 .new-trip-modal {
   width: 100%;
-  max-width: 500px;
+  max-width: 520px;
+  border-radius: var(--gala-radius-xl) !important;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 20px 8px;
+}
+
+.modal-eyebrow {
+  color: $primary;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.7rem;
+  margin-bottom: 2px;
 }
 
 .date-range-card {
-  border: 1.5px solid $border;
-  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--gala-radius-lg);
   padding: 14px 16px;
   background: rgba($primary, 0.03);
-  transition: border-color 0.2s;
+  transition: border-color var(--duration-fast) ease;
 
-  &:hover {
-    border-color: $primary;
-  }
+  &:hover { border-color: $primary; }
 
   &__side {
     padding: 2px 6px;
-    border-radius: 8px;
-    transition: background 0.15s;
+    border-radius: var(--gala-radius-sm);
+    transition: background var(--duration-fast) ease;
     position: relative;
-
-    &:hover {
-      background: rgba($primary, 0.08);
-    }
+    &:hover { background: rgba($primary, 0.08); }
   }
 
   &__mid {
