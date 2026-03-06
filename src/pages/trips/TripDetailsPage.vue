@@ -1461,6 +1461,7 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: var(--gala-radius-md);
   border-left-width: 3px;
+  position: relative;
   cursor: pointer;
   transition: transform var(--duration-fast) var(--ease-spring),
               box-shadow var(--duration-fast) var(--ease-out-expo);
@@ -1470,12 +1471,24 @@ onUnmounted(() => {
     box-shadow: var(--gala-elevation-1);
   }
 
-  &--food      { border-left-color: $cat-food; }
-  &--hotel     { border-left-color: $cat-hotel; }
-  &--transport { border-left-color: $cat-transport; }
-  &--activity  { border-left-color: $cat-activity; }
-  &--grocery   { border-left-color: $cat-grocery; }
-  &--other     { border-left-color: $muted; }
+  // Gradient left-edge via ::before overlay (replaces solid color visually)
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    pointer-events: none;
+    border-radius: var(--gala-radius-md) 0 0 var(--gala-radius-md);
+  }
+
+  &--food      { border-left-color: #f59e0b; &::before { background: linear-gradient(to bottom, #f59e0b, #ea580c); } }
+  &--hotel     { border-left-color: #a78bfa; &::before { background: linear-gradient(to bottom, #a78bfa, #7c3aed); } }
+  &--transport { border-left-color: #38bdf8; &::before { background: linear-gradient(to bottom, #38bdf8, #6366f1); } }
+  &--activity  { border-left-color: #fb7185; &::before { background: linear-gradient(to bottom, #fb7185, #e11d48); } }
+  &--grocery   { border-left-color: #a3e635; &::before { background: linear-gradient(to bottom, #a3e635, #16a34a); } }
+  &--other     { border-left-color: var(--muted); &::before { background: var(--muted); } }
 
   &__icon {
     width: 38px;

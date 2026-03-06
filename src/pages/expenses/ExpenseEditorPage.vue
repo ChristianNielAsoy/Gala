@@ -388,6 +388,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { logActivity } from 'src/utils/activityLogger';
+import { fireConfetti } from 'src/utils/confetti';
 import { sendPushToTripMembers } from 'src/utils/notificationService';
 import { formatCurrency } from 'src/utils/settlementCalculator';
 import { supabase } from 'boot/supabase';
@@ -670,6 +671,7 @@ async function handleSave(): Promise<void> {
     });
 
     $q.notify({ type: 'positive', message: 'Expense saved successfully!', icon: 'check_circle' });
+    if (!isEdit.value) fireConfetti();
     void clearDraft();
 
     // Notify trip members about new expense (best-effort, fire-and-forget)

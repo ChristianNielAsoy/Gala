@@ -103,6 +103,15 @@
               <!-- Gradient overlay -->
               <div class="immersive-card__overlay" />
 
+              <!-- Crown badge — under budget -->
+              <div
+                v-if="trip.budget_amount && budgetPct(trip) < 70 && (trip.total_expenses ?? 0) > 0"
+                class="crown-badge"
+                title="Under budget!"
+              >
+                <q-icon name="workspace_premium" size="14px" />
+              </div>
+
               <!-- Budget arc (SVG) -->
               <div class="immersive-card__arc" v-if="trip.budget_amount && (trip.total_expenses ?? 0) >= 0">
                 <svg width="72" height="72" viewBox="0 0 72 72">
@@ -849,6 +858,33 @@ function removeMember(idx: number) { newTripMembers.value.splice(idx, 1); }
   backdrop-filter: blur(8px);
   padding: 3px 10px;
   border-radius: var(--gala-radius-pill);
+  animation: countdown-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes countdown-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(0.97); }
+}
+
+.crown-badge {
+  position: absolute;
+  bottom: 60px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.5);
+  animation: crown-float 3s ease-in-out infinite;
+}
+
+@keyframes crown-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 .meta-item {
