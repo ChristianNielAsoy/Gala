@@ -271,7 +271,7 @@
               <div class="text-subtitle1 text-weight-bold">{{ formatTripDate(newTrip.start_date) }}</div>
               <div class="text-caption" style="color: var(--muted)">{{ formatTripYear(newTrip.start_date) }}</div>
               <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                <q-date v-model="newTrip.start_date" />
+                <q-date v-model="newTrip.start_date" mask="YYYY-MM-DD" />
               </q-popup-proxy>
             </div>
 
@@ -287,7 +287,7 @@
               <div class="text-subtitle1 text-weight-bold">{{ formatTripDate(newTrip.end_date) }}</div>
               <div class="text-caption" style="color: var(--muted)">{{ formatTripYear(newTrip.end_date) }}</div>
               <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                <q-date v-model="newTrip.end_date" :options="(d: string) => d >= newTrip.start_date" />
+                <q-date v-model="newTrip.end_date" mask="YYYY-MM-DD" :options="(d: string) => d >= newTrip.start_date" />
               </q-popup-proxy>
             </div>
           </div>

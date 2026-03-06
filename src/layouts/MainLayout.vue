@@ -10,6 +10,11 @@
 
         <q-space />
 
+        <!-- Dark mode toggle -->
+        <q-btn flat round dense class="q-mr-xs header-icon-btn" aria-label="Toggle dark mode" @click="toggleDarkMode">
+          <q-icon :name="$q.dark.isActive ? 'light_mode' : 'dark_mode'" size="20px" />
+        </q-btn>
+
         <!-- Notification Bell -->
         <q-btn flat round dense class="q-mr-xs header-icon-btn" aria-label="Notifications">
           <q-icon name="notifications_outlined" size="20px" />
@@ -104,6 +109,11 @@
         <span class="header-brand gala-display text-primary">Gala</span>
 
         <q-space />
+
+        <!-- Dark mode toggle -->
+        <q-btn flat round dense class="q-mr-xs header-icon-btn" aria-label="Toggle dark mode" @click="toggleDarkMode">
+          <q-icon :name="$q.dark.isActive ? 'light_mode' : 'dark_mode'" size="20px" />
+        </q-btn>
 
         <q-btn flat round dense class="header-icon-btn" aria-label="Notifications">
           <q-icon name="notifications_outlined" size="20px" />
@@ -424,6 +434,14 @@ async function fetchNotifications() {
   } finally {
     loadingNotifs.value = false;
   }
+}
+
+async function toggleDarkMode() {
+  const newVal = !$q.dark.isActive;
+  $q.dark.set(newVal);
+  const user = authStore.user;
+  if (!user) return;
+  await supabase.from('user_preferences').upsert({ user_id: user.id, dark_mode: newVal });
 }
 
 async function handleLogout() {

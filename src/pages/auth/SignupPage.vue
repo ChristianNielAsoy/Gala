@@ -36,17 +36,48 @@
         </div>
 
         <q-form @submit.prevent="handleSignup">
-          <q-input
-            v-model="name"
-            label="Full Name"
-            type="text"
-            outlined dense
-            class="auth-input q-mb-md"
-            lazy-rules
-            :rules="[(val: string) => !!val || 'Name is required']"
-          >
-            <template #prepend><q-icon name="person" color="primary" /></template>
-          </q-input>
+          <div class="auth-name-row">
+            <q-input
+              v-model="firstName"
+              label="First Name"
+              type="text"
+              outlined dense
+              class="auth-input"
+              lazy-rules
+              :rules="[(val: string) => !!val || 'Required']"
+            >
+              <template #prepend><q-icon name="person" color="primary" /></template>
+            </q-input>
+            <q-input
+              v-model="lastName"
+              label="Last Name"
+              type="text"
+              outlined dense
+              class="auth-input"
+            />
+          </div>
+
+          <div class="auth-name-row q-mb-md">
+            <q-input
+              v-model="nickname"
+              label="Nickname (optional)"
+              type="text"
+              outlined dense
+              class="auth-input"
+            >
+              <template #prepend><q-icon name="tag" color="primary" /></template>
+            </q-input>
+            <q-input
+              v-model="birthday"
+              label="Birthday (optional)"
+              type="date"
+              outlined dense
+              class="auth-input"
+              stack-label
+            >
+              <template #prepend><q-icon name="cake" color="primary" /></template>
+            </q-input>
+          </div>
 
           <q-input
             v-model="email"
@@ -109,7 +140,10 @@ import { supabase } from 'boot/supabase';
 const $q = useQuasar();
 const router = useRouter();
 
-const name = ref<string>('');
+const firstName = ref<string>('');
+const lastName = ref<string>('');
+const nickname = ref<string>('');
+const birthday = ref<string>('');
 const email = ref<string>('');
 const password = ref<string>('');
 const confirmPassword = ref<string>('');
@@ -124,8 +158,8 @@ const features = [
 async function handleSignup(): Promise<void> {
   loading.value = true;
 
-  if (!name.value || !email.value || !password.value) {
-    $q.notify({ type: 'warning', message: 'Please fill in all fields.' });
+  if (!firstName.value || !email.value || !password.value) {
+    $q.notify({ type: 'warning', message: 'Please fill in all required fields.' });
     loading.value = false;
     return;
   }
@@ -143,17 +177,26 @@ async function handleSignup(): Promise<void> {
   }
 
   try {
+    const fullName = [firstName.value, lastName.value].filter(Boolean).join(' ');
     const { data, error } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
       options: {
-        data: {
-          full_name: name.value,
-        },
+        data: { full_name: fullName },
       },
     });
 
     if (error) throw error;
+
+    if (data.user) {
+      await supabase.from('profiles').insert({
+        id: data.user.id,
+        first_name: firstName.value.trim(),
+        last_name: lastName.value.trim() || null,
+        nickname: nickname.value.trim() || null,
+        birthday: birthday.value || null,
+      });
+    }
 
     if (data.user && !data.session) {
       $q.notify({
@@ -323,9 +366,22 @@ async function handleSignup(): Promise<void> {
 }
 
 // ─── Inputs ────────────────────────────────────────────────────────────────────
+.auth-name-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .auth-input {
   :deep(.q-field__control) {
     border-radius: var(--gala-radius-md);
+  }
+}
+
+@media (max-width: 399px) {
+  .auth-name-row {
+    grid-template-columns: 1fr;
   }
 }
 

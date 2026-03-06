@@ -19,8 +19,8 @@
       <q-spinner color="primary" size="lg" />
     </div>
 
-    <!-- Empty state -->
-    <div v-else-if="itineraryItems.length === 0" class="text-center q-pa-xl q-mt-lg">
+    <!-- Empty state (only when no date range to show) -->
+    <div v-else-if="itineraryItems.length === 0 && !tripStartDate" class="text-center q-pa-xl q-mt-lg">
       <q-icon name="map" size="64px" color="grey-3" />
       <div class="text-h6 text-grey-5 q-mt-md">No itinerary yet</div>
       <div class="text-body2 text-grey-6 q-mb-lg">Plan activities, notes, and checklists for your trip</div>

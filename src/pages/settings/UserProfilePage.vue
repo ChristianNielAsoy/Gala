@@ -5,10 +5,12 @@
     <div class="profile-hero gala-mesh-bg">
       <div class="profile-hero__inner">
         <div class="profile-avatar">
-          <span>{{ userProfile.initials || '?' }}</span>
+          <span>{{ displayInitials }}</span>
         </div>
-        <h1 class="profile-hero__name">{{ userProfile.name || 'Traveler' }}</h1>
+        <h1 class="profile-hero__name">{{ displayName }}</h1>
+        <p v-if="userProfile.nickname" class="profile-hero__nickname">"{{ userProfile.nickname }}"</p>
         <p class="profile-hero__email">{{ userProfile.email }}</p>
+        <p v-if="age !== null" class="profile-hero__age">{{ age }} years old · {{ userProfile.city || userProfile.country ? [userProfile.city, userProfile.country].filter(Boolean).join(', ') : '' }}</p>
 
         <!-- Quick stats row -->
         <div class="profile-stats">
@@ -31,6 +33,152 @@
     </div>
 
     <div class="profile-body">
+
+      <!-- ═══ Personal Info (editable) ═══ -->
+      <div class="profile-section q-mb-md">
+        <div class="profile-section__header">
+          <div class="profile-section__label">Personal Info</div>
+          <q-btn
+            v-if="!editing"
+            flat no-caps dense
+            color="primary"
+            label="Edit"
+            icon="edit"
+            size="sm"
+            @click="startEdit"
+          />
+          <div v-else class="row gap-8">
+            <q-btn flat no-caps dense color="grey-6" label="Cancel" size="sm" @click="cancelEdit" />
+            <q-btn
+              unelevated no-caps dense
+              color="primary"
+              label="Save"
+              size="sm"
+              :loading="saving"
+              @click="saveProfile"
+            />
+          </div>
+        </div>
+
+        <div class="profile-panel">
+          <!-- View mode -->
+          <template v-if="!editing">
+            <div class="profile-info-row">
+              <span class="profile-info-label">First Name</span>
+              <span class="profile-info-value">{{ userProfile.first_name || '—' }}</span>
+            </div>
+            <q-separator />
+            <div class="profile-info-row">
+              <span class="profile-info-label">Last Name</span>
+              <span class="profile-info-value">{{ userProfile.last_name || '—' }}</span>
+            </div>
+            <q-separator />
+            <div class="profile-info-row">
+              <span class="profile-info-label">Nickname</span>
+              <span class="profile-info-value">{{ userProfile.nickname || '—' }}</span>
+            </div>
+            <q-separator />
+            <div class="profile-info-row">
+              <span class="profile-info-label">Gender</span>
+              <span class="profile-info-value">{{ genderLabel || '—' }}</span>
+            </div>
+            <q-separator />
+            <div class="profile-info-row">
+              <span class="profile-info-label">Birthday</span>
+              <span class="profile-info-value">{{ formattedBirthday || '—' }}</span>
+            </div>
+            <q-separator />
+            <div class="profile-info-row">
+              <span class="profile-info-label">Phone</span>
+              <span class="profile-info-value">{{ userProfile.phone || '—' }}</span>
+            </div>
+            <q-separator />
+            <div class="profile-info-row">
+              <span class="profile-info-label">City</span>
+              <span class="profile-info-value">{{ userProfile.city || '—' }}</span>
+            </div>
+            <q-separator />
+            <div class="profile-info-row">
+              <span class="profile-info-label">Country</span>
+              <span class="profile-info-value">{{ userProfile.country || '—' }}</span>
+            </div>
+            <q-separator />
+            <div class="profile-info-row">
+              <span class="profile-info-label">Bio</span>
+              <span class="profile-info-value profile-info-value--bio">{{ userProfile.bio || '—' }}</span>
+            </div>
+          </template>
+
+          <!-- Edit mode -->
+          <template v-else>
+            <div class="profile-edit-grid">
+              <q-input
+                v-model="form.first_name"
+                label="First Name"
+                outlined dense
+                class="profile-edit-field"
+              />
+              <q-input
+                v-model="form.last_name"
+                label="Last Name"
+                outlined dense
+                class="profile-edit-field"
+              />
+              <q-input
+                v-model="form.nickname"
+                label="Nickname"
+                outlined dense
+                class="profile-edit-field"
+              />
+              <q-select
+                v-model="form.gender"
+                label="Gender"
+                outlined dense
+                emit-value map-options
+                class="profile-edit-field"
+                :options="genderOptions"
+              />
+              <q-input
+                v-model="form.birthday"
+                label="Birthday"
+                outlined dense
+                type="date"
+                stack-label
+                class="profile-edit-field"
+              />
+              <q-input
+                v-model="form.phone"
+                label="Phone"
+                outlined dense
+                type="tel"
+                class="profile-edit-field"
+              />
+              <q-input
+                v-model="form.city"
+                label="City"
+                outlined dense
+                class="profile-edit-field"
+              />
+              <q-input
+                v-model="form.country"
+                label="Country"
+                outlined dense
+                class="profile-edit-field"
+              />
+              <q-input
+                v-model="form.bio"
+                label="Bio"
+                outlined dense
+                type="textarea"
+                autogrow
+                maxlength="200"
+                class="profile-edit-field profile-edit-field--full"
+                hint="Max 200 characters"
+              />
+            </div>
+          </template>
+        </div>
+      </div>
 
       <!-- Achievements -->
       <div v-if="userProfile.badges.length > 0" class="profile-section q-mb-md">
@@ -91,10 +239,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useQuasar } from 'quasar';
 import { useAuthStore } from 'src/stores/authStore';
 import { useTripStore } from 'src/stores/tripStore';
+import { supabase } from 'boot/supabase';
 
 const router = useRouter();
+const $q = useQuasar();
 const authStore = useAuthStore();
 const tripStore = useTripStore();
 
@@ -109,7 +260,15 @@ interface TripSummary {
 interface UserProfile {
   name: string;
   email: string;
-  initials: string;
+  first_name: string;
+  last_name: string;
+  nickname: string;
+  gender: string;
+  birthday: string;
+  phone: string;
+  city: string;
+  country: string;
+  bio: string;
   trips: TripSummary[];
   badges: string[];
 }
@@ -117,9 +276,67 @@ interface UserProfile {
 const userProfile = ref<UserProfile>({
   name: '',
   email: '',
-  initials: '',
+  first_name: '',
+  last_name: '',
+  nickname: '',
+  gender: '',
+  birthday: '',
+  phone: '',
+  city: '',
+  country: '',
+  bio: '',
   trips: [],
   badges: [],
+});
+
+const editing = ref(false);
+const saving = ref(false);
+const form = ref({ first_name: '', last_name: '', nickname: '', gender: '', birthday: '', phone: '', city: '', country: '', bio: '' });
+
+// ─── Computed display values ───────────────────────────────────────────────────
+
+const displayName = computed(() => {
+  const { first_name, last_name, name } = userProfile.value;
+  if (first_name || last_name) return [first_name, last_name].filter(Boolean).join(' ');
+  return name || 'Traveler';
+});
+
+const displayInitials = computed(() => {
+  return displayName.value
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || '?';
+});
+
+const genderOptions = [
+  { label: 'Male', value: 'male' },
+  { label: 'Female', value: 'female' },
+  { label: 'Non-binary', value: 'non-binary' },
+  { label: 'Prefer not to say', value: 'prefer_not_to_say' },
+];
+
+const genderLabel = computed(() =>
+  genderOptions.find((g) => g.value === userProfile.value.gender)?.label ?? '',
+);
+
+const age = computed<number | null>(() => {
+  const bday = userProfile.value.birthday;
+  if (!bday) return null;
+  const birth = new Date(bday);
+  const today = new Date();
+  let a = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) a--;
+  return a;
+});
+
+const formattedBirthday = computed(() => {
+  if (!userProfile.value.birthday) return '';
+  return new Date(userProfile.value.birthday + 'T00:00:00').toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
 });
 
 const upcomingCount = computed(() =>
@@ -127,6 +344,68 @@ const upcomingCount = computed(() =>
     (t) => t.start_date && new Date(t.start_date) > new Date(),
   ).length,
 );
+
+// ─── Edit helpers ──────────────────────────────────────────────────────────────
+
+function startEdit() {
+  form.value = {
+    first_name: userProfile.value.first_name,
+    last_name: userProfile.value.last_name,
+    nickname: userProfile.value.nickname,
+    gender: userProfile.value.gender,
+    birthday: userProfile.value.birthday,
+    phone: userProfile.value.phone,
+    city: userProfile.value.city,
+    country: userProfile.value.country,
+    bio: userProfile.value.bio,
+  };
+  editing.value = true;
+}
+
+function cancelEdit() {
+  editing.value = false;
+}
+
+async function saveProfile() {
+  const user = authStore.user;
+  if (!user) return;
+  saving.value = true;
+  try {
+    const { error } = await supabase.from('profiles').upsert({
+      id: user.id,
+      first_name: form.value.first_name.trim() || null,
+      last_name: form.value.last_name.trim() || null,
+      nickname: form.value.nickname.trim() || null,
+      gender: form.value.gender || null,
+      birthday: form.value.birthday || null,
+      phone: form.value.phone.trim() || null,
+      city: form.value.city.trim() || null,
+      country: form.value.country.trim() || null,
+      bio: form.value.bio.trim() || null,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+
+    userProfile.value.first_name = form.value.first_name.trim();
+    userProfile.value.last_name = form.value.last_name.trim();
+    userProfile.value.nickname = form.value.nickname.trim();
+    userProfile.value.gender = form.value.gender;
+    userProfile.value.birthday = form.value.birthday;
+    userProfile.value.phone = form.value.phone.trim();
+    userProfile.value.city = form.value.city.trim();
+    userProfile.value.country = form.value.country.trim();
+    userProfile.value.bio = form.value.bio.trim();
+    editing.value = false;
+    $q.notify({ type: 'positive', message: 'Profile updated!', position: 'top' });
+  } catch (err) {
+    console.error(err);
+    $q.notify({ type: 'negative', message: 'Failed to save profile.', position: 'top' });
+  } finally {
+    saving.value = false;
+  }
+}
+
+// ─── Trip helpers ──────────────────────────────────────────────────────────────
 
 function getTripStatus(trip: TripSummary): string {
   const today = new Date();
@@ -148,6 +427,8 @@ function getTripStatusClass(trip: TripSummary): string {
   }
 }
 
+// ─── Data fetch ────────────────────────────────────────────────────────────────
+
 async function fetchUserProfile() {
   const user = authStore.user;
   if (!user) return;
@@ -155,12 +436,25 @@ async function fetchUserProfile() {
   const email = user.email ?? '';
   userProfile.value.name = user.user_metadata?.full_name || (email ? email.split('@')[0] : '');
   userProfile.value.email = email;
-  userProfile.value.initials = userProfile.value.name
-    .split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+
+  // Fetch extended profile from DB
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('first_name, last_name, nickname, gender, birthday, phone, city, country, bio')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (profileRow) {
+    userProfile.value.first_name = profileRow.first_name ?? '';
+    userProfile.value.last_name = profileRow.last_name ?? '';
+    userProfile.value.nickname = profileRow.nickname ?? '';
+    userProfile.value.gender = profileRow.gender ?? '';
+    userProfile.value.birthday = profileRow.birthday ?? '';
+    userProfile.value.phone = profileRow.phone ?? '';
+    userProfile.value.city = profileRow.city ?? '';
+    userProfile.value.country = profileRow.country ?? '';
+    userProfile.value.bio = profileRow.bio ?? '';
+  }
 
   await tripStore.fetchTrips();
 
@@ -237,17 +531,30 @@ onMounted(fetchUserProfile);
   line-height: 1.1;
 }
 
+.profile-hero__nickname {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1rem;
+  color: #0D9488;
+  margin: 0 0 4px;
+  font-style: italic;
+}
+
 .profile-hero__email {
   font-size: 0.9rem;
   color: var(--muted);
-  margin: 0 0 24px;
+  margin: 0 0 4px;
+}
+
+.profile-hero__age {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 20px;
 }
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 .profile-stats {
   display: inline-flex;
   align-items: center;
-  gap: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--gala-radius-pill);
@@ -294,13 +601,71 @@ onMounted(fetchUserProfile);
   margin-bottom: 24px;
 }
 
+.profile-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .profile-section__label {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-bottom: 12px;
+}
+
+// ─── Personal Info panel ───────────────────────────────────────────────────────
+.profile-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--gala-radius-lg);
+  overflow: hidden;
+}
+
+.profile-info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px 16px;
+  gap: 16px;
+}
+
+.profile-info-label {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  flex-shrink: 0;
+  min-width: 90px;
+}
+
+.profile-info-value {
+  font-size: 0.9375rem;
+  color: var(--on-background);
+  text-align: right;
+
+  &--bio {
+    text-align: left;
+    line-height: 1.5;
+  }
+}
+
+.profile-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px;
+}
+
+.profile-edit-field {
+  &--full {
+    grid-column: 1 / -1;
+  }
+}
+
+.gap-8 {
+  display: flex;
+  gap: 8px;
 }
 
 // ─── Badges ────────────────────────────────────────────────────────────────────
@@ -324,13 +689,6 @@ onMounted(fetchUserProfile);
 }
 
 // ─── Trip rows ────────────────────────────────────────────────────────────────
-.profile-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--gala-radius-lg);
-  overflow: hidden;
-}
-
 .profile-trip-row {
   cursor: pointer;
 
