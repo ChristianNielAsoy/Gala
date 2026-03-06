@@ -42,6 +42,11 @@ const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, title: 'Settlement' },
       },
       {
+        path: 'trips/:tripId/pulse',
+        component: () => import('pages/trips/TripPulsePage.vue'),
+        meta: { requiresAuth: true, title: 'Trip Pulse' },
+      },
+      {
         path: 'documents-vault',
         component: () => import('pages/documents/DocumentsVaultPage.vue'),
         meta: { requiresAuth: true, title: 'Documents Vault' },

@@ -17,6 +17,15 @@
         </q-toolbar-title>
         <q-btn
           flat round dense
+          icon="monitor_heart"
+          @click="router.push(`/trips/${tripId}/pulse`)"
+          aria-label="Trip Pulse"
+          class="toolbar-icon-btn q-mr-xs"
+        >
+          <q-tooltip anchor="bottom middle" self="top middle">Trip Pulse</q-tooltip>
+        </q-btn>
+        <q-btn
+          flat round dense
           icon="currency_exchange"
           @click="showConverter = true"
           aria-label="Currency converter"
