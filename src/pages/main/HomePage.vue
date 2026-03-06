@@ -1,0 +1,264 @@
+<template>
+  <q-page class="bg-surface">
+    <!-- Header -->
+    <div class="q-pa-md">
+      <div class="row items-center justify-between">
+        <div>
+          <div class="text-overline text-grey-6">DASHBOARD</div>
+          <div class="text-h5 text-weight-bold">Gala</div>
+        </div>
+        <q-btn round flat icon="add" size="md" @click="goToTrips" />
+      </div>
+    </div>
+
+    <!-- My Trips Section -->
+    <div class="q-pa-md">
+      <div class="text-subtitle1 text-weight-bold q-mb-md">My Trips</div>
+
+      <!-- Horizontal Scrollable Trip Cards -->
+      <div class="row no-wrap" style="overflow-x: auto; overflow-y: hidden">
+        <q-card
+          v-for="trip in recentTrips"
+          :key="trip.id"
+          flat
+          class="trip-card-small q-mr-md cursor-pointer"
+          @click="goToTripDetails(trip.id)"
+        >
+          <div class="trip-card-image-container">
+            <img :src="getTripImage(trip)" class="trip-card-image" :alt="trip.name" />
+            <div class="trip-card-overlay"></div>
+
+            <!-- Status Badge -->
+            <q-badge
+              :color="getStatusColor(trip)"
+              :label="getStatus(trip)"
+              class="absolute-top-right q-ma-sm"
+              rounded
+            />
+
+            <!-- Trip Info -->
+            <div class="trip-card-info">
+              <div class="text-body2 text-white text-weight-bold">
+                {{ truncate(trip.name, 15) }}
+              </div>
+              <div class="text-caption text-white">
+                {{ formatDateShort(trip.start_date, trip.end_date) }}
+              </div>
+            </div>
+          </div>
+        </q-card>
+
+        <!-- Empty State -->
+        <q-card
+          v-if="recentTrips.length === 0"
+          flat
+          class="trip-card-small q-mr-md cursor-pointer bg-surface"
+          @click="goToTrips"
+        >
+          <div class="trip-card-image-container flex flex-center">
+            <div class="text-center">
+              <q-icon name="add_circle_outline" size="32px" color="grey-6" />
+              <div class="text-caption text-grey-7 q-mt-sm">Add Trip</div>
+            </div>
+          </div>
+        </q-card>
+      </div>
+    </div>
+
+    <!-- Calendar Section -->
+    <div class="q-pa-md">
+      <q-card flat bordered>
+        <q-card-section>
+          <q-date
+            v-model="selectedDate"
+            :events="tripDates"
+            event-color="primary"
+            flat
+            minimal
+            class="full-width"
+          />
+        </q-card-section>
+      </q-card>
+    </div>
+
+    <!-- Trip Statistics -->
+    <div class="q-pa-md">
+      <div class="row items-center q-mb-md">
+        <div class="text-subtitle1 text-weight-bold">Trip Statistics</div>
+        <q-space />
+        <q-icon name="grid_view" size="sm" color="grey-6" />
+      </div>
+
+      <div class="row q-col-gutter-md">
+        <!-- Total Trips -->
+        <div class="col-6">
+          <q-card flat bordered class="stat-card">
+            <q-card-section class="text-center">
+              <div class="text-h4 text-weight-bold">{{ totalTrips }}</div>
+              <div class="text-caption text-grey-7">Total Trips</div>
+            </q-card-section>
+          </q-card>
+        </div>
+
+        <!-- Upcoming Trips -->
+        <div class="col-6">
+          <q-card flat bordered class="stat-card stat-card-highlighted">
+            <q-card-section class="text-center">
+              <div class="text-h4 text-weight-bold text-accent">{{ upcomingTrips }}</div>
+              <div class="text-caption text-grey-7">Upcoming Trips</div>
+            </q-card-section>
+          </q-card>
+        </div>
+      </div>
+    </div>
+  </q-page>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { useTripStore } from 'src/stores/tripStore';
+import type { Trip } from 'src/types/expense';
+
+const router = useRouter();
+const tripStore = useTripStore();
+
+// State
+const selectedDate = ref((new Date().toISOString().split('T')[0] ?? '').replace(/-/g, '/'));
+
+// Computed
+const recentTrips = computed(() => tripStore.trips.slice(0, 5));
+
+const totalTrips = computed(() => tripStore.trips.length);
+
+const upcomingTrips = computed(() => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return tripStore.trips.filter((trip) => new Date(trip.start_date) > today).length;
+});
+
+const tripDates = computed(() => {
+  const dates: string[] = [];
+  tripStore.trips.forEach((trip) => {
+    const start = new Date(trip.start_date);
+    const end = new Date(trip.end_date);
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      if (dateStr) {
+        dates.push(dateStr.replace(/-/g, '/'));
+      }
+    }
+  });
+  return dates;
+});
+
+// Methods
+
+function goToTrips() {
+  void router.push('/trips');
+}
+
+function goToTripDetails(tripId: string) {
+  void router.push(`/trips/${tripId}`);
+}
+
+function getTripImage(trip: Trip): string {
+  const images = [
+    'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=400&h=300&fit=crop',
+    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=300&fit=crop',
+  ];
+
+  const index = Math.abs(trip.name.charCodeAt(0) % images.length);
+  return images[index]!; // Add ! here
+}
+
+function getStatus(trip: Trip): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(trip.start_date);
+  const end = new Date(trip.end_date);
+
+  if (start <= today && end >= today) return 'Active';
+  if (start > today) return 'Upcoming';
+  return 'Completed';
+}
+
+function getStatusColor(trip: Trip): string {
+  const status = getStatus(trip);
+  switch (status) {
+    case 'Active':
+      return 'positive';
+    case 'Upcoming':
+      return 'primary';
+    default:
+      return 'grey-6';
+  }
+}
+
+function formatDateShort(start: string, end: string): string {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  return `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`;
+}
+
+function truncate(text: string, length: number): string {
+  return text.length > length ? text.substring(0, length) + '...' : text;
+}
+
+// Lifecycle — trips already loaded by router guard / TripsPage; this is a cache hit
+onMounted(() => {
+  void tripStore.fetchTrips();
+});
+</script>
+
+<style scoped lang="scss">
+.trip-card-small {
+  min-width: 160px;
+  max-width: 160px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.trip-card-image-container {
+  position: relative;
+  height: 120px;
+  overflow: hidden;
+}
+
+.trip-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trip-card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.7));
+}
+
+.trip-card-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  z-index: 1;
+}
+
+.stat-card {
+  border-radius: 12px;
+}
+
+.stat-card-highlighted {
+  border: 2px solid $accent;
+}
+</style>

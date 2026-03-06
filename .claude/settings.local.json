@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const p=require\\(''c:/Portfolio/Gala/node_modules/@quasar/app-vite/package.json''\\); console.log\\(''version:'', p.version\\)\")",
+      "Bash(node -e \"const p=require\\(''c:/Portfolio/Gala/node_modules/@quasar/app-vite/package.json''\\); console.log\\(JSON.stringify\\(p.dependencies||{},null,2\\)\\)\")",
+      "Bash(node -e \"const p=require\\(''c:/Portfolio/Gala/node_modules/quasar/package.json''\\); console.log\\(JSON.stringify\\(p.dependencies||{},null,2\\)\\)\")",
+      "Bash(npx vue-tsc --noEmit)",
+      "Bash(ls -la \"c:\\\\Portfolio\\\\Gala\\\\documents\\\\Updated\"\" 2>&1 || ls -la \"/c/Portfolio/Gala/documents/Updated/ \")",
+      "Bash(unzip -l Gala-Feature-Master-List.docx)",
+      "Bash(unzip -p Gala-Feature-Master-List.docx word/document.xml)",
+      "Bash(python3 -c \" import sys, xml.etree.ElementTree as ET xml_data = sys.stdin.read\\(\\) root = ET.fromstring\\(xml_data\\) ns = { ''w'': ''http://schemas.openxmlformats.org/wordprocessingml/2006/main'', ''v'': ''urn:schemas-microsoft-com:vml'', ''r'': ''http://schemas.openxmlformats.org/officeDocument/2006/relationships'' } for t in root.findall\\(''.//w:t'', ns\\): if t.text: print\\(t.text, end=''''\\) print\\(\\) \")",
+      "Bash(sed -E 's/<[^>]+>//g')",
+      "Bash(unzip -p Gala-UI-Analysis.docx word/document.xml)",
+      "Bash(ls -la \"c:\\\\Portfolio\\\\Gala\\\\src\\\\stores\"\" 2>/dev/null || echo \"Directory not found or empty \")",
+      "Bash(python3 -c \"from docx import Document; doc = Document\\(''documents/Updated/Gala-Feature-Master-List.docx''\\); print\\(''\\\\n''.join\\([para.text for para in doc.paragraphs]\\)\\)\")",
+      "Bash(unzip -p \"documents/Updated/Gala-Feature-Master-List.docx\" word/document.xml)",
+      "Bash(sed 's/<[^>]*>//g')",
+      "Bash(unzip -p \"documents/Updated/Gala-UI-Analysis.docx\" word/document.xml)",
+      "Bash(xargs grep -l \"dark\\\\|theme\")",
+      "Bash(xargs grep -l \"Chart\\\\|chart\\\\|graph\\\\|Graph\")",
+      "Bash(xargs grep -l \"push\\\\|subscription\\\\|notification\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\(''devDependencies'',{}\\).keys\\(\\)\\)[:10]\\)\")",
+      "WebSearch",
+      "Bash(npx quasar build)"
+    ]
+  }
+}

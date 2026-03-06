@@ -1,0 +1,47 @@
+// Gala Design System v2 — Premium Travel + Fintech Hybrid
+// Aesthetic: Deep Teal + Warm Gold (ocean depth + celebration)
+
+// ─── Core Palette ────────────────────────────────────────────────────────────
+$primary:       #0D9488;  // Deep Teal — brand, nav, primary actions
+$primary-light: #5EEAD4;  // Teal-300 — gradients, highlights
+$primary-dark:  #134E4A;  // Teal-900 — dark accents
+
+$secondary:     #64748B;  // Slate-500 — neutral supporting elements
+$accent:        #F59E0B;  // Warm Gold — celebration, premium CTAs
+$accent-light:  #FCD34D;  // Amber-300 — gradient end
+
+$dark:          #0F172A;  // Slate-900
+$dark-page:     #0F172A;
+
+// ─── Semantic Colors ─────────────────────────────────────────────────────────
+$positive:  #10B981;  // Emerald-500 — settled/received payments
+$negative:  #EF4444;  // Red-500 — owed/debt
+$info:      #3B82F6;  // Blue-500
+$warning:   #F59E0B;  // Amber-500
+
+// ─── Surface System ──────────────────────────────────────────────────────────
+$surface:       #F8FAFC;  // Slate-50 — page backgrounds
+$background:    #FFFFFF;
+$on-surface:    #334155;  // Slate-700
+$on-background: #1E293B;  // Slate-800
+
+// ─── Extended Palette ────────────────────────────────────────────────────────
+$border:   #E2E8F0;  // Slate-200 — card borders, dividers
+$muted:    #94A3B8;  // Slate-400 — placeholder, secondary text
+$tertiary: #14B8A6;  // Teal-500 — light teal variant
+
+// ─── Category Accent Colors (expense cards) ─────────────────────────────────
+$cat-food:       #F59E0B;  // Amber
+$cat-food-end:   #EA580C;  // Orange
+$cat-transport:  #38BDF8;  // Sky
+$cat-transport-end: #6366F1; // Indigo
+$cat-hotel:      #A78BFA;  // Violet
+$cat-hotel-end:  #7C3AED;  // Purple
+$cat-activity:   #FB7185;  // Rose
+$cat-activity-end: #E11D48; // Pink
+$cat-grocery:    #A3E635;  // Lime
+$cat-grocery-end: #16A34A; // Green
+
+// Legacy aliases
+$success: $positive;
+$error:   $negative;
