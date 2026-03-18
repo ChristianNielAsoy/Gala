@@ -1,0 +1,5 @@
+{
+  "buildCommand": "quasar build -m pwa",
+  "outputDirectory": "dist/pwa",
+  "installCommand": "npm install"
+}

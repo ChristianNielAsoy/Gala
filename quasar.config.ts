@@ -63,7 +63,7 @@ export default defineConfig((/* ctx */) => {
     },
 
     pwa: {
-      workboxMode: 'InjectManifest',
+      workboxMode: 'GenerateSW',
       manifestOptions: {
         name: 'Gala',
         short_name: 'Gala',

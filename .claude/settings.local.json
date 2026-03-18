@@ -23,7 +23,16 @@
       "Bash(xargs grep -l \"push\\\\|subscription\\\\|notification\")",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\(''devDependencies'',{}\\).keys\\(\\)\\)[:10]\\)\")",
       "WebSearch",
-      "Bash(npx quasar build)"
+      "Bash(npx quasar build)",
+      "Bash(npx quasar mode add pwa)",
+      "Bash(npx quasar build -m pwa)",
+      "Bash(npm list register-service-worker)",
+      "Bash(npm list workbox-build)",
+      "Bash(node -e \"const { getPackagePath } = await import\\(''./node_modules/@quasar/app-vite/lib/utils/get-package-path.js''\\); console.log\\(getPackagePath\\(''workbox-build'', process.cwd\\(\\)\\)\\)\")",
+      "Bash(node -e \"import\\(''./node_modules/workbox-build/build/index.js''\\).then\\(m => console.log\\(''keys:'', Object.keys\\(m\\).slice\\(0,5\\)\\)\\).catch\\(e => console.error\\(''Error:'', e.message\\)\\)\")",
+      "Bash(grep '\"\"version\"\"')",
+      "Bash(node -e \"import\\(''./node_modules/workbox-build/build/index.js''\\).then\\(m => console.log\\(''all keys:'', Object.keys\\(m\\)\\)\\)\")",
+      "Bash(node -e \":*)"
     ]
   }
 }

@@ -34,14 +34,6 @@
           </div>
           <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
         </div>
-        <div class="setting-row__divider" />
-        <div class="setting-row setting-row--clickable" @click="$q.notify('Manage Team feature coming soon!')">
-          <div class="setting-row__icon"><q-icon name="groups" size="18px" /></div>
-          <div class="setting-row__body">
-            <div class="setting-row__label">Manage Team</div>
-          </div>
-          <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
-        </div>
       </div>
 
       <!-- ─── Notifications ─────────────────────────────────────────────────── -->
