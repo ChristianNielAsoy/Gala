@@ -304,11 +304,11 @@
             </div>
             <span class="text-caption text-weight-medium">Documents</span>
           </div>
-          <div class="quick-action-item" @click="quickAction('/packing-list')">
+          <div class="quick-action-item" @click="quickAction('/trips')">
             <div class="quick-action-icon" style="background: linear-gradient(135deg, #10B981, #059669)">
-              <q-icon name="checklist" color="white" size="24px" />
+              <q-icon name="luggage" color="white" size="24px" />
             </div>
-            <span class="text-caption text-weight-medium">Packing List</span>
+            <span class="text-caption text-weight-medium">Packing</span>
           </div>
         </q-card-section>
       </q-card>
@@ -344,7 +344,6 @@ const navItems = [
 
 const navSecondary = [
   { to: '/documents-vault', icon: 'description_outlined', iconActive: 'description', label: 'Documents' },
-  { to: '/packing-list', icon: 'checklist_outlined', iconActive: 'checklist', label: 'Packing' },
   { to: '/user-profile', icon: 'person_outline', iconActive: 'person', label: 'Profile' },
 ];
 

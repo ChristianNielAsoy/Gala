@@ -28,12 +28,12 @@ export type SplitMode =
   | 'individual_shared';
 
 export const splitModeOptions = [
-  { label: 'Equal Split', value: 'equal' },
-  { label: 'Custom Amounts', value: 'custom' },
-  { label: 'Item by Item', value: 'itemized' },
-  { label: 'Gifted / Libre', value: 'gifted' },
-  { label: 'Equal Meals', value: 'equalized_meals' },
-  { label: 'Personal + Shared', value: 'individual_shared' },
+  { label: 'Equal Split', value: 'equal', icon: 'balance', description: 'Split the total equally among selected members' },
+  { label: 'Custom Amounts', value: 'custom', icon: 'tune', description: 'Set a specific amount for each person' },
+  { label: 'Item by Item', value: 'itemized', icon: 'receipt_long', description: 'List items and assign who shares each one' },
+  { label: 'Gifted / Libre', value: 'gifted', icon: 'card_giftcard', description: 'Someone is treating — recipients owe nothing' },
+  { label: 'Equal Meals', value: 'equalized_meals', icon: 'restaurant', description: 'Everyone orders separately, bill split equally' },
+  { label: 'Personal + Shared', value: 'individual_shared', icon: 'people', description: 'Tag items as personal or shared among the group' },
 ];
 
 export function useExpenseSplitting(
@@ -55,7 +55,7 @@ export function useExpenseSplitting(
 
   const itemsTotalMismatch = computed(
     () =>
-      splitMode.value === 'itemized' &&
+      ['itemized', 'individual_shared'].includes(splitMode.value) &&
       expenseForm.value.amount !== null &&
       Math.abs(itemsTotal.value - expenseForm.value.amount) > 0.01,
   );
@@ -103,6 +103,45 @@ export function useExpenseSplitting(
       default:
         return false;
     }
+  });
+
+  const validationErrors = computed<string[]>(() => {
+    const errors: string[] = [];
+    if (!expenseForm.value.description) errors.push('Description is required');
+    if (!expenseForm.value.amount || expenseForm.value.amount <= 0) errors.push('Enter a valid amount');
+    if (!expenseForm.value.paid_by_id) errors.push('Select who paid');
+
+    switch (splitMode.value) {
+      case 'equal':
+      case 'equalized_meals':
+      case 'gifted':
+        if (involvedMembers.value.length === 0) errors.push('Select at least one member');
+        break;
+      case 'custom':
+        if (involvedMembers.value.length === 0) errors.push('Select at least one member');
+        else if (Math.abs(splitDifference.value) >= 0.01)
+          errors.push(`Custom amounts off by ${Math.abs(splitDifference.value).toFixed(2)}`);
+        break;
+      case 'itemized':
+        if (items.value.length === 0) errors.push('Add at least one item');
+        if (itemsTotalMismatch.value) errors.push('Items total doesn\'t match the expense amount');
+        items.value.forEach((item, i) => {
+          if (!item.name) errors.push(`Item ${i + 1} needs a name`);
+          if (item.amount <= 0) errors.push(`Item ${i + 1} needs an amount`);
+          if (!item.isLibre && item.participants.length === 0) errors.push(`Item ${i + 1} needs participants`);
+        });
+        break;
+      case 'individual_shared':
+        if (items.value.length === 0) errors.push('Add at least one item');
+        if (itemsTotalMismatch.value) errors.push('Items total doesn\'t match the expense amount');
+        items.value.forEach((item, i) => {
+          if (!item.name) errors.push(`Item ${i + 1} needs a name`);
+          if (item.amount <= 0) errors.push(`Item ${i + 1} needs an amount`);
+          if (item.participants.length === 0) errors.push(`Item ${i + 1} needs participants`);
+        });
+        break;
+    }
+    return errors;
   });
 
   // Sync splitMode → expenseForm.split_type
@@ -168,6 +207,7 @@ export function useExpenseSplitting(
     customTotal,
     splitDifference,
     isValid,
+    validationErrors,
     addItem,
     addIndividualSharedItem,
     removeItem,

@@ -258,8 +258,23 @@
                   v-for="(c, idx) in currentItem.checklist"
                   :key="idx" dense class="q-px-none"
                 >
+                  <q-item-section avatar style="min-width: 32px">
+                    <q-checkbox v-model="c.checked" dense />
+                  </q-item-section>
                   <q-item-section>
-                    <q-checkbox v-model="c.checked" :label="c.text" dense />
+                    <q-input
+                      v-if="editingCheckIdx === idx"
+                      v-model="editingCheckText"
+                      dense borderless autofocus
+                      @keyup.enter="saveCheckEdit(idx)"
+                      @keyup.escape="editingCheckIdx = null"
+                      @blur="saveCheckEdit(idx)"
+                    />
+                    <span
+                      v-else
+                      class="cursor-pointer"
+                      @click="startCheckEdit(idx, c.text)"
+                    >{{ c.text }}</span>
                   </q-item-section>
                   <q-item-section side>
                     <q-btn icon="close" flat round dense size="xs" color="grey-6" @click="removeChecklistItem(idx)" />
@@ -313,6 +328,8 @@ const isEditing = ref(false);
 const currencyCode = ref('PHP');
 const showLocationPicker = ref(false);
 const newChecklistItem = ref('');
+const editingCheckIdx = ref<number | null>(null);
+const editingCheckText = ref('');
 const canUndo = ref(false);
 const deletedItems = ref<ItineraryItem[]>([]);
 const undoTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
@@ -558,6 +575,22 @@ function addChecklistItem() {
 
 function removeChecklistItem(idx: number) {
   currentItem.value.checklist?.splice(idx, 1);
+}
+
+function startCheckEdit(idx: number, text: string) {
+  editingCheckIdx.value = idx;
+  editingCheckText.value = text;
+}
+
+function saveCheckEdit(idx: number) {
+  if (!editingCheckText.value.trim()) {
+    editingCheckIdx.value = null;
+    return;
+  }
+  if (currentItem.value.checklist && currentItem.value.checklist[idx]) {
+    currentItem.value.checklist[idx].text = editingCheckText.value.trim();
+  }
+  editingCheckIdx.value = null;
 }
 
 function checklistProgress(checklist: { text: string; checked: boolean }[]): number {

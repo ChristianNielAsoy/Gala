@@ -241,6 +241,20 @@
         </div>
 
         <q-card-section class="q-gutter-y-md q-pt-sm">
+
+          <!-- Cover Photo Upload -->
+          <label class="cover-upload">
+            <input type="file" accept="image/*" class="cover-upload__input" @change="onCoverImageSelected" />
+            <img v-if="coverImagePreview" :src="coverImagePreview" class="cover-upload__preview" />
+            <div v-else class="cover-upload__placeholder">
+              <q-icon name="add_photo_alternate" size="28px" />
+              <span class="text-caption q-mt-xs">Add Cover Photo</span>
+            </div>
+            <div v-if="coverImagePreview" class="cover-upload__change">
+              <q-icon name="photo_camera" size="14px" class="q-mr-xs" />Change
+            </div>
+          </label>
+
           <q-input
             v-model="newTrip.name"
             label="Trip Name"
@@ -368,6 +382,8 @@ const tripStore = useTripStore();
 const showNewTripModal = ref(false);
 const activeFilter = ref('all');
 const creating = ref(false);
+const coverImageFile = ref<File | null>(null);
+const coverImagePreview = ref<string | null>(null);
 const searchQuery = ref('');
 const pageSize = ref(12);
 const currentPage = ref(1);
@@ -503,6 +519,20 @@ async function createTrip() {
     const { error: memberError } = await supabase.from('members').insert(membersToInsert);
     if (memberError) throw memberError;
 
+    // Upload cover image if selected
+    if (coverImageFile.value) {
+      const ext = coverImageFile.value.name.split('.').pop() ?? 'jpg';
+      const fileName = `${tripData.id}/cover.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('trip-covers')
+        .upload(fileName, coverImageFile.value, { upsert: true });
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from('trip-covers').getPublicUrl(fileName);
+        await supabase.from('trips').update({ cover_image_url: urlData.publicUrl }).eq('id', tripData.id);
+        (tripData as Trip).cover_image_url = urlData.publicUrl;
+      }
+    }
+
     tripStore.addTrip(tripData as Trip);
     $q.notify({ type: 'positive', message: 'Trip created!', position: 'top' });
 
@@ -514,6 +544,8 @@ async function createTrip() {
     };
     newTripMembers.value = [];
     newMemberName.value = '';
+    coverImageFile.value = null;
+    coverImagePreview.value = null;
     showNewTripModal.value = false;
     void router.push(`/trips/${tripData.id}`);
   } catch (err) {
@@ -523,7 +555,23 @@ async function createTrip() {
   }
 }
 
-function openNewTripModal() { showNewTripModal.value = true; }
+function openNewTripModal() {
+  coverImageFile.value = null;
+  coverImagePreview.value = null;
+  showNewTripModal.value = true;
+}
+
+function onCoverImageSelected(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0] ?? null;
+  coverImageFile.value = file;
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => { coverImagePreview.value = e.target?.result as string; };
+    reader.readAsDataURL(file);
+  } else {
+    coverImagePreview.value = null;
+  }
+}
 function goToTripDetails(tripId: string) { void router.push(`/trips/${tripId}`); }
 function loadMoreTrips() { currentPage.value++; }
 
@@ -533,6 +581,7 @@ async function onRefresh(done: () => void) {
 }
 
 function getTripImage(trip: Trip): string {
+  if (trip.cover_image_url) return trip.cover_image_url;
   const images = [
     'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=500&fit=crop',
     'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=500&fit=crop',
@@ -1016,6 +1065,59 @@ body.body--dark .polaroid-card__caption {
 }
 
 // ─── New Trip Modal ──────────────────────────────────────────────────────────
+.cover-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 130px;
+  border-radius: var(--gala-radius-lg);
+  border: 2px dashed var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+
+  &__input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  &__placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  &__preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+
+  &__change {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+  }
+}
+
 .new-trip-modal {
   width: 100%;
   max-width: 520px;

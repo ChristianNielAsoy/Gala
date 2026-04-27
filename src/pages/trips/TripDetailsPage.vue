@@ -107,6 +107,11 @@
         />
       </q-tab-panel>
 
+      <!-- Packing Tab Panel -->
+      <q-tab-panel name="packing" class="q-pa-md">
+        <packing-tab :trip-id="trip?.id ?? ''" :members="members" />
+      </q-tab-panel>
+
       <!-- Expenses Tab Panel -->
       <q-tab-panel name="expenses" class="q-pa-md">
         <div class="row items-center justify-between q-mb-md">
@@ -640,6 +645,7 @@ import type { TripMember } from 'src/types/expense';
 import { useTripStore } from 'src/stores/tripStore';
 import SettlementView from 'src/components/settlement/SettlementView.vue';
 import ItineraryTab from 'src/components/itinerary/ItineraryTab.vue';
+import PackingTab from 'src/components/packing/PackingTab.vue';
 import EmptyState from 'src/components/shared/EmptyState.vue';
 import type { ItineraryItem } from 'src/components/itinerary/itinerary.model';
 import { logActivity } from 'src/utils/activityLogger';
@@ -656,6 +662,7 @@ const tripStore = useTripStore();
 // Tab items for the pill segment control
 const tabItems = [
   { name: 'itinerary',  icon: 'event_note',          label: 'Itinerary' },
+  { name: 'packing',    icon: 'luggage',              label: 'Packing' },
   { name: 'expenses',   icon: 'receipt_long',         label: 'Expenses' },
   { name: 'settlement', icon: 'account_balance_wallet', label: 'Settle' },
   { name: 'members',    icon: 'people',               label: 'Members' },
@@ -701,7 +708,7 @@ function getCategoryBg(category: string): string {
 
 // State
 const tab = ref('itinerary');
-const tabOrder = ['itinerary', 'expenses', 'settlement', 'members', 'activity'];
+const tabOrder = ['itinerary', 'packing', 'expenses', 'settlement', 'members', 'activity'];
 const tabTransition = ref<'slide-left' | 'slide-right'>('slide-left');
 watch(tab, (next, prev) => {
   tabTransition.value = tabOrder.indexOf(next) > tabOrder.indexOf(prev) ? 'slide-left' : 'slide-right';

@@ -58,8 +58,7 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'packing-list',
-        component: () => import('pages/trips/PackingListPage.vue'),
-        meta: { requiresAuth: true, title: 'Packing List' },
+        redirect: '/trips',
       },
       {
         path: 'user-profile',

@@ -296,7 +296,8 @@ const form = ref({ first_name: '', last_name: '', nickname: '', gender: '', birt
 // ─── Computed display values ───────────────────────────────────────────────────
 
 const displayName = computed(() => {
-  const { first_name, last_name, name } = userProfile.value;
+  const { nickname, first_name, last_name, name } = userProfile.value;
+  if (nickname) return nickname;
   if (first_name || last_name) return [first_name, last_name].filter(Boolean).join(' ');
   return name || 'Traveler';
 });

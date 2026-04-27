@@ -78,6 +78,7 @@
               :class="expenseForm.category === opt.value ? 'cat-chip--active' : ''"
               @click="expenseForm.category = opt.value"
             >
+              <q-icon :name="opt.icon" size="14px" />
               {{ opt.label }}
             </button>
           </div>
@@ -137,13 +138,19 @@
               class="split-tab"
               :class="splitMode === opt.value ? 'split-tab--active' : ''"
               @click="splitMode = opt.value as SplitMode"
-            >{{ opt.label }}</button>
+            >
+              <q-icon :name="opt.icon" size="14px" />
+              {{ opt.label }}
+              <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]">
+                {{ opt.description }}
+              </q-tooltip>
+            </button>
           </div>
 
 
           <!-- ITEM-BASED SPLITTING -->
           <div v-if="splitMode === 'itemized'" class="q-mt-sm">
-              <div class="row items-center justify-between q-mb-sm">
+              <div class="row items-center justify-between q-mb-xs">
                 <div class="text-subtitle2 text-weight-medium">Items</div>
                 <q-btn
                   flat
@@ -153,6 +160,21 @@
                   label="Add Item"
                   size="sm"
                   @click="addItem"
+                />
+              </div>
+              <div v-if="expenseForm.amount && expenseForm.amount > 0" class="items-progress q-mb-sm">
+                <div class="items-progress__text">
+                  <span>Items: {{ trip?.currency_code || 'PHP' }} {{ itemsTotal.toFixed(2) }}</span>
+                  <span :class="itemsTotalMismatch ? 'text-negative' : (Math.abs(itemsTotal - (expenseForm.amount || 0)) < 0.01 ? 'text-positive' : 'text-muted')">
+                    / {{ trip?.currency_code || 'PHP' }} {{ expenseForm.amount.toFixed(2) }}
+                  </span>
+                </div>
+                <q-linear-progress
+                  :value="Math.min(itemsTotal / expenseForm.amount, 1)"
+                  :color="itemsTotalMismatch ? (itemsTotal > expenseForm.amount ? 'negative' : 'warning') : 'positive'"
+                  rounded
+                  size="4px"
+                  class="q-mt-xs"
                 />
               </div>
 
@@ -204,7 +226,16 @@
 
           <!-- EQUAL SPLIT MODE -->
           <div v-else-if="splitMode === 'equal'" class="q-mt-sm">
-            <div class="editor-field-label q-mb-xs">Who's involved?</div>
+            <div class="row items-center justify-between q-mb-xs">
+              <div class="editor-field-label">Who's involved?</div>
+              <q-btn
+                flat dense no-caps size="xs" color="primary"
+                :label="involvedMembers.length === members.length ? 'Deselect All' : 'Select All'"
+                @click="involvedMembers.length === members.length
+                  ? involvedMembers.splice(0, involvedMembers.length)
+                  : involvedMembers.splice(0, involvedMembers.length, ...members.map((m: TripMember) => m.id))"
+              />
+            </div>
             <div class="member-chips">
               <q-chip
                 v-for="opt in memberCheckOptions" :key="opt.value"
@@ -218,6 +249,9 @@
                 size="sm"
               >{{ opt.label }}</q-chip>
             </div>
+            <div v-if="involvedMembers.length > 0 && expenseForm.amount" class="text-caption text-muted q-mt-sm" style="font-variant-numeric: tabular-nums;">
+              {{ trip?.currency_code || 'PHP' }} {{ (expenseForm.amount / involvedMembers.length).toFixed(2) }} per person
+            </div>
           </div>
 
           <!-- GIFTED / LIBRE MODE -->
@@ -226,7 +260,16 @@
               <q-icon name="card_giftcard" size="16px" />
               This is libre — selected members won't owe anything.
             </div>
-            <div class="editor-field-label q-mb-xs">Who's receiving this gift?</div>
+            <div class="row items-center justify-between q-mb-xs">
+              <div class="editor-field-label">Who's receiving this gift?</div>
+              <q-btn
+                flat dense no-caps size="xs" color="primary"
+                :label="involvedMembers.length === members.length ? 'Deselect All' : 'Select All'"
+                @click="involvedMembers.length === members.length
+                  ? involvedMembers.splice(0, involvedMembers.length)
+                  : involvedMembers.splice(0, involvedMembers.length, ...members.map((m: TripMember) => m.id))"
+              />
+            </div>
             <div class="member-chips">
               <q-chip
                 v-for="opt in memberCheckOptions" :key="opt.value"
@@ -248,7 +291,16 @@
               <q-icon name="restaurant" size="16px" />
               Everyone orders separately, total split equally.
             </div>
-            <div class="editor-field-label q-mb-xs">Who's in?</div>
+            <div class="row items-center justify-between q-mb-xs">
+              <div class="editor-field-label">Who's in?</div>
+              <q-btn
+                flat dense no-caps size="xs" color="primary"
+                :label="involvedMembers.length === members.length ? 'Deselect All' : 'Select All'"
+                @click="involvedMembers.length === members.length
+                  ? involvedMembers.splice(0, involvedMembers.length)
+                  : involvedMembers.splice(0, involvedMembers.length, ...members.map((m: TripMember) => m.id))"
+              />
+            </div>
             <div class="member-chips q-mb-md">
               <q-chip
                 v-for="opt in memberCheckOptions" :key="opt.value"
@@ -289,6 +341,21 @@
             <div class="row items-center justify-between q-mb-xs">
               <div class="editor-field-label">Items</div>
               <q-btn flat dense color="primary" icon="add" label="Add Item" size="sm" no-caps @click="addIndividualSharedItem" />
+            </div>
+            <div v-if="expenseForm.amount && expenseForm.amount > 0" class="items-progress q-mb-sm">
+              <div class="items-progress__text">
+                <span>Items: {{ trip?.currency_code || 'PHP' }} {{ itemsTotal.toFixed(2) }}</span>
+                <span :class="itemsTotalMismatch ? 'text-negative' : (Math.abs(itemsTotal - (expenseForm.amount || 0)) < 0.01 ? 'text-positive' : 'text-muted')">
+                  / {{ trip?.currency_code || 'PHP' }} {{ expenseForm.amount.toFixed(2) }}
+                </span>
+              </div>
+              <q-linear-progress
+                :value="Math.min(itemsTotal / expenseForm.amount, 1)"
+                :color="itemsTotalMismatch ? (itemsTotal > expenseForm.amount ? 'negative' : 'warning') : 'positive'"
+                rounded
+                size="4px"
+                class="q-mt-xs"
+              />
             </div>
             <div v-for="(item, idx) in items" :key="idx" class="item-card q-mb-sm">
               <div class="item-card__row">
@@ -344,12 +411,21 @@
             </div>
             <div class="custom-split-total q-mt-sm">
               <span>Total Assigned</span>
-              <span :class="splitDifference !== 0 ? 'text-negative' : 'text-positive'">
-                {{ customTotal.toFixed(2) }}
+              <span :class="Math.abs(splitDifference) < 0.01 ? 'text-positive' : 'text-negative'" class="gala-mono">
+                {{ (trip?.currency_code || 'PHP') }} {{ customTotal.toFixed(2) }} / {{ (trip?.currency_code || 'PHP') }} {{ (expenseForm.amount || 0).toFixed(2) }}
               </span>
             </div>
-            <div v-if="splitDifference !== 0" class="text-caption text-negative text-right">
-              Difference: {{ splitDifference.toFixed(2) }}
+            <q-linear-progress
+              v-if="expenseForm.amount && expenseForm.amount > 0"
+              :value="Math.min(customTotal / expenseForm.amount, 1)"
+              :color="Math.abs(splitDifference) < 0.01 ? 'positive' : (customTotal > expenseForm.amount ? 'negative' : 'warning')"
+              rounded
+              size="4px"
+              class="q-mt-xs"
+            />
+            <div v-if="Math.abs(splitDifference) >= 0.01" class="split-info-banner split-info-banner--negative q-mt-sm">
+              <q-icon name="error_outline" size="16px" />
+              {{ splitDifference > 0 ? `${splitDifference.toFixed(2)} still unassigned` : `${Math.abs(splitDifference).toFixed(2)} over the expense amount` }}
             </div>
           </div>
 
@@ -358,15 +434,7 @@
         <!-- ─── Section 4: Receipt Upload ──────────────────────────────────── -->
         <div class="editor-section-label">Receipt</div>
         <div class="editor-panel q-mb-lg">
-          <q-file
-            v-model="receiptFile"
-            label="Attach receipt (optional)"
-            outlined dense accept="image/*" max-file-size="5242880"
-            @rejected="onFileRejected"
-          >
-            <template v-slot:prepend><q-icon name="receipt_long" color="primary" /></template>
-            <template v-slot:append><q-icon name="attach_file" /></template>
-          </q-file>
+          <ReceiptUploader v-model="receiptUrl" :trip-id="tripId" />
         </div>
       </q-form>
 
@@ -398,6 +466,7 @@ import { useExpenseSplitting, splitModeOptions } from 'src/composables/useExpens
 import type { ExpenseForm, SplitMode } from 'src/composables/useExpenseSplitting';
 import { useExpenseDraft } from 'src/composables/useExpenseDraft';
 import { useExpenseData } from 'src/composables/useExpenseData';
+import ReceiptUploader from 'src/components/shared/ReceiptUploader.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -411,8 +480,7 @@ const isEdit = computed(() => !!expenseId.value && expenseId.value !== 'new');
 
 // Page-level state
 const saving = ref(false);
-const receiptFile = ref<File | null>(null);
-const existingReceiptUrl = ref<string | null>(null);
+const receiptUrl = ref<string | null>(null);
 
 const expenseForm = ref<ExpenseForm>({
   description: '',
@@ -515,7 +583,7 @@ const draft = useExpenseDraft(tripId, expenseId, userId, {
 // Destructure for template
 const { trip, members, categoryOptions, memberOptions } = expenseData;
 const {
-  splitMode, involvedMembers, customSplits, items, isValid,
+  splitMode, involvedMembers, customSplits, items, isValid, validationErrors,
   itemsTotal, itemsTotalMismatch, customTotal, splitDifference,
   memberCheckOptions, addItem, addIndividualSharedItem, removeItem, toggleItemParticipant,
 } = splitting;
@@ -525,33 +593,17 @@ function memberIdToName(id: string): string {
   return members.value.find((m: TripMember) => m.id === id)?.name || 'Unknown';
 }
 
-function onFileRejected(): void {
-  $q.notify({ type: 'negative', message: 'File too large or invalid format' });
-}
-
 // Save expense
 async function handleSave(): Promise<void> {
   if (!isValid.value) {
-    $q.notify({ type: 'warning', message: 'Please complete all required fields and ensure splits are valid.' });
+    const firstError = validationErrors.value[0] || 'Please complete all required fields';
+    $q.notify({ type: 'warning', message: firstError, icon: 'error_outline' });
     return;
   }
   saving.value = true;
   try {
-    // 0. Upload receipt if a new file was selected
-    let receipt_url: string | null = existingReceiptUrl.value;
-    if (receiptFile.value) {
-      const ext = receiptFile.value.name.split('.').pop() || 'jpg';
-      const path = `${tripId.value}/${Date.now()}.${ext}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('expense-receipts')
-        .upload(path, receiptFile.value);
-      if (uploadError) {
-        $q.notify({ type: 'warning', message: 'Receipt upload failed — expense will save without receipt.' });
-      } else {
-        const { data: urlData } = supabase.storage.from('expense-receipts').getPublicUrl(uploadData.path);
-        receipt_url = urlData.publicUrl;
-      }
-    }
+    // 0. Receipt URL (already uploaded by ReceiptUploader component)
+    const receipt_url = receiptUrl.value;
 
     // 1. Calculate splits
     let splits: { member_id: string; share_amount: number }[] = [];
@@ -746,7 +798,7 @@ onMounted(async () => {
     if (result) {
       expenseForm.value = result.form;
       splitting.splitMode.value = result.splitMode;
-      existingReceiptUrl.value = result.receiptUrl;
+      receiptUrl.value = result.receiptUrl;
       splitting.items.value = result.items;
       splitting.involvedMembers.value = result.involvedMemberIds;
       splitting.customSplits.value = result.customSplitAmounts;
@@ -896,6 +948,9 @@ onMounted(async () => {
 }
 
 .cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 5px 12px;
@@ -931,6 +986,9 @@ onMounted(async () => {
 }
 
 .split-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 5px 12px;
@@ -965,6 +1023,7 @@ onMounted(async () => {
   &--purple { background: rgba(139, 92, 246, 0.08); color: #7C3AED; }
   &--blue { background: rgba(14, 165, 233, 0.08); color: #0369A1; }
   &--teal { background: rgba(13, 148, 136, 0.08); color: #0D9488; }
+  &--negative { background: rgba(239, 68, 68, 0.08); color: #DC2626; }
 }
 
 // ─── Member chips ──────────────────────────────────────────────────────────────
@@ -1000,6 +1059,17 @@ onMounted(async () => {
     font-weight: 600;
     color: var(--on-background);
     flex: 1;
+  }
+}
+
+// ─── Items progress ───────────────────────────────────────────────────────────
+.items-progress {
+  &__text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
 }
 

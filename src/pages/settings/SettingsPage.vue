@@ -19,7 +19,7 @@
           <div class="profile-card__name">{{ userProfile.name }}</div>
           <div class="profile-card__email">{{ userProfile.email }}</div>
         </div>
-        <button class="profile-card__edit" @click="editProfileDialog = true">
+        <button class="profile-card__edit" @click="router.push('/user-profile')">
           <q-icon name="edit" size="16px" />
         </button>
       </div>
@@ -27,10 +27,11 @@
       <!-- ─── Profile Actions ───────────────────────────────────────────────── -->
       <div class="settings-section-label">Profile & Team</div>
       <div class="settings-panel q-mb-lg">
-        <div class="setting-row setting-row--clickable" @click="editProfileDialog = true">
+        <div class="setting-row setting-row--clickable" @click="router.push('/user-profile')">
           <div class="setting-row__icon"><q-icon name="edit" size="18px" /></div>
           <div class="setting-row__body">
             <div class="setting-row__label">Edit Profile</div>
+            <div class="setting-row__caption">Name, nickname, birthday & more</div>
           </div>
           <q-icon name="chevron_right" size="18px" class="setting-row__chevron" />
         </div>
@@ -358,13 +359,30 @@ async function fetchUserProfile() {
 
   if (user) {
     userProfile.value.email = user.email ?? 'user@example.com';
-    userProfile.value.name =
-      (user.user_metadata?.full_name as string | undefined) ||
-      (user.user_metadata?.display_name as string | undefined) ||
-      user.email?.split('@')[0] ||
-      'User';
     userProfile.value.photo_url =
       (user.user_metadata?.avatar_url as string | undefined) || '';
+
+    // Try to get display name from profiles table (nickname > first+last > auth metadata)
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, nickname')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileRow) {
+      const { nickname, first_name, last_name } = profileRow;
+      userProfile.value.name =
+        nickname ||
+        [first_name, last_name].filter(Boolean).join(' ') ||
+        (user.user_metadata?.full_name as string | undefined) ||
+        user.email?.split('@')[0] ||
+        'User';
+    } else {
+      userProfile.value.name =
+        (user.user_metadata?.full_name as string | undefined) ||
+        user.email?.split('@')[0] ||
+        'User';
+    }
 
     // Load user preferences
     const { data: preferences, error } = await supabase
